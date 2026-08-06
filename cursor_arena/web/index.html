@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARENA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app" class="hidden">
+    <div class="shell">
+      <div class="atmosphere" aria-hidden="true"></div>
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <h1 class="brand-name">ARENA</h1>
+        </div>
+        <p class="brand-tag">Pistol · SMG · Rifle — pick a mode and fight.</p>
+        <button class="icon-btn" id="btnClose" title="Close">✕</button>
+      </header>
+
+      <nav class="steps" id="steps">
+        <button class="step active" data-step="mode">Mode</button>
+        <button class="step" data-step="map">Map</button>
+        <button class="step" data-step="weapon">Weapon</button>
+        <button class="step" data-step="lobby">Lobby</button>
+      </nav>
+
+      <main class="panels">
+        <section class="panel active" id="panel-mode">
+          <div class="panel-head">
+            <h2>Select Mode</h2>
+            <p>FFA, team deathmatch, or ranked squad sizes.</p>
+          </div>
+          <div class="grid modes" id="modeGrid"></div>
+        </section>
+
+        <section class="panel" id="panel-map">
+          <div class="panel-head">
+            <h2>Select Map</h2>
+            <p>Pick a battleground or leave it to the queue.</p>
+          </div>
+          <div class="map-actions">
+            <button class="ghost-btn" id="btnRandomMap">Queue Any Map</button>
+          </div>
+          <div class="grid maps" id="mapGrid"></div>
+        </section>
+
+        <section class="panel" id="panel-weapon">
+          <div class="panel-head">
+            <h2>Select Weapon</h2>
+            <p>Three classes — Pistol, SMG, Rifle. Five guns each.</p>
+          </div>
+          <div class="weapon-cats" id="weaponCats"></div>
+          <div class="grid weapons" id="weaponGrid"></div>
+        </section>
+
+        <section class="panel" id="panel-lobby">
+          <div class="panel-head">
+            <h2>Lobby</h2>
+            <p id="lobbySubtitle">Confirm and enter the queue.</p>
+          </div>
+
+          <div class="lobby-summary" id="lobbySummary"></div>
+
+          <div class="lobby-actions">
+            <button class="primary-btn" id="btnQueue">Find Match</button>
+            <button class="secondary-btn" id="btnPrivate">Create Private</button>
+            <button class="ghost-btn" id="btnBrowse">Browse Lobbies</button>
+            <button class="danger-btn" id="btnExitHub">Exit Lobby</button>
+          </div>
+
+          <div class="queue-status hidden" id="queueStatus"></div>
+
+          <div class="lobby-room hidden" id="lobbyRoom">
+            <div class="lobby-meta" id="lobbyMeta"></div>
+            <div class="teams" id="teamLists"></div>
+            <div class="lobby-controls">
+              <button class="secondary-btn" id="btnReady">Ready</button>
+              <button class="primary-btn hidden" id="btnStart">Start Match</button>
+              <button class="danger-btn" id="btnLeaveLobby">Leave</button>
+            </div>
+          </div>
+
+          <div class="open-lobbies hidden" id="openLobbies"></div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- In-match HUD -->
+  <div id="matchHud" class="match-hud hidden">
+    <div class="hud-top">
+      <div class="hud-mode" id="hudMode">ARENA</div>
+      <div class="hud-timer" id="hudTimer">--:--</div>
+      <div class="hud-map" id="hudMap"></div>
+    </div>
+    <div class="hud-score" id="hudScore"></div>
+    <div class="killfeed" id="killfeed"></div>
+  </div>
+
+  <div id="countdown" class="countdown hidden"><span id="countdownNum">5</span></div>
+  <div id="deathOverlay" class="death-overlay hidden"><span>DOWN</span></div>
+  <div id="matchResult" class="match-result hidden">
+    <div class="result-card">
+      <h2 id="resultTitle">VICTORY</h2>
+      <p id="resultSub"></p>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
