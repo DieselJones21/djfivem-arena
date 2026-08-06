@@ -1,21 +1,16 @@
 --[[
     Match modes
 
-    type:
-      - 'ffa'  free for all
-      - 'tdm'  team deathmatch (score by team kills)
-      - 'team' fixed team size vs (1v1 .. 5v5), ends when one side wins enough rounds
-                 or scoreLimit is reached
-
-    weaponCategory: key into Config.WeaponCategories (or 'any' / 'choice')
-    teamSize: players per team for team modes (nil for FFA/TDM flexible)
+    weaponCategory:
+      - 'pistols' | 'smgs' | 'rifles'  → locked to that class (5 weapons each)
+      - 'choice' / 'any'              → all 3 classes available
 ]]
 
 Config.Modes = {
     {
         id = 'pistol_ffa',
         label = 'Pistol FFA',
-        description = 'Every fighter for themselves. Pistols only.',
+        description = 'Free-for-all. Pistols only.',
         type = 'ffa',
         icon = 'pistol',
         weaponCategory = 'pistols',
@@ -30,9 +25,26 @@ Config.Modes = {
         color = '#e85d04',
     },
     {
+        id = 'smg_ffa',
+        label = 'SMG FFA',
+        description = 'Free-for-all. SMGs only.',
+        type = 'ffa',
+        icon = 'smg',
+        weaponCategory = 'smgs',
+        allowWeaponChoice = true,
+        minPlayers = 2,
+        maxPlayers = 16,
+        scoreLimit = 30,
+        timeLimit = 600,
+        teamSize = nil,
+        rounds = 1,
+        respawn = true,
+        color = '#f4a261',
+    },
+    {
         id = 'rifle_ffa',
         label = 'Rifle FFA',
-        description = 'High-speed rifle free-for-all.',
+        description = 'Free-for-all. Rifles only.',
         type = 'ffa',
         icon = 'rifle',
         weaponCategory = 'rifles',
@@ -49,16 +61,16 @@ Config.Modes = {
     {
         id = 'tdm',
         label = 'Team Deathmatch',
-        description = 'Red vs Blue. First team to the kill target wins.',
+        description = 'Red vs Blue. Pick any class.',
         type = 'tdm',
         icon = 'tdm',
-        weaponCategory = 'any',
+        weaponCategory = 'choice',
         allowWeaponChoice = true,
         minPlayers = 2,
         maxPlayers = 20,
         scoreLimit = 50,
         timeLimit = 720,
-        teamSize = nil, -- flexible, auto-balance
+        teamSize = nil,
         rounds = 1,
         respawn = true,
         color = '#e63946',
@@ -74,18 +86,18 @@ Config.Modes = {
         allowWeaponChoice = true,
         minPlayers = 2,
         maxPlayers = 2,
-        scoreLimit = 5,          -- rounds to win
-        timeLimit = 180,         -- per round
+        scoreLimit = 5,
+        timeLimit = 180,
         teamSize = 1,
         rounds = 5,
-        respawn = false,         -- round ends on death
-        color = '#f4a261',
+        respawn = false,
+        color = '#e9c46a',
         friendlyFire = false,
     },
     {
         id = '2v2',
         label = '2v2',
-        description = 'Two-man squads. Coordinate or die.',
+        description = 'Two-man squads.',
         type = 'team',
         icon = 'squad',
         weaponCategory = 'choice',

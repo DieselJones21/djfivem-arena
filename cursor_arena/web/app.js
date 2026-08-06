@@ -353,6 +353,7 @@
   });
 
   document.getElementById('btnBrowse').addEventListener('click', browseLobbies);
+  document.getElementById('btnExitHub').addEventListener('click', () => nui('exitHub'));
 
   document.getElementById('btnReady').addEventListener('click', async () => {
     const res = await nui('setReady', {

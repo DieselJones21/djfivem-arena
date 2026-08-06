@@ -1,4 +1,12 @@
 Arena = Arena or {}
+Arena.PlayerHub = Arena.PlayerHub or {}
+
+local function requireHub(src)
+    if not Arena.PlayerHub[src] then
+        return false, 'must_be_in_hub'
+    end
+    return true
+end
 
 local function bootstrapPayload(src)
     return {
@@ -17,15 +25,21 @@ local function bootstrapPayload(src)
         choiceCategories = Config.ChoiceCategories,
         lobby = {
             command = Config.Command,
-            openKey = Config.OpenKey,
+            openKey = Config.MenuKey or 'G',
         },
         locale = Config.Locale,
         playerId = src,
+        inHub = Arena.PlayerHub[src] == true,
         inMatch = Arena.PlayerMatch[src] ~= nil,
         queue = Arena.GetQueueStatus(src),
         openLobbies = Arena.ListOpenLobbies(),
     }
 end
+
+RegisterNetEvent('cursor_arena:server:setHub', function(state)
+    local src = source
+    Arena.PlayerHub[src] = state == true or nil
+end)
 
 lib.callback.register('cursor_arena:getBootstrap', function(source)
     return bootstrapPayload(source)
@@ -51,6 +65,10 @@ lib.callback.register('cursor_arena:getMapsForMode', function(_, modeId)
 end)
 
 lib.callback.register('cursor_arena:joinQueue', function(source, modeId, weaponId, mapId)
+    local hubOk, hubErr = requireHub(source)
+    if not hubOk then
+        return { ok = false, error = hubErr, message = L(hubErr) }
+    end
     local ok, result = Arena.JoinQueue(source, modeId, weaponId, mapId)
     if not ok then
         return { ok = false, error = result, message = L(result) }
@@ -64,6 +82,10 @@ lib.callback.register('cursor_arena:leaveQueue', function(source)
 end)
 
 lib.callback.register('cursor_arena:createPrivate', function(source, modeId, mapId, weaponId)
+    local hubOk, hubErr = requireHub(source)
+    if not hubOk then
+        return { ok = false, error = hubErr, message = L(hubErr) }
+    end
     local ok, result = Arena.CreatePrivateLobby(source, modeId, mapId, weaponId)
     if not ok then
         return { ok = false, error = result, message = L(result) }
@@ -72,6 +94,10 @@ lib.callback.register('cursor_arena:createPrivate', function(source, modeId, map
 end)
 
 lib.callback.register('cursor_arena:joinLobby', function(source, matchId, weaponId)
+    local hubOk, hubErr = requireHub(source)
+    if not hubOk then
+        return { ok = false, error = hubErr, message = L(hubErr) }
+    end
     local ok, result = Arena.JoinMatch(source, matchId, weaponId)
     if not ok then
         return { ok = false, error = result, message = L(result) }
@@ -149,19 +175,25 @@ RegisterNetEvent('cursor_arena:server:invite', function(targetId)
 end)
 
 lib.addCommand(Config.Command, {
-    help = 'Open the PVP Arena lobby',
+    help = 'Enter the arena spawn lobby (or open UI if already inside)',
 }, function(source)
     TriggerClientEvent('cursor_arena:client:openUI', source)
 end)
 
 lib.addCommand('arena_leave', {
-    help = 'Leave the current arena match or queue',
+    help = 'Leave match/queue, or exit the spawn lobby to the city',
 }, function(source)
     Arena.LeaveQueue(source)
     if Arena.PlayerMatch[source] then
         Arena.LeaveMatch(source, false)
         Arena.Utils.Notify(source, { type = 'inform', description = L('left_match') })
+    elseif Arena.PlayerHub[source] then
+        TriggerClientEvent('cursor_arena:client:exitHub', source)
     end
+end)
+
+AddEventHandler('playerDropped', function()
+    Arena.PlayerHub[source] = nil
 end)
 
 lib.addCommand('arena_forcestart', {
@@ -176,6 +208,10 @@ end)
 -- Export API for other resources
 exports('IsInArena', function(src)
     return Arena.PlayerMatch[src] ~= nil
+end)
+
+exports('IsInHub', function(src)
+    return Arena.PlayerHub[src] == true
 end)
 
 exports('GetMatchId', function(src)

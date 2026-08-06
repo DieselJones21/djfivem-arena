@@ -1,6 +1,7 @@
 Arena = Arena or {}
 Arena.Matches = {}          -- [matchId] = match table
 Arena.PlayerMatch = {}      -- [src] = matchId
+Arena.PlayerHub = Arena.PlayerHub or {} -- [src] = true while in spawn lobby
 
 local matchSeq = 0
 
@@ -648,8 +649,11 @@ function Arena.LeaveMatch(src, silent)
     end
     Arena.Ambulance.Release(src)
 
+    -- Return to spawn lobby hub after leaving a match
+    local hubSpawn = Config.GetHubSpawn and Config.GetHubSpawn() or Config.ReturnLocation.coords
+    Arena.PlayerHub[src] = true
     TriggerClientEvent('cursor_arena:client:leaveMatch', src, {
-        returnCoords = Config.ReturnLocation.coords,
+        returnCoords = hubSpawn,
         silent = silent == true,
     })
 

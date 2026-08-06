@@ -1,9 +1,16 @@
 Locales = Locales or {}
 
 Locales.en = {
-    open_prompt = '[E] Open PVP Arena',
+    enter_prompt = '[E] Enter PVP Arena',
+    exit_prompt = '[E] Exit Arena Lobby',
+    hub_hint = '[G] Open Lobbies  ·  Talk to exit ped to leave',
+    entered_hub = 'Welcome to the arena lobby. Press G to open matchmaking.',
+    left_hub = 'You left the arena lobby.',
+    already_in_hub = 'You are already in the arena lobby.',
+    must_be_in_hub = 'Enter the arena lobby first (talk to the ped).',
+    leave_match_first = 'Leave your match before exiting the lobby.',
     already_in_match = 'You are already in a match.',
-    left_match = 'You left the arena.',
+    left_match = 'Returned to the arena lobby.',
     match_starting = 'Match starting in %s...',
     match_started = 'Fight!',
     match_ended = 'Match over — %s',

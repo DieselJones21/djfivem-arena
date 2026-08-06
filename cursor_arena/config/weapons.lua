@@ -1,74 +1,45 @@
 --[[
-    Weapon categories & selectable loadouts
-
-    weapon  = ox_inventory item name (must exist in your items.lua)
-    hash    = GTA weapon hash (used as fallback / equip)
-    ammo    = ammo count granted with the weapon
-    label   = display name in UI
+    Weapon classes — Pistol / SMG / Rifle
+    Exactly 5 weapons per class. Edit labels, weapon hashes, and ammo to match ox_inventory.
 ]]
 
 Config.WeaponCategories = {
     pistols = {
-        label = 'Pistols',
+        label = 'Pistol',
         weapons = {
-            { id = 'pistol',          label = 'Pistol',          weapon = 'WEAPON_PISTOL',          ammo = 120, ammoItem = 'ammo-9' },
-            { id = 'pistol_mk2',      label = 'Pistol Mk II',    weapon = 'WEAPON_PISTOL_MK2',      ammo = 120, ammoItem = 'ammo-9' },
-            { id = 'combatpistol',    label = 'Combat Pistol',   weapon = 'WEAPON_COMBATPISTOL',    ammo = 120, ammoItem = 'ammo-9' },
-            { id = 'heavypistol',     label = 'Heavy Pistol',    weapon = 'WEAPON_HEAVYPISTOL',     ammo = 90,  ammoItem = 'ammo-45' },
-            { id = 'appistol',       label = 'AP Pistol',       weapon = 'WEAPON_APPISTOL',        ammo = 150, ammoItem = 'ammo-9' },
-            { id = 'pistol50',        label = 'Pistol .50',      weapon = 'WEAPON_PISTOL50',        ammo = 60,  ammoItem = 'ammo-50' },
-        },
-    },
-    rifles = {
-        label = 'Rifles',
-        weapons = {
-            { id = 'assaultrifle',    label = 'Assault Rifle',   weapon = 'WEAPON_ASSAULTRIFLE',    ammo = 180, ammoItem = 'ammo-rifle' },
-            { id = 'carbinerifle',    label = 'Carbine Rifle',   weapon = 'WEAPON_CARBINERIFLE',    ammo = 180, ammoItem = 'ammo-rifle' },
-            { id = 'specialcarbine',  label = 'Special Carbine', weapon = 'WEAPON_SPECIALCARBINE',  ammo = 180, ammoItem = 'ammo-rifle' },
-            { id = 'bullpuprifle',    label = 'Bullpup Rifle',   weapon = 'WEAPON_BULLPUPRIFLE',    ammo = 180, ammoItem = 'ammo-rifle' },
-            { id = 'advancedrifle',   label = 'Advanced Rifle',  weapon = 'WEAPON_ADVANCEDRIFLE',   ammo = 180, ammoItem = 'ammo-rifle' },
-            { id = 'compactrifle',    label = 'Compact Rifle',   weapon = 'WEAPON_COMPACTRIFLE',    ammo = 180, ammoItem = 'ammo-rifle' },
+            { id = 'pistol',        label = 'Pistol',          weapon = 'WEAPON_PISTOL',        ammo = 120, ammoItem = 'ammo-9' },
+            { id = 'combatpistol',  label = 'Combat Pistol',   weapon = 'WEAPON_COMBATPISTOL',  ammo = 120, ammoItem = 'ammo-9' },
+            { id = 'heavypistol',   label = 'Heavy Pistol',    weapon = 'WEAPON_HEAVYPISTOL',   ammo = 90,  ammoItem = 'ammo-45' },
+            { id = 'appistol',     label = 'AP Pistol',       weapon = 'WEAPON_APPISTOL',      ammo = 150, ammoItem = 'ammo-9' },
+            { id = 'pistol50',      label = 'Pistol .50',      weapon = 'WEAPON_PISTOL50',      ammo = 60,  ammoItem = 'ammo-50' },
         },
     },
     smgs = {
-        label = 'SMGs',
+        label = 'SMG',
         weapons = {
-            { id = 'smg',             label = 'SMG',             weapon = 'WEAPON_SMG',             ammo = 180, ammoItem = 'ammo-9' },
-            { id = 'microsmg',        label = 'Micro SMG',       weapon = 'WEAPON_MICROSMG',        ammo = 180, ammoItem = 'ammo-9' },
-            { id = 'assaultsmg',      label = 'Assault SMG',     weapon = 'WEAPON_ASSAULTSMG',      ammo = 180, ammoItem = 'ammo-9' },
-            { id = 'combatpdw',       label = 'Combat PDW',      weapon = 'WEAPON_COMBATPDW',       ammo = 180, ammoItem = 'ammo-9' },
+            { id = 'smg',           label = 'SMG',             weapon = 'WEAPON_SMG',           ammo = 180, ammoItem = 'ammo-9' },
+            { id = 'microsmg',      label = 'Micro SMG',       weapon = 'WEAPON_MICROSMG',      ammo = 180, ammoItem = 'ammo-9' },
+            { id = 'assaultsmg',    label = 'Assault SMG',     weapon = 'WEAPON_ASSAULTSMG',    ammo = 180, ammoItem = 'ammo-9' },
+            { id = 'combatpdw',     label = 'Combat PDW',      weapon = 'WEAPON_COMBATPDW',     ammo = 180, ammoItem = 'ammo-9' },
+            { id = 'machinepistol', label = 'Machine Pistol',  weapon = 'WEAPON_MACHINEPISTOL', ammo = 180, ammoItem = 'ammo-9' },
         },
     },
-    shotguns = {
-        label = 'Shotguns',
+    rifles = {
+        label = 'Rifle',
         weapons = {
-            { id = 'pumpshotgun',     label = 'Pump Shotgun',    weapon = 'WEAPON_PUMPSHOTGUN',     ammo = 40,  ammoItem = 'ammo-shotgun' },
-            { id = 'sawnoffshotgun',  label = 'Sawn Off',        weapon = 'WEAPON_SAWNOFFSHOTGUN',  ammo = 40,  ammoItem = 'ammo-shotgun' },
-            { id = 'combatshotgun',   label = 'Combat Shotgun',  weapon = 'WEAPON_COMBATSHOTGUN',   ammo = 40,  ammoItem = 'ammo-shotgun' },
-        },
-    },
-    snipers = {
-        label = 'Snipers',
-        weapons = {
-            { id = 'sniperrifle',     label = 'Sniper Rifle',    weapon = 'WEAPON_SNIPERRIFLE',     ammo = 30,  ammoItem = 'ammo-sniper' },
-            { id = 'heavysniper',     label = 'Heavy Sniper',    weapon = 'WEAPON_HEAVYSNIPER',     ammo = 20,  ammoItem = 'ammo-sniper' },
-            { id = 'marksmanrifle',   label = 'Marksman Rifle',  weapon = 'WEAPON_MARKSMANRIFLE',   ammo = 40,  ammoItem = 'ammo-sniper' },
-        },
-    },
-    melee = {
-        label = 'Melee',
-        weapons = {
-            { id = 'knife',           label = 'Knife',           weapon = 'WEAPON_KNIFE',           ammo = 0 },
-            { id = 'bat',             label = 'Baseball Bat',    weapon = 'WEAPON_BAT',             ammo = 0 },
-            { id = 'machete',         label = 'Machete',         weapon = 'WEAPON_MACHETE',         ammo = 0 },
+            { id = 'assaultrifle',  label = 'Assault Rifle',   weapon = 'WEAPON_ASSAULTRIFLE',  ammo = 180, ammoItem = 'ammo-rifle' },
+            { id = 'carbinerifle',  label = 'Carbine Rifle',   weapon = 'WEAPON_CARBINERIFLE',  ammo = 180, ammoItem = 'ammo-rifle' },
+            { id = 'specialcarbine',label = 'Special Carbine', weapon = 'WEAPON_SPECIALCARBINE',ammo = 180, ammoItem = 'ammo-rifle' },
+            { id = 'bullpuprifle',  label = 'Bullpup Rifle',   weapon = 'WEAPON_BULLPUPRIFLE',  ammo = 180, ammoItem = 'ammo-rifle' },
+            { id = 'advancedrifle', label = 'Advanced Rifle',  weapon = 'WEAPON_ADVANCEDRIFLE', ammo = 180, ammoItem = 'ammo-rifle' },
         },
     },
 }
 
 --[[
-    Categories available when mode.weaponCategory == 'any' or 'choice'
+    Classes available when a mode uses weaponCategory = 'any' or 'choice'
 ]]
-Config.ChoiceCategories = { 'pistols', 'rifles', 'smgs', 'shotguns', 'snipers' }
+Config.ChoiceCategories = { 'pistols', 'smgs', 'rifles' }
 
 function Config.GetWeapon(categoryId, weaponId)
     local category = Config.WeaponCategories[categoryId]

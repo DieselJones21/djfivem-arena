@@ -5,8 +5,8 @@ Config = {}
 ]]
 Config.Debug = false
 Config.Locale = 'en'
-Config.Command = 'arena'           -- /arena opens the lobby UI
-Config.OpenKey = 'F7'              -- optional keybind (set false to disable)
+Config.Command = 'arena'           -- /arena enters the spawn lobby (or opens UI if already inside)
+Config.MenuKey = 'G'               -- open lobby UI while inside the spawn lobby
 Config.RequireItem = false         -- set to item name (e.g. 'arena_ticket') or false
 Config.MaxActiveMatches = 12
 Config.LobbyIdleTimeout = 120      -- seconds before empty lobby is closed
@@ -22,9 +22,10 @@ Config.LeaveCooldown = 5           -- seconds before player can rejoin after lea
 Config.Framework = 'auto'
 
 --[[
-    Marker / blip to open the arena lobby in-world
+    World entry ped — talking to this ped teleports you INTO the spawn lobby map.
+    It does NOT open the UI.
 ]]
-Config.Lobby = {
+Config.EntryPed = {
     enabled = true,
     coords = vec3(-265.0, -963.0, 31.2),
     heading = 200.0,
@@ -52,17 +53,47 @@ Config.Lobby = {
 }
 
 --[[
-    Return location when leaving a match (or dying outside wasabi revive path)
+    Spawn lobby hub map
+    Players are teleported here from the entry ped.
+    Inside this map they press G to open the matchmaking UI.
+    After a match ends they return here (not to the world).
+    Change these coords to your lobby MLO / interior.
+]]
+Config.SpawnLobby = {
+    -- Main spawn when entering the hub (pick randomly from list)
+    spawns = {
+        vec4(405.0, -997.0, -99.0, 90.0),
+        vec4(402.0, -1000.0, -99.0, 0.0),
+        vec4(408.0, -1000.0, -99.0, 180.0),
+        vec4(405.0, -1003.0, -99.0, 270.0),
+    },
+    center = vec3(405.0, -997.0, -99.0),
+    radius = 40.0,                 -- soft bounds while in hub (optional)
+    enforceBounds = true,
+    -- Where to send them when they EXIT the hub back to the city
+    exitCoords = vec4(-265.0, -963.0, 31.2, 200.0),
+    -- Show on-screen hint while in hub
+    hint = true,
+    -- Optional exit ped inside the hub
+    exitPed = {
+        enabled = true,
+        coords = vec3(400.0, -997.0, -99.0),
+        heading = 270.0,
+        model = `s_m_y_marine_01`,
+        scenario = 'WORLD_HUMAN_GUARD_STAND',
+        interactDistance = 2.0,
+    },
+}
+
+--[[
+    Legacy alias — match leave returns to spawn lobby, not the city.
 ]]
 Config.ReturnLocation = {
-    coords = vec4(-265.0, -963.0, 31.2, 200.0),
+    coords = Config.SpawnLobby.spawns[1],
 }
 
 --[[
     ox_inventory integration
-    - stashPlayerInventory: moves player inventory into a temporary stash while in arena
-    - giveLoadout: grants configured weapons/ammo for the match
-    - restoreOnLeave: returns original inventory when leaving
 ]]
 Config.OxInventory = {
     enabled = true,
@@ -71,7 +102,6 @@ Config.OxInventory = {
     stashWeight = 200000,
     clearBeforeLoadout = true,
     restoreOnLeave = true,
-    -- Items granted in addition to the chosen weapon (armor, medkits, etc.)
     extras = {
         -- { item = 'armour', count = 1 },
     },
@@ -79,26 +109,22 @@ Config.OxInventory = {
 
 --[[
     wasabi_ambulance integration
-    While in an arena match, death is handled by the arena (instant/delayed respawn).
-    Outside matches, wasabi remains the authority.
 ]]
 Config.WasabiAmbulance = {
     enabled = true,
     resourceName = 'wasabi_ambulance',
-    -- Events commonly used by wasabi_ambulance (override if your fork differs)
-    reviveEvent = 'wasabi_ambulance:revive',          -- client event
-    deathStateExport = 'isPlayerDead',                -- export name if available
-    blockDeathScreen = true,                          -- hide wasabi death UI inside arena
+    reviveEvent = 'wasabi_ambulance:revive',
+    deathStateExport = 'isPlayerDead',
+    blockDeathScreen = true,
     forceReviveOnRespawn = true,
-    -- Optional: disable ambulance job interactions while in arena
     disableJobInteractions = true,
 }
 
 --[[
-    Match rules applied globally (modes can override)
+    Match rules
 ]]
 Config.Rules = {
-    friendlyFire = false,          -- team modes
+    friendlyFire = false,
     allowVehicles = false,
     clearWanted = true,
     godModeOutsideCombat = false,
@@ -109,18 +135,11 @@ Config.Rules = {
     infiniteAmmo = true,
     refillAmmoOnRespawn = true,
     disableIdleCam = true,
-    -- Weapons / controls to block while in arena
-    blockedControls = {
-        -- 37, -- weapon wheel (optional)
-    },
-    -- Prevent leaving the map bounds (soft push-back)
+    blockedControls = {},
     enforceBounds = true,
     boundsWarning = true,
 }
 
---[[
-    Scoreboard / HUD
-]]
 Config.HUD = {
     showKills = true,
     showDeaths = true,
@@ -130,20 +149,14 @@ Config.HUD = {
     killfeedDuration = 4000,
 }
 
---[[
-    Rewards (optional – set enabled = false to disable)
-]]
 Config.Rewards = {
     enabled = false,
     win = { money = 500, items = {} },
     loss = { money = 100, items = {} },
     kill = { money = 25, items = {} },
-    account = 'money', -- 'money' | 'bank' | 'black_money' (framework dependent)
+    account = 'money',
 }
 
---[[
-    Discord / logging webhooks (optional)
-]]
 Config.Logging = {
     enabled = false,
     webhook = '',
@@ -151,11 +164,8 @@ Config.Logging = {
     logMatchEnd = true,
 }
 
---[[
-    Permissions
-]]
 Config.Permissions = {
     adminAce = 'arena.admin',
     forceStartAce = 'arena.forcestart',
-    createPrivateAce = false, -- false = anyone can create private lobbies
+    createPrivateAce = false,
 }

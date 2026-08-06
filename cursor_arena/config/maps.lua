@@ -1,14 +1,13 @@
 --[[
-    Arena maps / locations
+    5 preset arena maps
 
-    Each map defines:
-      - id, label, description, image (web asset or url)
-      - center / radius for bounds
-      - spawns.ffa  = list of vec4 for free-for-all
-      - spawns.team = { red = {vec4...}, blue = {vec4...} }
-      - modes      = which mode ids can use this map (or '*' for all)
+    Edit spawn coords freely:
+      - spawns.ffa          = free-for-all spawn points (vec4 x, y, z, heading)
+      - spawns.team.red     = red team spawns
+      - spawns.team.blue    = blue team spawns
+      - center / radius     = out-of-bounds bubble during matches
 
-    Coordinates below are placeholders — replace with your custom MLO / interior coords.
+    All maps are available for every mode.
 ]]
 
 Config.Maps = {
@@ -17,13 +16,13 @@ Config.Maps = {
         label = 'Warehouse',
         description = 'Tight industrial aisles. Close-range chaos.',
         image = 'assets/map_warehouse.svg',
-        center = vec3(1048.0, -3100.0, -39.0),
+        center = vec3(1048.0, -3100.0, -39.0), -- CHANGE ME
         radius = 55.0,
         heading = 0.0,
         modes = { '*' },
         spawns = {
             ffa = {
-                vec4(1060.0, -3100.0, -39.0, 90.0),
+                vec4(1060.0, -3100.0, -39.0, 90.0),  -- CHANGE ME
                 vec4(1035.0, -3100.0, -39.0, 270.0),
                 vec4(1048.0, -3085.0, -39.0, 180.0),
                 vec4(1048.0, -3115.0, -39.0, 0.0),
@@ -34,14 +33,14 @@ Config.Maps = {
             },
             team = {
                 red = {
-                    vec4(1025.0, -3115.0, -39.0, 0.0),
+                    vec4(1025.0, -3115.0, -39.0, 0.0), -- CHANGE ME
                     vec4(1030.0, -3115.0, -39.0, 0.0),
                     vec4(1035.0, -3115.0, -39.0, 0.0),
                     vec4(1040.0, -3115.0, -39.0, 0.0),
                     vec4(1045.0, -3115.0, -39.0, 0.0),
                 },
                 blue = {
-                    vec4(1025.0, -3085.0, -39.0, 180.0),
+                    vec4(1025.0, -3085.0, -39.0, 180.0), -- CHANGE ME
                     vec4(1030.0, -3085.0, -39.0, 180.0),
                     vec4(1035.0, -3085.0, -39.0, 180.0),
                     vec4(1040.0, -3085.0, -39.0, 180.0),
@@ -55,7 +54,7 @@ Config.Maps = {
         label = 'Construction Site',
         description = 'Vertical fights across unfinished floors.',
         image = 'assets/map_construction.svg',
-        center = vec3(-160.0, -980.0, 254.0),
+        center = vec3(-160.0, -980.0, 254.0), -- CHANGE ME
         radius = 70.0,
         heading = 0.0,
         modes = { '*' },
@@ -91,7 +90,7 @@ Config.Maps = {
         label = 'Shipping Docks',
         description = 'Container cover and long sightlines.',
         image = 'assets/map_docks.svg',
-        center = vec3(1000.0, -3000.0, 5.9),
+        center = vec3(1000.0, -3000.0, 5.9), -- CHANGE ME
         radius = 80.0,
         heading = 90.0,
         modes = { '*' },
@@ -127,25 +126,33 @@ Config.Maps = {
         label = 'Arena Ring',
         description = 'Open circular pit. Nowhere to hide.',
         image = 'assets/map_ring.svg',
-        center = vec3(2800.0, -3800.0, 140.0),
+        center = vec3(2800.0, -3800.0, 140.0), -- CHANGE ME
         radius = 40.0,
         heading = 0.0,
-        modes = { 'pistol_ffa', 'rifle_ffa', '1v1', '2v2' },
+        modes = { '*' },
         spawns = {
             ffa = {
                 vec4(2815.0, -3800.0, 140.0, 90.0),
                 vec4(2785.0, -3800.0, 140.0, 270.0),
                 vec4(2800.0, -3785.0, 140.0, 180.0),
                 vec4(2800.0, -3815.0, 140.0, 0.0),
+                vec4(2810.0, -3790.0, 140.0, 135.0),
+                vec4(2790.0, -3810.0, 140.0, 315.0),
             },
             team = {
                 red = {
                     vec4(2785.0, -3815.0, 140.0, 45.0),
                     vec4(2790.0, -3815.0, 140.0, 45.0),
+                    vec4(2795.0, -3815.0, 140.0, 45.0),
+                    vec4(2785.0, -3810.0, 140.0, 45.0),
+                    vec4(2790.0, -3810.0, 140.0, 45.0),
                 },
                 blue = {
                     vec4(2815.0, -3785.0, 140.0, 225.0),
                     vec4(2810.0, -3785.0, 140.0, 225.0),
+                    vec4(2805.0, -3785.0, 140.0, 225.0),
+                    vec4(2815.0, -3790.0, 140.0, 225.0),
+                    vec4(2810.0, -3790.0, 140.0, 225.0),
                 },
             },
         },
@@ -155,10 +162,10 @@ Config.Maps = {
         label = 'City Rooftops',
         description = 'Parkour ledges and mid-range duels.',
         image = 'assets/map_rooftops.svg',
-        center = vec3(-75.0, -820.0, 326.0),
+        center = vec3(-75.0, -820.0, 326.0), -- CHANGE ME
         radius = 60.0,
         heading = 0.0,
-        modes = { 'rifle_ffa', 'tdm', '3v3', '4v4', '5v5' },
+        modes = { '*' },
         spawns = {
             ffa = {
                 vec4(-60.0, -810.0, 326.0, 180.0),
@@ -188,7 +195,6 @@ Config.Maps = {
     },
 }
 
---- Lookup helpers
 function Config.GetMap(mapId)
     for i = 1, #Config.Maps do
         if Config.Maps[i].id == mapId then
@@ -213,4 +219,12 @@ function Config.GetMapsForMode(modeId)
         end
     end
     return list
+end
+
+function Config.GetHubSpawn()
+    local spawns = Config.SpawnLobby and Config.SpawnLobby.spawns
+    if not spawns or #spawns == 0 then
+        return vec4(405.0, -997.0, -99.0, 90.0)
+    end
+    return spawns[math.random(#spawns)]
 end

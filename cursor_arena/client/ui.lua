@@ -6,6 +6,10 @@ function Arena.Client.OpenUI()
         lib.notify({ type = 'error', description = L('already_in_match') })
         return
     end
+    if not Arena.Client.inHub then
+        lib.notify({ type = 'error', description = L('must_be_in_hub') })
+        return
+    end
 
     local bootstrap = lib.callback.await('cursor_arena:getBootstrap', false)
     if not bootstrap then return end
@@ -23,10 +27,21 @@ function Arena.Client.CloseUI(keepSilent)
     Arena.Client.uiOpen = false
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'close' })
+
+    -- Restore hub hint after closing menu
+    if Arena.Client.inHub and not Arena.Client.inMatch and Config.SpawnLobby.hint then
+        lib.showTextUI(L('hub_hint'), { position = 'left-center', icon = 'list' })
+    end
 end
 
 RegisterNUICallback('close', function(_, cb)
     Arena.Client.CloseUI()
+    cb({ ok = true })
+end)
+
+RegisterNUICallback('exitHub', function(_, cb)
+    Arena.Client.CloseUI()
+    Arena.Client.ExitHub()
     cb({ ok = true })
 end)
 

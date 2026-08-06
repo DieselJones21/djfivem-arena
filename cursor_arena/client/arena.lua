@@ -140,7 +140,10 @@ end
 
 RegisterNetEvent('cursor_arena:client:enterMatch', function(data)
     Arena.Client.CloseUI(true)
+    lib.hideTextUI()
     Arena.Client.inMatch = true
+    Arena.Client.inHub = false
+    LocalPlayer.state:set('arenaHub', false, true)
     Arena.Client.match = data
     Arena.Client.returnCoords = GetEntityCoords(PlayerPedId())
     deathReported = false
@@ -273,10 +276,27 @@ RegisterNetEvent('cursor_arena:client:leaveMatch', function(data)
 
     RemoveAllPedWeapons(PlayerPedId(), true)
 
-    local coords = data and data.returnCoords or Config.ReturnLocation.coords
+    -- Always return to the spawn lobby hub after a match
+    local coords = data and data.returnCoords
+    if not coords and Config.SpawnLobby and Config.SpawnLobby.spawns and Config.SpawnLobby.spawns[1] then
+        coords = Config.SpawnLobby.spawns[math.random(#Config.SpawnLobby.spawns)]
+    end
+    coords = coords or Config.ReturnLocation.coords
+
     if coords then
+        DoScreenFadeOut(300)
+        while not IsScreenFadedOut() do Wait(0) end
         SetEntityCoordsNoOffset(PlayerPedId(), coords.x, coords.y, coords.z, false, false, false)
         if coords.w then SetEntityHeading(PlayerPedId(), coords.w) end
+        DoScreenFadeIn(400)
+    end
+
+    Arena.Client.inHub = true
+    LocalPlayer.state:set('arenaHub', true, true)
+    TriggerServerEvent('cursor_arena:server:setHub', true)
+
+    if Config.SpawnLobby.hint then
+        lib.showTextUI(L('hub_hint'), { position = 'left-center', icon = 'list' })
     end
 
     SetEntityHealth(PlayerPedId(), GetEntityMaxHealth(PlayerPedId()))
