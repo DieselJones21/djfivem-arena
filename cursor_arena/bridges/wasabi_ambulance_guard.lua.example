@@ -1,0 +1,18 @@
+--[[
+    OPTIONAL — paste this guard into wasabi_ambulance where death UI / ambulance
+    interactions begin, so arena matches are not overridden.
+
+    Example locations (varies by wasabi version):
+      - client death thread / death screen open
+      - EMS revive target options
+      - respawn / hospital bed logic
+]]
+
+if GetResourceState('cursor_arena') == 'started' then
+    local ok, blocked = pcall(function()
+        return exports.cursor_arena:ShouldBlockAmbulance()
+    end)
+    if ok and blocked then
+        return
+    end
+end
