@@ -1,27 +1,38 @@
 (() => {
   const app = document.getElementById('app');
-  const state = {
-    open: false,
-    modes: [],
-    maps: [],
-    weaponsByCat: {},
-    choiceCategories: [],
-    selectedMode: null,
-    selectedMap: null,
-    selectedWeapon: null,
-    weaponFilter: 'all',
-    modeWeapons: [],
-    lobby: null,
-    queue: null,
-    ready: false,
-    playerId: null,
-    timerInterval: null,
-    serverOffset: 0,
-  };
-
   const resourceName = typeof GetParentResourceName === 'function'
     ? GetParentResourceName()
     : 'cursor_arena';
+
+  const state = {
+    open: false,
+    tab: 'lobbies',
+    modes: [],
+    maps: [],
+    weaponsByCat: {},
+    choiceCategories: ['pistols', 'smgs', 'rifles'],
+    playerId: null,
+    playerName: 'Player',
+    stats: {},
+    leaderboard: [],
+    lobby: null,
+    ready: false,
+    timerInterval: null,
+    serverOffset: 0,
+    // create modal
+    create: {
+      size: 1,
+      style: 'pvp',
+      weaponClass: 'pistols',
+      mapId: null,
+      rounds: 5,
+      private: false,
+      weaponId: null,
+    },
+    // ffa quick play
+    ffa: { modeId: null, weaponId: null },
+    loadoutClass: 'pistols',
+  };
 
   async function nui(event, data = {}) {
     const resp = await fetch(`https://${resourceName}/${event}`, {
@@ -29,178 +40,218 @@
       headers: { 'Content-Type': 'application/json; charset=UTF-8' },
       body: JSON.stringify(data),
     });
-    try {
-      return await resp.json();
-    } catch {
-      return null;
-    }
+    try { return await resp.json(); } catch { return null; }
   }
 
   function show(el, on = true) {
+    if (!el) return;
     el.classList.toggle('hidden', !on);
   }
 
-  function setStep(step) {
-    document.querySelectorAll('.step').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.step === step);
-      const order = ['mode', 'map', 'weapon', 'lobby'];
-      const idx = order.indexOf(btn.dataset.step);
-      const cur = order.indexOf(step);
-      btn.classList.toggle('done', idx < cur);
+  function setTab(tab) {
+    state.tab = tab;
+    document.querySelectorAll('.nav-tab').forEach((btn) => {
+      btn.classList.toggle('active', btn.dataset.tab === tab);
     });
-    document.querySelectorAll('.panel').forEach((panel) => {
-      panel.classList.toggle('active', panel.id === `panel-${step}`);
+    document.querySelectorAll('.page').forEach((page) => {
+      page.classList.toggle('active', page.id === `page-${tab}`);
     });
+    if (tab === 'leaderboard') renderLeaderboard();
+    if (tab === 'stats') renderMyStats();
+    if (tab === 'lobbies') refreshLobbies();
+    if (tab === 'loadout') renderLoadout();
+    if (tab === 'ffa') renderFfa();
   }
 
-  function renderModes() {
-    const grid = document.getElementById('modeGrid');
-    grid.innerHTML = '';
-    state.modes.forEach((mode) => {
-      const btn = document.createElement('button');
-      btn.className = 'select-tile' + (state.selectedMode?.id === mode.id ? ' selected' : '');
-      btn.style.setProperty('--accent', mode.color || '#ff5a1f');
-      btn.innerHTML = `
-        <h3>${mode.label}</h3>
-        <p>${mode.description}</p>
-        <div class="meta">
-          <span>${mode.minPlayers}-${mode.maxPlayers} players</span>
-          <span>${Math.round((mode.timeLimit || 0) / 60)}m</span>
-          <span>${mode.type.toUpperCase()}</span>
-        </div>
-      `;
-      btn.addEventListener('click', async () => {
-        state.selectedMode = mode;
-        state.selectedMap = null;
-        state.selectedWeapon = null;
-        state.weaponFilter = 'all';
-        renderModes();
-        const maps = await nui('getMaps', { modeId: mode.id });
-        state.maps = maps || [];
-        renderMaps();
-        const weapons = await nui('getWeapons', { modeId: mode.id });
-        state.modeWeapons = weapons || [];
-        renderWeaponCats();
-        renderWeapons();
-        setStep('map');
-      });
-      grid.appendChild(btn);
-    });
+  function initials(name) {
+    if (!name) return 'A';
+    const parts = String(name).trim().split(/\s+/);
+    return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
   }
 
-  function renderMaps() {
-    const grid = document.getElementById('mapGrid');
-    grid.innerHTML = '';
-    state.maps.forEach((map) => {
-      const btn = document.createElement('button');
-      btn.className = 'select-tile map-tile' + (state.selectedMap?.id === map.id ? ' selected' : '');
-      btn.style.backgroundImage = map.image ? `url('${map.image}')` : 'none';
-      btn.innerHTML = `
-        <div class="map-veil"></div>
-        <div class="map-copy">
-          <h3>${map.label}</h3>
-          <p>${map.description || ''}</p>
-        </div>
-      `;
-      btn.addEventListener('click', () => {
-        state.selectedMap = map;
-        renderMaps();
-        setStep('weapon');
-      });
-      grid.appendChild(btn);
-    });
+  function openUI(data) {
+    state.open = true;
+    state.modes = data.modes || [];
+    state.maps = data.maps || [];
+    state.weaponsByCat = data.weapons || {};
+    state.choiceCategories = data.choiceCategories || ['pistols', 'smgs', 'rifles'];
+    state.playerId = data.playerId;
+    state.playerName = data.playerName || 'Player';
+    state.stats = data.stats || {};
+    state.leaderboard = data.leaderboard || [];
+    state.lobby = null;
+
+    document.getElementById('profileName').textContent = state.playerName;
+    document.getElementById('avatarCircle').textContent = initials(state.playerName);
+    document.getElementById('statElo').textContent = state.stats.elo ?? 1000;
+    document.getElementById('statCoins').textContent = state.stats.wins ?? 0;
+
+    show(app, true);
+    buildCreateModal();
+    if (data.queue) {
+      // stay on lobbies
+    }
+    setTab('lobbies');
+    refreshLobbies();
   }
 
-  function renderWeaponCats() {
-    const wrap = document.getElementById('weaponCats');
+  function closeUI() {
+    state.open = false;
+    show(app, false);
+    show(document.getElementById('createModal'), false);
+  }
+
+  /* ---------- Lobbies list ---------- */
+  async function refreshLobbies() {
+    const list = await nui('listLobbies') || [];
+    const wrap = document.getElementById('lobbyList');
+    const empty = document.getElementById('lobbyEmpty');
     wrap.innerHTML = '';
-    const cats = new Set(state.modeWeapons.map((w) => w.category));
-    const all = document.createElement('button');
-    all.className = 'chip' + (state.weaponFilter === 'all' ? ' active' : '');
-    all.textContent = 'All';
-    all.addEventListener('click', () => {
-      state.weaponFilter = 'all';
-      renderWeaponCats();
-      renderWeapons();
-    });
-    wrap.appendChild(all);
-
-    cats.forEach((cat) => {
-      const chip = document.createElement('button');
-      chip.className = 'chip' + (state.weaponFilter === cat ? ' active' : '');
-      const label = state.modeWeapons.find((w) => w.category === cat)?.categoryLabel || cat;
-      chip.textContent = label;
-      chip.addEventListener('click', () => {
-        state.weaponFilter = cat;
-        renderWeaponCats();
-        renderWeapons();
+    if (!list.length) {
+      show(empty, true);
+      return;
+    }
+    show(empty, false);
+    list.forEach((lobby) => {
+      const row = document.createElement('div');
+      row.className = 'lobby-card';
+      row.innerHTML = `
+        <div>
+          <strong>${lobby.modeLabel}</strong>
+          <small>${lobby.mapLabel} · ${lobby.players.length}/${lobby.maxPlayers}${lobby.private ? ' · PRIVATE' : ''}</small>
+        </div>
+        <button class="btn-accent">Join</button>
+      `;
+      row.querySelector('button').addEventListener('click', async () => {
+        // Use first weapon of mode if none selected from loadout
+        let weaponId = state.create.weaponId || state.ffa.weaponId;
+        if (!weaponId) {
+          const classId = state.loadoutClass || 'pistols';
+          const cat = state.weaponsByCat[classId];
+          weaponId = cat?.weapons?.[0]?.id;
+        }
+        if (!weaponId) return;
+        const res = await nui('joinLobby', { matchId: lobby.id, weaponId });
+        if (res?.ok) showRoom(res.lobby);
       });
-      wrap.appendChild(chip);
+      wrap.appendChild(row);
     });
   }
 
-  function renderWeapons() {
-    const grid = document.getElementById('weaponGrid');
-    grid.innerHTML = '';
-    const list = state.modeWeapons.filter((w) =>
-      state.weaponFilter === 'all' ? true : w.category === state.weaponFilter
-    );
+  /* ---------- Create modal ---------- */
+  function buildCreateModal() {
+    const pvp = document.getElementById('pvpSizes');
+    const tdm = document.getElementById('tdmSizes');
+    pvp.innerHTML = '';
+    tdm.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      pvp.appendChild(sizeBtn(i, 'pvp'));
+      tdm.appendChild(sizeBtn(i, 'tdm'));
+    }
+
+    const classes = document.getElementById('weaponClasses');
+    classes.innerHTML = '';
+    [
+      { id: 'pistols', label: 'PISTOL' },
+      { id: 'smgs', label: 'SMG' },
+      { id: 'rifles', label: 'RIFLE' },
+    ].forEach((c) => {
+      const btn = document.createElement('button');
+      btn.className = 'select-opt' + (state.create.weaponClass === c.id ? ' selected' : '');
+      btn.textContent = c.label;
+      btn.addEventListener('click', () => {
+        state.create.weaponClass = c.id;
+        state.create.weaponId = null;
+        buildCreateModal();
+      });
+      classes.appendChild(btn);
+    });
+
+    const maps = document.getElementById('arenaMaps');
+    maps.innerHTML = '';
+    state.maps.forEach((m) => {
+      const btn = document.createElement('button');
+      btn.className = 'select-opt' + (state.create.mapId === m.id ? ' selected' : '');
+      btn.textContent = m.label;
+      btn.addEventListener('click', () => {
+        state.create.mapId = m.id;
+        buildCreateModal();
+      });
+      maps.appendChild(btn);
+    });
+    if (!state.create.mapId && state.maps[0]) state.create.mapId = state.maps[0].id;
+
+    const isTdm = state.create.style === 'tdm';
+    document.getElementById('roundsLabel').textContent = isTdm
+      ? 'Kills for Death Match'
+      : 'Rounds for PVP Match';
+    document.getElementById('roundsHint').textContent = isTdm
+      ? 'Choose between 1 and 40 kill target'
+      : 'Choose between 1 and 40 rounds';
+
+    // highlight size buttons
+    pvp.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('selected', state.create.style === 'pvp' && Number(b.dataset.size) === state.create.size);
+    });
+    tdm.querySelectorAll('button').forEach((b) => {
+      b.classList.toggle('selected', state.create.style === 'tdm' && Number(b.dataset.size) === state.create.size);
+    });
+    maps.querySelectorAll('button').forEach((b) => {
+      // already set via selected class above
+    });
+
+    renderCreateWeapons();
+  }
+
+  function sizeBtn(size, style) {
+    const btn = document.createElement('button');
+    btn.className = 'select-opt';
+    btn.dataset.size = size;
+    btn.textContent = `${size}v${size} ${style.toUpperCase()}`;
+    btn.addEventListener('click', () => {
+      state.create.size = size;
+      state.create.style = style;
+      buildCreateModal();
+    });
+    return btn;
+  }
+
+  function renderCreateWeapons() {
+    const wrap = document.getElementById('createWeapons');
+    wrap.innerHTML = '';
+    const cat = state.weaponsByCat[state.create.weaponClass];
+    const list = cat?.weapons || [];
     list.forEach((w) => {
       const btn = document.createElement('button');
-      btn.className = 'select-tile' + (state.selectedWeapon?.id === w.id ? ' selected' : '');
-      btn.innerHTML = `
-        <h3>${w.label}</h3>
-        <p>${w.categoryLabel || w.category}</p>
-        <div class="meta"><span>${w.ammo || 0} ammo</span></div>
-      `;
+      btn.className = 'chip' + (state.create.weaponId === w.id ? ' selected' : '');
+      btn.textContent = w.label;
       btn.addEventListener('click', () => {
-        state.selectedWeapon = w;
-        renderWeapons();
-        renderLobbySummary();
-        setStep('lobby');
+        state.create.weaponId = w.id;
+        renderCreateWeapons();
       });
-      grid.appendChild(btn);
+      wrap.appendChild(btn);
     });
-  }
-
-  function renderLobbySummary() {
-    const el = document.getElementById('lobbySummary');
-    el.innerHTML = `
-      <div class="summary-block"><span>Mode</span><strong>${state.selectedMode?.label || '—'}</strong></div>
-      <div class="summary-block"><span>Map</span><strong>${state.selectedMap?.label || 'Any / Queue'}</strong></div>
-      <div class="summary-block"><span>Weapon</span><strong>${state.selectedWeapon?.label || '—'}</strong></div>
-    `;
-  }
-
-  function renderQueue(data) {
-    const el = document.getElementById('queueStatus');
-    if (!data) {
-      show(el, false);
-      return;
+    if (!state.create.weaponId && list[0]) {
+      state.create.weaponId = list[0].id;
+      renderCreateWeapons();
     }
-    state.queue = data;
-    el.textContent = `In queue for ${data.modeLabel || data.modeId} — ${data.waiting || data.position}/${data.needed} players`;
-    show(el, true);
   }
 
-  function renderLobbyRoom(lobby) {
-    const room = document.getElementById('lobbyRoom');
-    if (!lobby) {
-      show(room, false);
-      return;
-    }
+  /* ---------- Room ---------- */
+  function showRoom(lobby) {
     state.lobby = lobby;
-    show(room, true);
-    show(document.getElementById('queueStatus'), false);
+    setTab('room');
+    // fake nav highlight - room isn't in nav
+    document.querySelectorAll('.nav-tab').forEach((b) => b.classList.remove('active'));
 
-    document.getElementById('lobbyMeta').textContent =
+    document.getElementById('roomMeta').textContent =
       `${lobby.modeLabel} · ${lobby.mapLabel} · ${lobby.players.length}/${lobby.maxPlayers}` +
       (lobby.private ? ' · PRIVATE' : '');
 
     const teams = document.getElementById('teamLists');
     teams.innerHTML = '';
-
     const isTeam = lobby.modeType === 'tdm' || lobby.modeType === 'team';
+
     if (isTeam) {
       ['red', 'blue'].forEach((team) => {
         const col = document.createElement('div');
@@ -215,7 +266,7 @@
         col.addEventListener('click', async () => {
           await nui('setTeam', { team });
           const refreshed = await nui('refreshLobby');
-          if (refreshed) renderLobbyRoom(refreshed);
+          if (refreshed) showRoom(refreshed);
         });
         teams.appendChild(col);
       });
@@ -232,150 +283,146 @@
       teams.appendChild(col);
     }
 
-    const me = lobby.players.find((p) => p.id === state.playerId)
-      || lobby.players.find((p) => p.weapon === state.selectedWeapon?.id)
-      || lobby.players[0];
+    const me = lobby.players.find((p) => p.id === state.playerId);
     state.ready = !!(me && me.ready);
     document.getElementById('btnReady').textContent = state.ready ? 'Unready' : 'Ready';
-
-    const startBtn = document.getElementById('btnStart');
-    show(startBtn, lobby.private === true && lobby.host === state.playerId);
+    show(document.getElementById('btnStart'), lobby.private === true && lobby.host === state.playerId);
   }
 
-  async function browseLobbies() {
-    const list = await nui('listLobbies');
-    const wrap = document.getElementById('openLobbies');
+  /* ---------- FFA ---------- */
+  function renderFfa() {
+    const grid = document.getElementById('ffaGrid');
+    grid.innerHTML = '';
+    const ffaModes = state.modes.filter((m) => m.type === 'ffa' || m.tab === 'ffa');
+    ffaModes.forEach((mode) => {
+      const btn = document.createElement('button');
+      btn.className = 'ffa-card' + (state.ffa.modeId === mode.id ? ' selected' : '');
+      btn.innerHTML = `<h3>${mode.label}</h3><p>${mode.description || ''}</p>`;
+      btn.addEventListener('click', () => {
+        state.ffa.modeId = mode.id;
+        state.ffa.weaponId = null;
+        renderFfa();
+        renderFfaWeapons(mode);
+      });
+      grid.appendChild(btn);
+    });
+  }
+
+  async function renderFfaWeapons(mode) {
+    const pick = document.getElementById('ffaWeaponPick');
+    const wrap = document.getElementById('ffaWeapons');
+    show(pick, true);
+    const weapons = await nui('getWeapons', { modeId: mode.id }) || [];
     wrap.innerHTML = '';
-    if (!list || !list.length) {
-      wrap.innerHTML = '<div class="lobby-row"><span>No open lobbies</span></div>';
-      show(wrap, true);
-      return;
-    }
-    list.forEach((lobby) => {
-      const row = document.createElement('div');
-      row.className = 'lobby-row';
-      row.innerHTML = `
-        <div>
-          <strong>${lobby.modeLabel}</strong> · ${lobby.mapLabel}
-          <div style="color:var(--muted);font-size:0.85rem">${lobby.players.length}/${lobby.maxPlayers} players</div>
+    weapons.forEach((w) => {
+      const btn = document.createElement('button');
+      btn.className = 'chip' + (state.ffa.weaponId === w.id ? ' selected' : '');
+      btn.textContent = w.label;
+      btn.addEventListener('click', () => {
+        state.ffa.weaponId = w.id;
+        renderFfaWeapons(mode);
+      });
+      wrap.appendChild(btn);
+    });
+  }
+
+  /* ---------- Stats / Leaderboard / Loadout ---------- */
+  function renderMyStats() {
+    const s = state.stats || {};
+    const kd = s.deaths > 0 ? (s.kills / s.deaths).toFixed(2) : (s.kills || 0);
+    document.getElementById('myStatsCards').innerHTML = `
+      <div class="stat-card"><span>Kills</span><strong>${s.kills || 0}</strong></div>
+      <div class="stat-card"><span>Deaths</span><strong>${s.deaths || 0}</strong></div>
+      <div class="stat-card"><span>K/D</span><strong>${kd}</strong></div>
+      <div class="stat-card"><span>Wins</span><strong>${s.wins || 0}</strong></div>
+      <div class="stat-card"><span>Losses</span><strong>${s.losses || 0}</strong></div>
+      <div class="stat-card"><span>ELO</span><strong>${s.elo || 1000}</strong></div>
+    `;
+  }
+
+  async function renderLeaderboard() {
+    const list = await nui('getLeaderboard') || state.leaderboard || [];
+    state.leaderboard = list;
+    const top3 = document.getElementById('top3');
+    const rows = document.getElementById('boardRows');
+    top3.innerHTML = '';
+    rows.innerHTML = '';
+
+    const medals = ['🥇', '🥈', '🥉'];
+    const badge = ['gold', 'silver', 'bronze'];
+
+    for (let i = 0; i < Math.min(3, list.length); i++) {
+      const p = list[i];
+      const card = document.createElement('div');
+      card.className = 'top-card';
+      card.innerHTML = `
+        <div class="rank-trophy">${medals[i]}</div>
+        <div class="avatar-lg">${initials(p.name)}</div>
+        ${p.gang ? `<div class="gang">${p.gang}</div>` : '<div class="gang">ARENA</div>'}
+        <h3>${p.name}</h3>
+        <div class="elo">${p.elo || 1000} ELO</div>
+        <div class="pair">
+          <div><small>KILLS</small><b>${p.kills || 0}</b></div>
+          <div><small>DEATHS</small><b>${p.deaths || 0}</b></div>
         </div>
-        <button>Join</button>
       `;
-      row.querySelector('button').addEventListener('click', async () => {
-        if (!state.selectedWeapon) return;
-        const res = await nui('joinLobby', {
-          matchId: lobby.id,
-          weaponId: state.selectedWeapon.id,
-        });
-        if (res?.ok) {
-          renderLobbyRoom(res.lobby);
-        }
-      });
-      wrap.appendChild(row);
-    });
-    show(wrap, true);
-  }
-
-  function openUI(data) {
-    state.open = true;
-    state.modes = data.modes || [];
-    state.weaponsByCat = data.weapons || {};
-    state.choiceCategories = data.choiceCategories || [];
-    state.playerId = data.playerId || null;
-    state.selectedMode = null;
-    state.selectedMap = null;
-    state.selectedWeapon = null;
-    state.lobby = null;
-    state.queue = data.queue || null;
-    show(app, true);
-    renderModes();
-    renderLobbySummary();
-    setStep('mode');
-    if (state.queue) renderQueue(state.queue);
-  }
-
-  function closeUI() {
-    state.open = false;
-    show(app, false);
-  }
-
-  // Buttons
-  document.getElementById('btnClose').addEventListener('click', () => nui('close'));
-  document.getElementById('btnRandomMap').addEventListener('click', () => {
-    state.selectedMap = null;
-    renderMaps();
-    setStep('weapon');
-  });
-
-  document.querySelectorAll('.step').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.step === 'map' && !state.selectedMode) return;
-      if (btn.dataset.step === 'weapon' && !state.selectedMode) return;
-      if (btn.dataset.step === 'lobby' && !state.selectedWeapon) return;
-      setStep(btn.dataset.step);
-    });
-  });
-
-  document.getElementById('btnQueue').addEventListener('click', async () => {
-    if (!state.selectedMode || !state.selectedWeapon) return;
-    const res = await nui('joinQueue', {
-      modeId: state.selectedMode.id,
-      weaponId: state.selectedWeapon.id,
-      mapId: state.selectedMap?.id || null,
-    });
-    if (!res?.ok) return;
-    if (res.data?.type === 'lobby' || res.data?.type === 'matched') {
-      renderLobbyRoom(res.data.lobby);
-    } else if (res.data?.type === 'queued') {
-      renderQueue({
-        modeId: res.data.modeId,
-        modeLabel: state.selectedMode.label,
-        position: res.data.position,
-        waiting: res.data.position,
-        needed: res.data.needed,
-      });
+      top3.appendChild(card);
     }
-  });
 
-  document.getElementById('btnPrivate').addEventListener('click', async () => {
-    if (!state.selectedMode || !state.selectedWeapon) return;
-    if (!state.selectedMap) {
-      // require map for private
-      setStep('map');
-      return;
-    }
-    const res = await nui('createPrivate', {
-      modeId: state.selectedMode.id,
-      mapId: state.selectedMap.id,
-      weaponId: state.selectedWeapon.id,
+    list.forEach((p, idx) => {
+      const row = document.createElement('div');
+      row.className = 'board-row' + (idx === 0 ? ' rank1' : '');
+      const bclass = badge[idx] || '';
+      row.innerHTML = `
+        <span><span class="rank-badge ${bclass}">${p.rank || idx + 1}</span></span>
+        <span class="player-cell">
+          <span class="avatar-sm">${initials(p.name)}</span>
+          ${p.gang ? `<span class="gang-tag">${p.gang}</span>` : ''}
+          <span>${p.name}</span>
+        </span>
+        <span>${p.kills || 0}</span>
+        <span>${p.deaths || 0}</span>
+        <span>${p.kd ?? '0'}</span>
+      `;
+      rows.appendChild(row);
     });
-    if (res?.ok) renderLobbyRoom(res.lobby);
-  });
+  }
 
-  document.getElementById('btnBrowse').addEventListener('click', browseLobbies);
-  document.getElementById('btnExitHub').addEventListener('click', () => nui('exitHub'));
-
-  document.getElementById('btnReady').addEventListener('click', async () => {
-    const res = await nui('setReady', {
-      ready: !state.ready,
-      weaponId: state.selectedWeapon?.id,
+  function renderLoadout() {
+    const classes = document.getElementById('loadoutClasses');
+    const weapons = document.getElementById('loadoutWeapons');
+    classes.innerHTML = '';
+    [
+      { id: 'pistols', label: 'PISTOL' },
+      { id: 'smgs', label: 'SMG' },
+      { id: 'rifles', label: 'RIFLE' },
+    ].forEach((c) => {
+      const btn = document.createElement('button');
+      btn.className = 'chip' + (state.loadoutClass === c.id ? ' selected' : '');
+      btn.textContent = c.label;
+      btn.addEventListener('click', () => {
+        state.loadoutClass = c.id;
+        renderLoadout();
+      });
+      classes.appendChild(btn);
     });
-    if (res?.ok && res.lobby) renderLobbyRoom(res.lobby);
-  });
 
-  document.getElementById('btnStart').addEventListener('click', async () => {
-    await nui('startMatch');
-  });
+    weapons.innerHTML = '';
+    const list = state.weaponsByCat[state.loadoutClass]?.weapons || [];
+    list.forEach((w) => {
+      const card = document.createElement('button');
+      card.className = 'weapon-card' + (state.create.weaponId === w.id ? ' selected' : '');
+      card.innerHTML = `<h3>${w.label}</h3><p>${w.ammo || 0} ammo</p>`;
+      card.addEventListener('click', () => {
+        state.create.weaponId = w.id;
+        state.create.weaponClass = state.loadoutClass;
+        renderLoadout();
+      });
+      weapons.appendChild(card);
+    });
+  }
 
-  document.getElementById('btnLeaveLobby').addEventListener('click', async () => {
-    await nui('leave');
-    state.lobby = null;
-    state.queue = null;
-    show(document.getElementById('lobbyRoom'), false);
-    show(document.getElementById('queueStatus'), false);
-  });
-
-  // Match HUD helpers
+  /* ---------- HUD helpers ---------- */
   function formatTime(total) {
     total = Math.max(0, Math.floor(total));
     const m = Math.floor(total / 60);
@@ -388,7 +435,6 @@
     if (!endsAt) return;
     const localNow = Math.floor(Date.now() / 1000);
     state.serverOffset = (serverNow || localNow) - localNow;
-
     const tick = () => {
       const now = Math.floor(Date.now() / 1000) + state.serverOffset;
       document.getElementById('hudTimer').textContent = formatTime(endsAt - now);
@@ -398,27 +444,16 @@
   }
 
   function updateHud(data = {}) {
-    const hud = document.getElementById('matchHud');
     if (data.modeLabel) document.getElementById('hudMode').textContent = data.modeLabel;
     if (data.mapLabel) document.getElementById('hudMap').textContent = data.mapLabel;
-
     const score = document.getElementById('hudScore');
-    if (data.scores && (data.team === 'red' || data.team === 'blue' || data.scores.red != null)) {
-      if (data.players && data.team === 'ffa') {
-        // handled below
-      } else if (data.scores.red != null) {
-        score.innerHTML = `<span class="red">RED ${data.scores.red}</span><span class="blue">BLUE ${data.scores.blue}</span>`;
-      }
+    if (data.scores && data.scores.red != null) {
+      score.innerHTML = `<span class="red">RED ${data.scores.red}</span><span class="blue">BLUE ${data.scores.blue}</span>`;
     }
-
-    if (data.players && Array.isArray(data.players)) {
-      const ffa = data.players.every((p) => p.team === 'ffa');
-      if (ffa) {
-        const top = [...data.players].sort((a, b) => (b.kills || 0) - (a.kills || 0)).slice(0, 5);
-        score.innerHTML = `<div class="ffa-list">${top.map((p) => `<span>${p.name} ${p.kills || 0}</span>`).join('')}</div>`;
-      }
+    if (data.players && data.players.every((p) => p.team === 'ffa')) {
+      const top = [...data.players].sort((a, b) => (b.kills || 0) - (a.kills || 0)).slice(0, 5);
+      score.innerHTML = top.map((p) => `<span>${p.name} ${p.kills || 0}</span>`).join(' ');
     }
-
     if (data.endsAt) startTimer(data.endsAt, data.serverNow);
   }
 
@@ -426,32 +461,84 @@
     const feed = document.getElementById('killfeed');
     const item = document.createElement('div');
     item.className = 'kill-item';
-    if (entry.killer) {
-      item.textContent = `${entry.killer} ✖ ${entry.victim}`;
-    } else {
-      item.textContent = `${entry.victim} died`;
-    }
+    item.textContent = entry.killer ? `${entry.killer} ✖ ${entry.victim}` : `${entry.victim} died`;
     feed.prepend(item);
     setTimeout(() => item.remove(), 4000);
   }
+
+  /* ---------- Events ---------- */
+  document.getElementById('btnClose').addEventListener('click', () => nui('close'));
+  document.getElementById('btnOpenCreate').addEventListener('click', () => {
+    buildCreateModal();
+    show(document.getElementById('createModal'), true);
+  });
+  document.getElementById('btnCloseCreate').addEventListener('click', () => show(document.getElementById('createModal'), false));
+  document.getElementById('btnCancelCreate').addEventListener('click', () => show(document.getElementById('createModal'), false));
+
+  document.getElementById('roundsInput').addEventListener('change', (e) => {
+    state.create.rounds = Math.max(1, Math.min(40, Number(e.target.value) || 5));
+  });
+  document.getElementById('privateCheck').addEventListener('change', (e) => {
+    state.create.private = !!e.target.checked;
+  });
+
+  document.getElementById('btnConfirmCreate').addEventListener('click', async () => {
+    state.create.rounds = Math.max(1, Math.min(40, Number(document.getElementById('roundsInput').value) || 5));
+    if (!state.create.mapId || !state.create.weaponId) return;
+    const res = await nui('createLobby', {
+      size: state.create.size,
+      style: state.create.style,
+      weaponClass: state.create.weaponClass,
+      mapId: state.create.mapId,
+      rounds: state.create.rounds,
+      private: state.create.private,
+      weaponId: state.create.weaponId,
+    });
+    if (res?.ok) {
+      show(document.getElementById('createModal'), false);
+      showRoom(res.lobby);
+    }
+  });
+
+  document.getElementById('btnFfaQueue').addEventListener('click', async () => {
+    if (!state.ffa.modeId || !state.ffa.weaponId) return;
+    const res = await nui('joinQueue', {
+      modeId: state.ffa.modeId,
+      weaponId: state.ffa.weaponId,
+      mapId: null,
+    });
+    if (res?.ok && (res.data?.type === 'lobby' || res.data?.type === 'matched')) {
+      showRoom(res.data.lobby);
+    }
+  });
+
+  document.getElementById('btnReady').addEventListener('click', async () => {
+    const res = await nui('setReady', {
+      ready: !state.ready,
+      weaponId: state.create.weaponId || state.ffa.weaponId,
+    });
+    if (res?.ok && res.lobby) showRoom(res.lobby);
+  });
+  document.getElementById('btnStart').addEventListener('click', async () => { await nui('startMatch'); });
+  document.getElementById('btnLeaveLobby').addEventListener('click', async () => {
+    await nui('leave');
+    state.lobby = null;
+    setTab('lobbies');
+  });
+
+  document.querySelectorAll('.nav-tab').forEach((btn) => {
+    btn.addEventListener('click', () => setTab(btn.dataset.tab));
+  });
 
   window.addEventListener('message', (event) => {
     const msg = event.data;
     if (!msg || !msg.action) return;
 
     switch (msg.action) {
-      case 'open':
-        openUI(msg.data || {});
-        break;
-      case 'close':
-        closeUI();
-        break;
-      case 'lobbyUpdate':
-        renderLobbyRoom(msg.data);
-        break;
-      case 'queueMatched':
-        renderLobbyRoom(msg.data);
-        break;
+      case 'open': openUI(msg.data || {}); break;
+      case 'close': closeUI(); break;
+      case 'lobbyUpdate': if (msg.data) showRoom(msg.data); break;
+      case 'queueMatched': if (msg.data) showRoom(msg.data); break;
       case 'matchHud':
         show(document.getElementById('matchHud'), !!msg.visible);
         if (msg.visible && msg.data) updateHud(msg.data);
@@ -460,9 +547,7 @@
           state.timerInterval = null;
         }
         break;
-      case 'timer':
-        startTimer(msg.endsAt, msg.serverNow);
-        break;
+      case 'timer': startTimer(msg.endsAt, msg.serverNow); break;
       case 'killfeed':
         pushKillfeed(msg.data || {});
         if (msg.data) updateHud(msg.data);
@@ -470,27 +555,14 @@
       case 'countdown': {
         const el = document.getElementById('countdown');
         const num = document.getElementById('countdownNum');
-        if (!msg.seconds) {
-          show(el, false);
-          break;
-        }
+        if (!msg.seconds) { show(el, false); break; }
         show(el, true);
         let left = msg.seconds;
         num.textContent = left;
-        num.style.animation = 'none';
-        void num.offsetWidth;
-        num.style.animation = '';
         const iv = setInterval(() => {
           left -= 1;
-          if (left <= 0) {
-            clearInterval(iv);
-            show(el, false);
-            return;
-          }
+          if (left <= 0) { clearInterval(iv); show(el, false); return; }
           num.textContent = left;
-          num.style.animation = 'none';
-          void num.offsetWidth;
-          num.style.animation = '';
         }, 1000);
         break;
       }
@@ -499,27 +571,27 @@
         break;
       case 'matchResult': {
         const wrap = document.getElementById('matchResult');
-        if (!msg.data) {
-          show(wrap, false);
-          break;
-        }
+        if (!msg.data) { show(wrap, false); break; }
         const title = document.getElementById('resultTitle');
         const sub = document.getElementById('resultSub');
-        if (msg.data.outcome === 'win') title.textContent = 'VICTORY';
-        else if (msg.data.outcome === 'loss') title.textContent = 'DEFEAT';
-        else title.textContent = 'DRAW';
+        title.textContent = msg.data.outcome === 'win' ? 'VICTORY' : msg.data.outcome === 'loss' ? 'DEFEAT' : 'DRAW';
         sub.textContent = msg.data.result?.winnerName
           || (msg.data.result?.winnerTeam ? `${msg.data.result.winnerTeam.toUpperCase()} wins` : '');
         show(wrap, true);
         setTimeout(() => show(wrap, false), 3500);
         break;
       }
-      default:
-        break;
+      default: break;
     }
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.open) nui('close');
+    if (e.key === 'Escape' && state.open) {
+      if (!document.getElementById('createModal').classList.contains('hidden')) {
+        show(document.getElementById('createModal'), false);
+      } else {
+        nui('close');
+      }
+    }
   });
 })();

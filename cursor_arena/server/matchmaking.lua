@@ -191,6 +191,66 @@ function Arena.CreatePrivateLobby(src, modeId, mapId, weaponId)
     return true, Arena.GetPublicLobby(match.id)
 end
 
+--- Create lobby from UI modal (size, style, class, map, rounds, private)
+function Arena.CreateLobbyFromUI(src, data)
+    if Arena.PlayerMatch[src] then
+        return false, 'already_in_match'
+    end
+    if not Arena.PlayerHub[src] then
+        return false, 'must_be_in_hub'
+    end
+
+    data = data or {}
+    local size = tonumber(data.size) or 1
+    local style = data.style == 'tdm' and 'tdm' or 'pvp'
+    local weaponClass = data.weaponClass or 'pistols'
+    local rounds = tonumber(data.rounds) or 5
+    local mapId = data.mapId
+    local weaponId = data.weaponId
+    local isPrivate = data.private == true
+    local password = data.password
+
+    if not Config.WeaponCategories[weaponClass] then
+        return false, 'invalid_weapon'
+    end
+
+    local map = Config.GetMap(mapId)
+    if not map then return false, 'invalid_map' end
+
+    if not weaponId then
+        return false, 'need_weapon'
+    end
+
+    local weapon = Config.FindWeapon(weaponId)
+    if not weapon then return false, 'invalid_weapon' end
+
+    -- Ensure weapon belongs to selected class
+    local _, catId = Config.FindWeapon(weaponId)
+    if catId ~= weaponClass then
+        return false, 'invalid_weapon'
+    end
+
+    local mode = Config.BuildLobbyMode(size, style, weaponClass, rounds)
+    removeFromAllQueues(src)
+
+    local match = Arena.CreateMatch(src, mode.id, mapId, {
+        private = isPrivate,
+        password = password,
+        mode = mode,
+        weaponClass = weaponClass,
+    })
+    if not match then return false, 'max_matches' end
+
+    local ok, err = Arena.JoinMatch(src, match.id, weaponId)
+    if not ok then
+        Arena.Matches[match.id] = nil
+        return false, err
+    end
+
+    Arena.SetReady(src, true, weaponId)
+    return true, Arena.GetPublicLobby(match.id)
+end
+
 function Arena.ListOpenLobbies()
     local list = {}
     for id, match in pairs(Arena.Matches) do

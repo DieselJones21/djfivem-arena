@@ -54,30 +54,25 @@ Config.EntryPed = {
 
 --[[
     Spawn lobby hub map
-    Players are teleported here from the entry ped.
-    Inside this map they press G to open the matchmaking UI.
-    After a match ends they return here (not to the world).
-    Change these coords to your lobby MLO / interior.
+    PASTE your lobby MLO / interior coords here.
+    Players land here from the entry ped. Press G for UI.
 ]]
 Config.SpawnLobby = {
-    -- Main spawn when entering the hub (pick randomly from list)
     spawns = {
+        -- PASTE HUB SPAWN POINTS (vec4 x, y, z, heading)
         vec4(405.0, -997.0, -99.0, 90.0),
         vec4(402.0, -1000.0, -99.0, 0.0),
         vec4(408.0, -1000.0, -99.0, 180.0),
         vec4(405.0, -1003.0, -99.0, 270.0),
     },
-    center = vec3(405.0, -997.0, -99.0),
-    radius = 40.0,                 -- soft bounds while in hub (optional)
+    center = vec3(405.0, -997.0, -99.0), -- PASTE hub center
+    radius = 40.0,
     enforceBounds = true,
-    -- Where to send them when they EXIT the hub back to the city
-    exitCoords = vec4(-265.0, -963.0, 31.2, 200.0),
-    -- Show on-screen hint while in hub
+    exitCoords = vec4(-265.0, -963.0, 31.2, 200.0), -- PASTE city return
     hint = true,
-    -- Optional exit ped inside the hub
     exitPed = {
         enabled = true,
-        coords = vec3(400.0, -997.0, -99.0),
+        coords = vec3(400.0, -997.0, -99.0), -- PASTE exit ped in hub
         heading = 270.0,
         model = `s_m_y_marine_01`,
         scenario = 'WORLD_HUMAN_GUARD_STAND',

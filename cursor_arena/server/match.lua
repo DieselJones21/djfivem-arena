@@ -121,7 +121,7 @@ end
 
 function Arena.CreateMatch(host, modeId, mapId, opts)
     opts = opts or {}
-    local mode = Config.GetMode(modeId)
+    local mode = opts.mode or Config.GetMode(modeId)
     local map = Config.GetMap(mapId)
     if not mode or not map then return nil, 'invalid_mode_map' end
 
@@ -137,17 +137,19 @@ function Arena.CreateMatch(host, modeId, mapId, opts)
         map = map,
         host = host,
         private = opts.private == true,
-        state = 'lobby', -- lobby | countdown | active | ended
+        password = opts.password,
+        state = 'lobby',
         players = {},
         scores = { red = 0, blue = 0 },
         round = 1,
         endsAt = nil,
         createdAt = os.time(),
         usedSpawns = {},
+        weaponClass = opts.weaponClass or mode.weaponCategory,
     }
 
     Arena.Matches[id] = match
-    Arena.Utils.Debug('Created match', id, modeId, mapId)
+    Arena.Utils.Debug('Created match', id, mode.id or modeId, mapId)
     return match
 end
 
@@ -332,6 +334,14 @@ local function endMatch(match, result)
             local reward = Config.Rewards[outcome == 'win' and 'win' or (outcome == 'loss' and 'loss' or nil)]
             if reward and reward.money then
                 Arena.Framework.AddMoney(src, reward.money)
+            end
+        end
+
+        if Arena.Stats then
+            if outcome == 'win' then
+                Arena.Stats.RecordMatchResult(src, true)
+            elseif outcome == 'loss' then
+                Arena.Stats.RecordMatchResult(src, false)
             end
         end
 
@@ -564,6 +574,10 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
                 match.scores[kp.team] = (match.scores[kp.team] or 0) + 1
             end
 
+            if Arena.Stats then
+                Arena.Stats.RecordKill(killerSrc, victim)
+            end
+
             if Config.Rewards.enabled and Config.Rewards.kill and Config.Rewards.kill.money then
                 Arena.Framework.AddMoney(killerSrc, Config.Rewards.kill.money)
             end
@@ -575,6 +589,8 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
                 })
             end
         end
+    elseif Arena.Stats then
+        Arena.Stats.RecordKill(nil, victim)
     end
 
     broadcast(match, 'cursor_arena:client:killfeed', {

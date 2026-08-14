@@ -70,6 +70,26 @@ RegisterNUICallback('createPrivate', function(data, cb)
     cb(result or { ok = false })
 end)
 
+RegisterNUICallback('createLobby', function(data, cb)
+    local result = lib.callback.await('cursor_arena:createLobby', false, data)
+    cb(result or { ok = false })
+end)
+
+RegisterNUICallback('getLeaderboard', function(_, cb)
+    local list = lib.callback.await('cursor_arena:getLeaderboard', false)
+    cb(list or {})
+end)
+
+RegisterNUICallback('getMyStats', function(_, cb)
+    local stats = lib.callback.await('cursor_arena:getMyStats', false)
+    cb(stats or {})
+end)
+
+RegisterNUICallback('getWeaponsForClass', function(data, cb)
+    local weapons = lib.callback.await('cursor_arena:getWeaponsForClass', false, data.classId)
+    cb(weapons or {})
+end)
+
 RegisterNUICallback('joinLobby', function(data, cb)
     local result = lib.callback.await('cursor_arena:joinLobby', false, data.matchId, data.weaponId)
     cb(result or { ok = false })
