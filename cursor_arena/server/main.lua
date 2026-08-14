@@ -9,6 +9,7 @@ local function requireHub(src)
 end
 
 local function bootstrapPayload(src)
+    local stats = Arena.Stats and Arena.Stats.GetPlayer(src) or { kills = 0, deaths = 0, elo = 1000, wins = 0 }
     return {
         modes = Arena.Utils.SerializeModes(),
         maps = Arena.Utils.SerializeMaps(),
@@ -29,10 +30,13 @@ local function bootstrapPayload(src)
         },
         locale = Config.Locale,
         playerId = src,
+        playerName = Arena.Framework.GetName(src),
         inHub = Arena.PlayerHub[src] == true,
         inMatch = Arena.PlayerMatch[src] ~= nil,
         queue = Arena.GetQueueStatus(src),
         openLobbies = Arena.ListOpenLobbies(),
+        stats = stats,
+        leaderboard = Arena.Stats and Arena.Stats.GetLeaderboard(25) or {},
     }
 end
 
@@ -91,6 +95,44 @@ lib.callback.register('cursor_arena:createPrivate', function(source, modeId, map
         return { ok = false, error = result, message = L(result) }
     end
     return { ok = true, lobby = result }
+end)
+
+lib.callback.register('cursor_arena:createLobby', function(source, data)
+    local hubOk, hubErr = requireHub(source)
+    if not hubOk then
+        return { ok = false, error = hubErr, message = L(hubErr) }
+    end
+    local ok, result = Arena.CreateLobbyFromUI(source, data)
+    if not ok then
+        return { ok = false, error = result, message = L(result or 'error') }
+    end
+    return { ok = true, lobby = result }
+end)
+
+lib.callback.register('cursor_arena:getLeaderboard', function()
+    return Arena.Stats and Arena.Stats.GetLeaderboard(50) or {}
+end)
+
+lib.callback.register('cursor_arena:getMyStats', function(source)
+    return Arena.Stats and Arena.Stats.GetPlayer(source) or {}
+end)
+
+lib.callback.register('cursor_arena:getWeaponsForClass', function(_, classId)
+    local cat = Config.WeaponCategories[classId]
+    if not cat then return {} end
+    local list = {}
+    for i = 1, #cat.weapons do
+        local w = cat.weapons[i]
+        list[#list + 1] = {
+            id = w.id,
+            label = w.label,
+            weapon = w.weapon,
+            ammo = w.ammo,
+            category = classId,
+            categoryLabel = cat.label,
+        }
+    end
+    return list
 end)
 
 lib.callback.register('cursor_arena:joinLobby', function(source, matchId, weaponId)

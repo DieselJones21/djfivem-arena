@@ -1,68 +1,111 @@
 Arena = Arena or {}
 Arena.Inventory = {}
 
-local stashed = {} -- [src] = true when stashed
+--[[
+    Uses ox_inventory ConfiscateInventory / ReturnInventory when available.
+    Falls back to an in-memory snapshot keyed by player identifier.
+]]
+
+local stashed = {} -- [src] = { method = 'confiscate'|'snapshot', items = optional }
 
 local function oxReady()
     return Config.OxInventory.enabled and GetResourceState('ox_inventory') == 'started'
 end
 
-function Arena.Inventory.IsStashed(src)
-    return stashed[src] == true
+local function identifier(src)
+    return Arena.Framework.GetIdentifier(src) or tostring(src)
 end
 
---- Move player items into a private stash so they cannot use street gear in arena.
+local function snapshotItems(src)
+    local items = {}
+    local inventory = exports.ox_inventory:GetInventoryItems(src)
+    if not inventory then return items end
+
+    for _, item in pairs(inventory) do
+        if item and item.name and item.count and item.count > 0 then
+            items[#items + 1] = {
+                name = item.name,
+                count = item.count,
+                metadata = item.metadata,
+                slot = item.slot,
+            }
+        end
+    end
+    return items
+end
+
+local function giveItems(src, items)
+    if not items then return end
+    for i = 1, #items do
+        local item = items[i]
+        if item and item.name and item.count and item.count > 0 then
+            local ok = exports.ox_inventory:AddItem(src, item.name, item.count, item.metadata)
+            if not ok then
+                Arena.Utils.Debug('Failed to restore item', item.name, 'for', src)
+            end
+        end
+    end
+end
+
+function Arena.Inventory.IsStashed(src)
+    return stashed[src] ~= nil
+end
+
 function Arena.Inventory.StashPlayer(src)
     if not oxReady() then return true end
     if stashed[src] then return true end
 
-    local stashId = ('%s%s'):format(Config.OxInventory.stashPrefix, src)
+    -- Preferred: built-in confiscate (stores + clears reliably across ox_inventory versions)
+    local confiscateOk = pcall(function()
+        exports.ox_inventory:ConfiscateInventory(src)
+    end)
 
-    exports.ox_inventory:RegisterStash(
-        stashId,
-        'Arena Stash',
-        Config.OxInventory.stashSlots,
-        Config.OxInventory.stashWeight,
-        Arena.Framework.GetIdentifier(src)
-    )
-
-    local inventory = exports.ox_inventory:GetInventoryItems(src)
-    if inventory then
-        for _, item in pairs(inventory) do
-            if item and item.name and item.count and item.count > 0 then
-                local success = exports.ox_inventory:AddItem(stashId, item.name, item.count, item.metadata)
-                if success then
-                    exports.ox_inventory:RemoveItem(src, item.name, item.count, item.metadata, item.slot)
-                end
-            end
-        end
+    if confiscateOk then
+        stashed[src] = { method = 'confiscate', id = identifier(src) }
+        Arena.Utils.Debug('Confiscated inventory for', src)
+        return true
     end
 
-    if Config.OxInventory.clearBeforeLoadout then
-        exports.ox_inventory:ClearInventory(src)
-    end
-
-    stashed[src] = true
-    Arena.Utils.Debug('Stashed inventory for', src)
+    -- Fallback: snapshot then clear
+    local items = snapshotItems(src)
+    exports.ox_inventory:ClearInventory(src)
+    stashed[src] = { method = 'snapshot', id = identifier(src), items = items }
+    Arena.Utils.Debug('Snapshot stashed inventory for', src, #items, 'stacks')
     return true
 end
 
 function Arena.Inventory.RestorePlayer(src)
     if not oxReady() then return true end
-    if not stashed[src] then return true end
 
-    local stashId = ('%s%s'):format(Config.OxInventory.stashPrefix, src)
+    local entry = stashed[src]
+    if not entry then
+        -- Recovery: try return even if our flag was lost (e.g. resource restart mid-match)
+        pcall(function()
+            exports.ox_inventory:ReturnInventory(src)
+        end)
+        return true
+    end
 
-    exports.ox_inventory:ClearInventory(src)
+    -- Always strip arena loadout first
+    pcall(function()
+        exports.ox_inventory:ClearInventory(src)
+    end)
 
-    local stashItems = exports.ox_inventory:GetInventoryItems(stashId)
-    if stashItems then
-        for _, item in pairs(stashItems) do
-            if item and item.name and item.count and item.count > 0 then
-                exports.ox_inventory:AddItem(src, item.name, item.count, item.metadata)
-                exports.ox_inventory:RemoveItem(stashId, item.name, item.count, item.metadata, item.slot)
+    Wait(50)
+
+    if entry.method == 'confiscate' then
+        local ok, err = pcall(function()
+            exports.ox_inventory:ReturnInventory(src)
+        end)
+        if not ok then
+            Arena.Utils.Debug('ReturnInventory failed', err)
+            -- last resort: if we somehow still have snapshot data
+            if entry.items then
+                giveItems(src, entry.items)
             end
         end
+    elseif entry.method == 'snapshot' then
+        giveItems(src, entry.items)
     end
 
     stashed[src] = nil
@@ -70,13 +113,21 @@ function Arena.Inventory.RestorePlayer(src)
     return true
 end
 
---- Give match loadout using ox_inventory weapon items.
 function Arena.Inventory.GiveLoadout(src, weaponDef)
     if not weaponDef then return false end
 
     if oxReady() then
+        -- Do NOT clear here if we already confiscated — only clear leftover loadout
         if Config.OxInventory.clearBeforeLoadout then
-            exports.ox_inventory:ClearInventory(src)
+            -- Safe clear of current (empty / partial) player inv without touching confiscated store
+            local current = exports.ox_inventory:GetInventoryItems(src)
+            if current then
+                for _, item in pairs(current) do
+                    if item and item.name and item.count and item.count > 0 then
+                        exports.ox_inventory:RemoveItem(src, item.name, item.count, item.metadata, item.slot)
+                    end
+                end
+            end
         end
 
         local metadata = {
@@ -85,10 +136,10 @@ function Arena.Inventory.GiveLoadout(src, weaponDef)
             durability = 100,
         }
 
-        local ok = exports.ox_inventory:AddItem(src, weaponDef.weapon, 1, metadata)
+        local weaponName = weaponDef.weapon
+        local ok = exports.ox_inventory:AddItem(src, weaponName, 1, metadata)
         if not ok then
-            -- Fallback: some servers register lowercase item names
-            ok = exports.ox_inventory:AddItem(src, weaponDef.weapon:lower(), 1, metadata)
+            ok = exports.ox_inventory:AddItem(src, weaponName:lower(), 1, metadata)
         end
 
         if weaponDef.ammoItem and (weaponDef.ammo or 0) > 0 then
@@ -107,16 +158,24 @@ function Arena.Inventory.GiveLoadout(src, weaponDef)
         return ok ~= false
     end
 
-    -- Standalone fallback via client
     TriggerClientEvent('cursor_arena:client:giveWeaponFallback', src, weaponDef.weapon, weaponDef.ammo or 0)
     return true
 end
 
 function Arena.Inventory.ClearLoadout(src)
-    if oxReady() then
-        exports.ox_inventory:ClearInventory(src)
-    else
+    if not oxReady() then
         TriggerClientEvent('cursor_arena:client:stripWeapons', src)
+        return
+    end
+
+    -- Only clear the active inventory (arena weapons), never touch confiscated store
+    local current = exports.ox_inventory:GetInventoryItems(src)
+    if current then
+        for _, item in pairs(current) do
+            if item and item.name and item.count and item.count > 0 then
+                exports.ox_inventory:RemoveItem(src, item.name, item.count, item.metadata, item.slot)
+            end
+        end
     end
 end
 
@@ -133,23 +192,27 @@ end
 
 AddEventHandler('playerDropped', function()
     local src = source
-    if stashed[src] and Config.OxInventory.restoreOnLeave then
-        -- Best-effort restore on disconnect; ox stash remains owned by identifier
-        stashed[src] = nil
+    if stashed[src] then
+        -- Try restore before player fully drops so items are not lost
+        Arena.Inventory.RestorePlayer(src)
     end
 end)
 
---- Admin / recovery command to restore a stuck stash
 lib.addCommand('arena_restoreinv', {
-    help = 'Restore arena-stashed inventory for a player',
+    help = 'Force-return arena confiscated inventory for a player',
     restricted = Config.Permissions.adminAce,
     params = {
         { name = 'id', type = 'playerId', help = 'Player server id' },
     },
 }, function(source, args)
     local target = args.id
-    if target then
-        Arena.Inventory.RestorePlayer(target)
-        Arena.Utils.Notify(source, { type = 'success', description = 'Inventory restore attempted.' })
+    if not target then return end
+
+    -- Force flag so RestorePlayer always attempts ReturnInventory
+    if not stashed[target] then
+        stashed[target] = { method = 'confiscate', id = identifier(target) }
     end
+    Arena.Inventory.RestorePlayer(target)
+    Arena.Utils.Notify(source, { type = 'success', description = 'Inventory restore attempted for ' .. tostring(target) })
+    Arena.Utils.Notify(target, { type = 'inform', description = L('inventory_restored') })
 end)

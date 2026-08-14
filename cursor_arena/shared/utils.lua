@@ -96,6 +96,8 @@ function Arena.Utils.SerializeModes()
             teamSize = m.teamSize,
             rounds = m.rounds,
             color = m.color,
+            tab = m.tab,
+            style = m.style,
         }
     end
     return out
