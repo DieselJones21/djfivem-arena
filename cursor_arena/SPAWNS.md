@@ -1,67 +1,12 @@
-# Maps, hub & weapons — paste list
+# Maps, hub & weapons
 
-Vanilla GTA fills are in place so the resource starts. Send (or paste) the real values below.
+| What | Coords |
+|------|--------|
+| Entry ped | `vec4(-195.96, -237.48, 30.56, 174.6)` |
+| Hub / G | `vec4(5477.79, -5853.01, 1050.58, 78.04)` radius **150** |
+| Exit ped | `vec4(5477.07, -5828.0, 1049.95, 174.18)` |
+| Clothing ped | `vec4(5499.02, -5865.86, 1050.95, 68.63)` |
 
-Use `vec4(x, y, z, heading)` for peds and spawns, `vec3(x, y, z)` for hub center, `vec2(x, y)` for fence corners.
+Maps in `config/maps.lua`: Park, Wreck, Stables, Stores, PVP Map, Rooftop. Teams are Orange and Blue.
 
-## 1) World entry ped
-
-`config/config.lua` → `Config.EntryPed.coords`
-
-Talking to this ped teleports you into the spawn lobby. It does **not** open the UI.
-
-## 2) Spawn lobby hub
-
-`Config.SpawnLobby`
-
-- `spawns` — a few `vec4` land points inside the MLO
-- `center` + `radius` — keep players inside the hub
-
-## 3) Exit ped (inside the hub)
-
-`Config.ExitPed.coords`
-
-Returns the player to the city coords they entered from.
-
-## 4) Clothing ped (inside the hub)
-
-`Config.ClothingPed.coords`
-
-Opens `illenium-appearance:client:openClothingShop` (clothing only).
-
-## 5) Maps
-
-`config/maps.lua` — for **construction**, **cargo**, and **dust** (the three used by FFA / 1v1–4v4 / TDM):
-
-```lua
-boundaries = {
-    points = { vec2(x, y), ... }, -- walk the perimeter in order
-    minZ = 0.0,
-    maxZ = 80.0,
-},
-spawns        = { vec4(...), ... }, -- FFA
-team1_spawns  = { vec4(...), ... }, -- Alpha
-team2_spawns  = { vec4(...), ... }, -- Bravo
-```
-
-`Config.Debug = true` numbers every fence corner.
-
-Points are **dealt**, not rolled — the list is shuffled and every point is used before repeats.
-
-Shipping vanilla fills:
-
-| id | Default location |
-|----|------------------|
-| `construction` | Alta construction pit |
-| `cargo` | Port of LS containers |
-| `dust` | Sandy Shores airfield |
-| `pool` | Vinewood Hills pool deck (unused by default lobbies) |
-| `rooftops` | Maze Bank West roof (unused by default lobbies) |
-
-## 6) Weapon spawn names
-
-`config/weapons.lua` — replace the `weapon = 'WEAPON_...'` field on each row with your spawn name (vanilla or addon). Labels can stay as the display name in the UI.
-
-## Interact
-
-Peds prefer `exports.interact:AddLocalEntityInteraction` (resource name `interact`). If that resource is not started, ox_target / qb-target / `[E]` are used automatically.
+Blue Wire spawn name: `WEAPON_BLUEWIRE`.

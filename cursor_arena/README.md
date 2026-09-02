@@ -6,16 +6,16 @@ PvP arenas for **Qbox + ox** servers. Players talk to a world ped, land in a spa
 
 | Mode | Rules |
 |------|--------|
-| **FFA** | Three maps (Construction, Cargo, Dust). Instant respawn. First to 30. |
-| **1v1 / 2v2 / 3v3 / 4v4** | Round elimination, one life. Pick size then map. Ranked ELO. |
-| **TDM** | Alpha vs Bravo. Instant respawn. Shared team score. |
+| **FFA** | Two arenas, 12 players. Instant respawn. First to 30. |
+| **1v1 / 2v2 / 3v3 / 4v4** | Four maps. Whole team on one spawn. One life a round. |
+| **TDM** | Same two arenas, 5v5. Instant respawn. |
 
 ## Player flow
 
 1. Interact with the **entry ped** in the city (`interact` / ox_target / `[E]`). You teleport into the spawn lobby. Inventory is **not** taken.
 2. Inside the hub, press **G** to open the Envy Arena UI.
 3. **JOIN** — pick FFA / 1v1–4v4 / TDM, a weapon, and a map, then drop in.
-4. **ROOMS** — live lobby cards. Open one to see Alpha vs Bravo before joining.
+4. **ROOMS** — live lobby cards. Open one to see Orange vs Blue before joining.
 5. **Clothing ped** in the hub opens **illenium-appearance** clothing (not character creator).
 6. **Exit ped** sends you back to the city coords you entered from.
 7. Leaving a match returns you to the **hub**, not the city.
@@ -58,11 +58,11 @@ ensure cursor_arena
 See **`SPAWNS.md`**. Vanilla GTA fills ship so it boots without your MLO. Replace:
 
 - `config/config.lua` — entry ped, hub spawns, exit ped, clothing ped
-- `config/maps.lua` — polygon fence + FFA / Alpha / Bravo spawns per map
+- `config/maps.lua` — center + radius, then FFA / Orange / Blue spawns
 - `config/weapons.lua` — `weapon = 'WEAPON_...'` spawn names
 - `config/lobbies.lua` — which maps belong to FFA / PVP / TDM
 
-`Config.Debug = true` draws the fence with numbered corners.
+`Config.Debug = true` draws the radius bubble.
 
 ## Admin
 
