@@ -158,6 +158,11 @@ end
 
 local function dealSpawn(lobby, team)
     local map = lobby.map
+    -- 1v1–4v4: whole team lands on the same mark
+    if lobby.mode == 'pvp' then
+        local list = team == 2 and map.team2_spawns or map.team1_spawns
+        return Arena.Utils.Vec4(list and list[1])
+    end
     if Arena.Utils.IsTeamMode(lobby.mode) then
         local deck = team == 2 and lobby.decks.team2 or lobby.decks.team1
         local list = team == 2 and map.team2_spawns or map.team1_spawns

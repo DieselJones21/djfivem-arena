@@ -6,9 +6,9 @@ PvP arenas for **Qbox + ox** servers. Players talk to a world ped, land in a spa
 
 | Mode | Rules |
 |------|--------|
-| **FFA** | Two arenas. Instant respawn. First to 30. |
-| **1v1 / 2v2 / 3v3 / 4v4** | Four maps. One life a round. Ranked ELO. |
-| **TDM** | Same two arenas as FFA. Alpha vs Bravo. |
+| **FFA** | Two arenas, 12 players. Instant respawn. First to 30. |
+| **1v1 / 2v2 / 3v3 / 4v4** | Four maps. Whole team on one spawn. One life a round. |
+| **TDM** | Same two arenas, 5v5. Instant respawn. |
 
 ## Player flow
 
@@ -58,11 +58,11 @@ ensure cursor_arena
 See **`SPAWNS.md`**. Vanilla GTA fills ship so it boots without your MLO. Replace:
 
 - `config/config.lua` — entry ped, hub spawns, exit ped, clothing ped
-- `config/maps.lua` — polygon fence + FFA / Alpha / Bravo spawns per map
+- `config/maps.lua` — center + radius, then FFA / Alpha / Bravo spawns
 - `config/weapons.lua` — `weapon = 'WEAPON_...'` spawn names
 - `config/lobbies.lua` — which maps belong to FFA / PVP / TDM
 
-`Config.Debug = true` draws the fence with numbered corners.
+`Config.Debug = true` draws the radius bubble.
 
 ## Admin
 

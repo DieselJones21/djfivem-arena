@@ -43,8 +43,8 @@
       { id: 'ar', label: 'AR', weapons: [{ id: 'kissar', label: 'Kiss AR', weapon: 'WEAPON_KISSAR' }] },
     ],
     lobbies: [
-      { id: 'ffa_arena_1', name: 'FFA', mode: 'ffa', mapId: 'arena_1', mapName: 'Arena 1', mapImage: 'assets/map_construction.svg', playerCount: 6, maxPlayers: 16, killsToWin: 30, state: 'active', sizeLabel: 'FFA', players: [{ id: 1, name: 'Diesel', kills: 8, deaths: 2, team: 0 }] },
-      { id: 'ffa_arena_2', name: 'FFA', mode: 'ffa', mapId: 'arena_2', mapName: 'Arena 2', mapImage: 'assets/map_warehouse.svg', playerCount: 2, maxPlayers: 16, killsToWin: 30, state: 'waiting', sizeLabel: 'FFA', players: [] },
+      { id: 'ffa_arena_1', name: 'FFA', mode: 'ffa', mapId: 'arena_1', mapName: 'Arena 1', mapImage: 'assets/map_construction.svg', playerCount: 6, maxPlayers: 12, killsToWin: 30, state: 'active', sizeLabel: 'FFA', players: [{ id: 1, name: 'Diesel', kills: 8, deaths: 2, team: 0 }] },
+      { id: 'ffa_arena_2', name: 'FFA', mode: 'ffa', mapId: 'arena_2', mapName: 'Arena 2', mapImage: 'assets/map_warehouse.svg', playerCount: 2, maxPlayers: 12, killsToWin: 30, state: 'waiting', sizeLabel: 'FFA', players: [] },
       { id: 'pvp_1v1_pvp_1', name: '1v1', mode: 'pvp', mapId: 'pvp_1', mapName: 'PVP 1', mapImage: 'assets/map_construction.svg', playerCount: 1, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'waiting', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', kills: 0, deaths: 0, team: 1 }] },
       { id: 'pvp_1v1_pvp_2', name: '1v1', mode: 'pvp', mapId: 'pvp_2', mapName: 'PVP 2', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'idle', sizeLabel: '1v1', players: [] },
       { id: 'pvp_1v1_pvp_3', name: '1v1', mode: 'pvp', mapId: 'pvp_3', mapName: 'PVP 3', mapImage: 'assets/map_docks.svg', playerCount: 2, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'active', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', team: 1 }, { id: 2, name: 'Nova', team: 2 }] },
@@ -61,8 +61,8 @@
       { id: 'pvp_4v4_pvp_2', name: '4v4', mode: 'pvp', mapId: 'pvp_2', mapName: 'PVP 2', mapImage: 'assets/map_warehouse.svg', playerCount: 4, maxPlayers: 8, maxPlayersPerTeam: 4, roundsToWin: 4, sizeLabel: '4v4', state: 'waiting', players: [] },
       { id: 'pvp_4v4_pvp_3', name: '4v4', mode: 'pvp', mapId: 'pvp_3', mapName: 'PVP 3', mapImage: 'assets/map_docks.svg', playerCount: 0, maxPlayers: 8, maxPlayersPerTeam: 4, roundsToWin: 4, sizeLabel: '4v4', state: 'idle', players: [] },
       { id: 'pvp_4v4_pvp_4', name: '4v4', mode: 'pvp', mapId: 'pvp_4', mapName: 'PVP 4', mapImage: 'assets/map_ring.svg', playerCount: 8, maxPlayers: 8, maxPlayersPerTeam: 4, roundsToWin: 4, sizeLabel: '4v4', state: 'active', players: [] },
-      { id: 'tdm_arena_1', name: 'TDM', mode: 'tdm', mapId: 'arena_1', mapName: 'Arena 1', mapImage: 'assets/map_construction.svg', playerCount: 8, maxPlayers: 16, killsToWin: 50, state: 'active', sizeLabel: 'TDM', scores: { 1: 22, 2: 18 }, players: [{ id: 1, name: 'Diesel', kills: 7, deaths: 3, team: 1 }] },
-      { id: 'tdm_arena_2', name: 'TDM', mode: 'tdm', mapId: 'arena_2', mapName: 'Arena 2', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 16, killsToWin: 50, state: 'idle', sizeLabel: 'TDM', players: [] },
+      { id: 'tdm_arena_1', name: 'TDM', mode: 'tdm', mapId: 'arena_1', mapName: 'Arena 1', mapImage: 'assets/map_construction.svg', playerCount: 8, maxPlayers: 10, maxPlayersPerTeam: 5, killsToWin: 50, state: 'active', sizeLabel: 'TDM', scores: { 1: 22, 2: 18 }, players: [{ id: 1, name: 'Diesel', kills: 7, deaths: 3, team: 1 }] },
+      { id: 'tdm_arena_2', name: 'TDM', mode: 'tdm', mapId: 'arena_2', mapName: 'Arena 2', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 10, maxPlayersPerTeam: 5, killsToWin: 50, state: 'idle', sizeLabel: 'TDM', players: [] },
     ],
     stats: { ffa: { elo: 1000 }, pvp: { elo: 1120 } },
     leaderboard: {
