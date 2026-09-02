@@ -26,12 +26,14 @@
 html, body {
   width: 100%; height: 100%; overflow: hidden;
   background: transparent; color: var(--text); font-family: var(--font); user-select: none;
+  pointer-events: none;
 }
 body.preview {
   background:
     radial-gradient(ellipse at 12% 0%, rgba(0, 90, 100, 0.4), transparent 48%),
     radial-gradient(ellipse at 92% 80%, rgba(0, 40, 55, 0.5), transparent 46%),
     #05070a;
+  pointer-events: auto;
 }
 .hidden { display: none !important; pointer-events: none !important; }
 button { font-family: inherit; cursor: pointer; }
@@ -40,6 +42,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute; inset: 0;
   display: grid; place-items: center;
   background: rgba(0, 0, 0, 0.46);
+  pointer-events: auto;
 }
 .frame {
   width: min(1360px, 96vw);
@@ -362,11 +365,14 @@ button { font-family: inherit; cursor: pointer; }
   background: linear-gradient(180deg, var(--cyan), var(--cyan-2)); color: #041014;
   box-shadow: var(--cyan-glow);
 }
-.btn-cta:hover { filter: brightness(1.08); }
+.btn-cta:disabled { opacity: 0.55; cursor: default; filter: none; }
+.btn-cta:hover:not(:disabled) { filter: brightness(1.08); }
 .btn-ghost {
   border: 1px solid var(--line); background: rgba(255,255,255,0.04); color: var(--text);
   border-radius: 10px; padding: 10px 14px; font-weight: 700;
 }
+.btn-ghost.danger { border-color: rgba(255,77,90,0.45); color: #fca5a5; }
+.btn-ghost.danger:hover { background: rgba(255,77,90,0.12); color: #fff; }
 
 .room-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .room-card {
@@ -458,6 +464,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .loadout-card { width: min(520px, 94vw); }
 .drawer-x { position: absolute; right: 12px; top: 12px; }
+.sala-head .card-tag { margin-bottom: 8px; }
 .sala-head h2 { font-size: 1.6rem; }
 .sala-head p { color: var(--muted); margin-top: 4px; margin-bottom: 18px; }
 .sala-vs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 14px; align-items: start; }
@@ -475,6 +482,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .t1 .av { background: var(--orange-soft); color: var(--orange); }
 .t2 .av { background: var(--blue-soft); color: var(--blue); }
+.slot.me { border: 1px solid rgba(0,242,255,0.35); background: var(--cyan-soft); }
 .slot.empty { color: var(--muted); font-weight: 500; }
 .sala-ffa { display: grid; gap: 6px; }
 .sala-foot { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
@@ -483,10 +491,16 @@ button { font-family: inherit; cursor: pointer; }
 .match-hud { position: absolute; inset: 0; pointer-events: none; z-index: 15; }
 .hud-bar {
   position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
-  min-width: 340px; background: rgba(6, 8, 12, 0.86);
-  border: 1px solid var(--line); border-radius: 999px; padding: 8px 18px;
+  min-width: 360px; background: rgba(6, 8, 12, 0.88);
+  border: 1px solid var(--line); border-radius: 999px; padding: 10px 22px 8px;
   display: flex; align-items: center; justify-content: center; gap: 18px;
   box-shadow: var(--cyan-glow);
+  flex-wrap: wrap;
+}
+.hud-map {
+  position: absolute; left: 50%; top: 100%; transform: translate(-50%, 8px);
+  font-size: 0.62rem; letter-spacing: 0.16em; color: var(--muted); font-weight: 800;
+  white-space: nowrap;
 }
 .hud-side { display: flex; align-items: center; gap: 8px; }
 .hud-score { font-size: 1.7rem; font-weight: 800; }
@@ -507,12 +521,14 @@ button { font-family: inherit; cursor: pointer; }
 .killfeed { position: absolute; right: 24px; top: 90px; width: 280px; display: flex; flex-direction: column; gap: 6px; }
 .kill-item {
   background: rgba(6,8,12,0.82); border-left: 3px solid var(--cyan);
-  padding: 7px 10px; border-radius: 0 8px 8px 0; font-size: 0.82rem;
+  padding: 7px 10px; border-radius: 0 10px 10px 0; font-size: 0.82rem;
+  backdrop-filter: blur(8px);
 }
 .kill-item .wep { color: var(--muted); font-size: 0.7rem; margin: 0 6px; }
 .team-panel {
-  position: absolute; left: 18px; top: 110px; width: 180px;
-  background: rgba(6,8,12,0.78); border: 1px solid var(--line); border-radius: 12px; padding: 8px;
+  position: absolute; left: 18px; top: 110px; width: 190px;
+  background: rgba(6,8,12,0.78); border: 1px solid var(--line); border-radius: 14px; padding: 10px;
+  backdrop-filter: blur(10px);
 }
 .team-panel h4 { font-size: 0.68rem; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 6px; }
 .tp-row { display: flex; justify-content: space-between; padding: 4px 2px; font-size: 0.8rem; }
@@ -527,6 +543,25 @@ button { font-family: inherit; cursor: pointer; }
   text-align: center; z-index: 26; pointer-events: none; animation: slamX 700ms ease both;
 }
 .streak strong { font-size: 3rem; letter-spacing: 0.08em; text-shadow: 0 0 28px rgba(0,242,255,0.55); }
+.waiting, .round-banner {
+  position: absolute; inset: 0; display: grid; place-items: center; align-content: center;
+  z-index: 27; pointer-events: none; gap: 6px; text-align: center;
+}
+.waiting { background: rgba(0,0,0,0.38); }
+.waiting small, .round-banner small {
+  letter-spacing: 0.22em; color: var(--cyan); font-weight: 800; font-size: 0.72rem;
+}
+.waiting strong, .round-banner strong {
+  font-size: clamp(2.4rem, 7vw, 4.2rem); letter-spacing: 0.08em;
+  text-shadow: 0 0 28px rgba(0,242,255,0.45);
+}
+.waiting p { color: var(--muted); font-weight: 600; }
+.waiting .result-logo { height: 64px; margin-bottom: 4px; }
+.round-banner { animation: slam 700ms ease both; }
+.match-result.win .result-card h2 { color: var(--cyan); }
+.match-result.loss .result-card h2 { color: #ff8a96; }
+.loadout-card .card-tag { margin-bottom: 8px; }
+.loadout-card .sec-help { margin-bottom: 12px; }
 .countdown, .death-overlay, .match-result, .bounds {
   position: absolute; inset: 0; display: grid; place-items: center; z-index: 28; pointer-events: none;
 }

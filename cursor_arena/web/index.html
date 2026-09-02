@@ -76,7 +76,7 @@
                 <img class="hero-mark" src="assets/envy-logo.png" alt="" />
                 <div class="hero-copy">
                   <h1>ENVY ARENA</h1>
-                  <p>Neon nights. Private buckets. Unlimited ammo — your inventory stays on you.</p>
+                  <p>Private buckets. Unlimited ammo. Your inventory stays on you.</p>
                   <span class="hero-pill">Shop maps below →</span>
                 </div>
               </div>
@@ -210,8 +210,9 @@
     <div class="sala">
       <button class="icon-exit drawer-x" id="btnCloseSala">✕</button>
       <header class="sala-head">
+        <span class="card-tag cyan" id="salaTag">ROOM</span>
         <h2 id="salaName">Room</h2>
-        <p id="salaMeta">1v1 · Construction</p>
+        <p id="salaMeta">1v1 · Stables</p>
       </header>
       <div class="sala-vs">
         <div class="team-col t1">
@@ -226,7 +227,7 @@
       </div>
       <div class="sala-ffa hidden" id="salaFfa"></div>
       <div class="sala-foot">
-        <button class="btn-ghost" id="btnLeaveSala">← LEAVE</button>
+        <button class="btn-ghost" id="btnLeaveSala">← BACK</button>
         <button class="btn-ghost" id="btnSwapTeam">⇄ CHANGE TEAM</button>
         <button class="btn-cta" id="btnConfirmJoin">Join</button>
       </div>
@@ -235,7 +236,9 @@
 
   <div class="loadout-modal hidden" id="loadoutModal">
     <div class="loadout-card">
+      <span class="card-tag cyan">IN MATCH</span>
       <h2>Change loadout</h2>
+      <p class="sec-help">Equips on your next life in elimination, or immediately in FFA / TDM.</p>
       <div class="chip-row" id="liveLoadouts"></div>
       <div class="chip-row" id="liveWeapons"></div>
       <div class="sala-foot">
@@ -257,6 +260,16 @@
   <div id="streak" class="streak hidden">
     <small id="streakName"></small>
     <strong id="streakLabel">DOUBLE KILL</strong>
+  </div>
+  <div id="waiting" class="waiting hidden">
+    <img class="result-logo" src="assets/envy-logo.png" alt="" />
+    <small>ENVY ARENA</small>
+    <strong id="waitingTitle">WAITING</strong>
+    <p id="waitingSub">Need an opponent to start</p>
+  </div>
+  <div id="roundBanner" class="round-banner hidden">
+    <small id="roundBannerSub"></small>
+    <strong id="roundBannerTitle">ROUND 2</strong>
   </div>
   <div id="countdown" class="countdown hidden">
     <small id="countdownRound"></small>

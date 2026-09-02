@@ -16,7 +16,7 @@ Config.Loadouts = {
             { id = 'g45',      label = 'G45',          weapon = 'WEAPON_G45',      ammo = 250 },
             { id = 'spiderap', label = 'Spider AP',    weapon = 'WEAPON_SPIDERAP', ammo = 250 },
             { id = 'snakeap',  label = 'Snake AP',     weapon = 'WEAPON_SNAKEAP',  ammo = 250 },
-            { id = 'bluewire', label = 'Blue Wire', weapon = 'WEAPON_BLUEWIRE', ammo = 250 },
+            { id = 'bluewire', label = 'Blue Wire',     weapon = 'WEAPON_BLUEWIRE', ammo = 250 },
         },
     },
     {

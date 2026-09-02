@@ -77,6 +77,9 @@ RegisterNUICallback('leaveLobby', function(_, cb)
     local result = lib.callback.await('cursor_arena:leaveLobby', false) or { ok = true }
     cb(result)
     Arena.Client.CloseUI()
+    if Arena.Client.inHub and not Arena.Client.inArena and Arena.Client.ShowHubHint then
+        Arena.Client.ShowHubHint()
+    end
 end)
 
 RegisterNUICallback('setTeam', function(data, cb)
@@ -105,6 +108,15 @@ end)
 
 RegisterNUICallback('getHistory', function(_, cb)
     cb(lib.callback.await('cursor_arena:getHistory', false) or {})
+end)
+
+RegisterNUICallback('closeLoadout', function(_, cb)
+    Arena.Client.loadoutOpen = false
+    if not Arena.Client.uiOpen then
+        SetNuiFocus(false, false)
+    end
+    SendNUIMessage({ action = 'closeLoadout' })
+    cb({ ok = true })
 end)
 
 RegisterNetEvent('cursor_arena:client:openLoadout', function()

@@ -85,10 +85,8 @@ function Arena.Client.ShowHubHint()
 end
 
 function Arena.Client.HideHubHint()
-    if hubHintShown then
-        lib.hideTextUI()
-        hubHintShown = false
-    end
+    lib.hideTextUI()
+    hubHintShown = false
 end
 
 function Arena.Client.EnterHub(silent)
@@ -204,6 +202,7 @@ CreateThread(function()
     if GetResourceState('interact') == 'started' or GetResourceState('ox_target') == 'started' or GetResourceState('qb-target') == 'started' then
         return
     end
+    local promptShown = false
     while true do
         local sleep = 800
         local coords = GetEntityCoords(PlayerPedId())
@@ -229,6 +228,11 @@ CreateThread(function()
         end
         if shown then
             lib.showTextUI(shown, { position = 'left-center' })
+            promptShown = true
+        elseif promptShown then
+            lib.hideTextUI()
+            promptShown = false
+            Arena.Client.ShowHubHint()
         end
         Wait(sleep)
     end

@@ -76,3 +76,14 @@ add_ace group.admin arena.admin allow
 Hooks: `server/open_sv.lua`, `client/open_cl.lua`.
 
 Exports: `IsInArena()`, `IsInHub()`, `ShouldBlockAmbulance()`. State bags: `in_arena`, `arenaHub`, `arena_mode`, `arena_lobby`, `arena_team`, `arena_down`, `arena_spectator`.
+
+## Changelog
+
+### 2.3.0
+- HUD: waiting overlay, map name, round `1/5`, round-end banner, you-highlighted slots
+- Rooms drawer: Leave match / Change team while queued; Join disabled once you are in
+- Match start: hide overlays before dropping NUI focus so they cannot steal clicks
+- Hub `[G]` hint always dismissed when walking away from the hub
+- Spectate: empty teammate list no longer aborts 2v2+ waiting
+- Spawn armour set to 0 (wasabi PvP)
+- Loadout cancel uses `closeLoadout` instead of closing the whole lobby

@@ -17,7 +17,7 @@
     boardMode: 'ffa',
     boardSort: 'wins',
     mode: '1v1',
-    mapId: 'arena_1',
+    mapId: 'pvp_1',
     roomQuery: '',
     playerName: 'Player',
     lobbies: [],
@@ -26,6 +26,8 @@
     leaderboard: { ffa: [], tdm: [], pvp: [], showdown: [] },
     history: [],
     selected: null,
+    playerId: null,
+    currentLobbyId: null,
     pick: { loadoutId: null, weaponId: null, team: 1 },
     livePick: { loadoutId: null, weaponId: null },
     hudEndsAt: 0,
@@ -79,8 +81,8 @@
       tdm: [],
     },
     history: [
-      { lobby_name: '1v1 Construction', mode: 'pvp', won: 1, kills: 6, deaths: 2, scoreline: '5-3', elo_change: 18 },
-      { lobby_name: 'Dust TDM', mode: 'tdm', won: 0, kills: 9, deaths: 8, scoreline: '41-50', elo_change: 0 },
+      { lobby_name: '1v1 Stables', mode: 'pvp', won: 1, kills: 6, deaths: 2, scoreline: '5-3', elo_change: 18 },
+      { lobby_name: 'Park TDM', mode: 'tdm', won: 0, kills: 9, deaths: 8, scoreline: '41-50', elo_change: 0 },
     ],
   };
 
@@ -135,12 +137,25 @@
 
   function setTab(tab) {
     state.tab = tab;
+    show($('sala'), false);
     document.querySelectorAll('.nav-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === `page-${tab}`));
     if (tab === 'join') renderJoin();
     if (tab === 'rooms') renderRooms();
-    if (tab === 'ranking') renderBoard();
-    if (tab === 'history') renderHistory();
+    if (tab === 'ranking') {
+      renderBoard();
+      nui('getLeaderboard', { mode: state.boardMode }).then((list) => {
+        if (list) state.leaderboard[state.boardMode] = list;
+        if (state.tab === 'ranking') renderBoard();
+      });
+    }
+    if (tab === 'history') {
+      renderHistory();
+      nui('getHistory').then((list) => {
+        if (list) state.history = list;
+        if (state.tab === 'history') renderHistory();
+      });
+    }
   }
 
   function renderJoin() {
@@ -210,6 +225,8 @@
       btn.addEventListener('click', () => { state.mapId = m.mapId; renderJoin(); });
       pick.appendChild(btn);
     });
+    const joinCta = $('btnJoinArena');
+    if (joinCta) joinCta.disabled = !lobby || !state.pick.weaponId;
   }
 
   function renderRooms() {
@@ -240,7 +257,7 @@
           <div class="room-host">${l.players?.[0]?.name || 'Waiting for fighters'}</div>
           <div class="room-actions">
             <span class="room-info">Info</span>
-            <span class="room-add">Join</span>
+            <span class="room-add">${state.currentLobbyId === l.id ? 'Yours' : 'Join'}</span>
           </div>
         </div>`;
       card.addEventListener('click', () => openSala(l));
@@ -250,7 +267,8 @@
 
   function slotHtml(p, empty) {
     if (!p) return `<div class="slot empty">${empty}</div>`;
-    return `<div class="slot"><span class="av">${initials(p.name)}</span><span>${p.name}</span></div>`;
+    const me = state.playerId != null && p.id === state.playerId;
+    return `<div class="slot ${me ? 'me' : ''}"><span class="av">${initials(p.name)}</span><span>${p.name}${me ? ' · you' : ''}</span></div>`;
   }
 
   function salaIsOpen() {
@@ -271,6 +289,18 @@
     show($('salaFfa'), !teamMode);
     document.querySelector('.sala-vs').classList.toggle('hidden', !teamMode);
     show($('btnSwapTeam'), teamMode);
+    const inThis = state.currentLobbyId && state.currentLobbyId === lobby.id;
+    if ($('salaTag')) $('salaTag').textContent = inThis ? 'YOUR ROOM' : (isLive(lobby) ? 'LIVE' : 'ROOM');
+    const joinBtn = $('btnConfirmJoin');
+    const leaveBtn = $('btnLeaveSala');
+    if (joinBtn) {
+      joinBtn.textContent = inThis ? 'In room' : 'Join';
+      joinBtn.disabled = !!inThis;
+    }
+    if (leaveBtn) {
+      leaveBtn.textContent = inThis ? '← LEAVE MATCH' : '← BACK';
+      leaveBtn.classList.toggle('danger', !!inThis);
+    }
     const players = lobby.players || [];
     if (teamMode) {
       const cap = lobby.maxPlayersPerTeam || Math.ceil((lobby.maxPlayers || 2) / 2);
@@ -344,17 +374,33 @@
     });
   }
 
+  let joining = false;
   async function joinSelected(lobby) {
-    if (!lobby) return;
-    show($('sala'), false);
-    const res = await nui('joinLobby', {
-      lobbyId: lobby.id,
-      loadoutId: state.pick.loadoutId,
-      weaponId: state.pick.weaponId,
-      team: state.pick.team,
-    });
-    if (res?.ok) {
-      hideUI();
+    if (!lobby || joining) return;
+    joining = true;
+    const joinBtn = $('btnConfirmJoin');
+    const arenaBtn = $('btnJoinArena');
+    if (joinBtn) joinBtn.disabled = true;
+    if (arenaBtn) arenaBtn.disabled = true;
+    try {
+      const res = await nui('joinLobby', {
+        lobbyId: lobby.id,
+        loadoutId: state.pick.loadoutId,
+        weaponId: state.pick.weaponId,
+        team: state.pick.team,
+      });
+      if (res?.ok) {
+        state.currentLobbyId = lobby.id;
+        hideUI();
+      }
+    } finally {
+      joining = false;
+      if (joinBtn) {
+        const inThis = state.currentLobbyId && state.selected?.id === state.currentLobbyId;
+        joinBtn.disabled = !!inThis;
+        if (!inThis) joinBtn.textContent = 'Join';
+      }
+      if (arenaBtn) arenaBtn.disabled = false;
     }
   }
 
@@ -372,6 +418,8 @@
 
   function openUI(data) {
     state.open = true;
+    state.playerId = data.playerId || null;
+    state.currentLobbyId = data.current && data.current.id ? data.current.id : state.currentLobbyId;
     state.playerName = data.playerName || 'Player';
     state.loadouts = data.loadouts || [];
     state.lobbies = data.lobbies || [];
@@ -383,6 +431,16 @@
     fillPlayerChrome();
     show($('app'), true);
     setTab(state.tab || 'join');
+  }
+
+  function hideMatchChrome() {
+    show($('waiting'), false);
+    show($('roundBanner'), false);
+    show($('countdown'), false);
+    show($('bounds'), false);
+    show($('deathOverlay'), false);
+    show($('spectateBar'), false);
+    show($('matchResult'), false);
   }
 
   function hideUI() {
@@ -417,20 +475,34 @@
   });
   document.querySelectorAll('.js-close').forEach((btn) => btn.addEventListener('click', closeUI));
   $('btnCloseSala').addEventListener('click', () => show($('sala'), false));
-  $('btnLeaveSala').addEventListener('click', () => show($('sala'), false));
+  $('btnLeaveSala').addEventListener('click', async () => {
+    if (state.currentLobbyId && state.selected?.id === state.currentLobbyId) {
+      await nui('leaveLobby');
+      state.currentLobbyId = null;
+      hideUI();
+      return;
+    }
+    show($('sala'), false);
+  });
   $('teamWrap').addEventListener('click', (e) => {
     const btn = e.target.closest('.vis-btn');
     if (!btn) return;
     state.pick.team = Number(btn.dataset.team);
     renderJoin();
   });
-  $('btnSwapTeam').addEventListener('click', () => {
-    state.pick.team = state.pick.team === 1 ? 2 : 1;
+  $('btnSwapTeam').addEventListener('click', async () => {
+    const next = state.pick.team === 1 ? 2 : 1;
+    state.pick.team = next;
+    if (state.currentLobbyId && state.selected?.id === state.currentLobbyId) {
+      const res = await nui('setTeam', { team: next });
+      if (res && res.ok === false) state.pick.team = next === 1 ? 2 : 1;
+    }
+    if (state.selected) openSala(state.selected);
   });
   $('btnJoinArena').addEventListener('click', () => joinSelected(lobbyForPick()));
   $('btnConfirmJoin').addEventListener('click', () => joinSelected(state.selected));
   $('roomSearch').addEventListener('input', (e) => { state.roomQuery = e.target.value; renderRooms(); });
-  $('btnCancelLoadout').addEventListener('click', () => { show($('loadoutModal'), false); nui('close'); });
+  $('btnCancelLoadout').addEventListener('click', () => { show($('loadoutModal'), false); nui('closeLoadout'); });
   $('btnApplyLoadout').addEventListener('click', async () => {
     await nui('changeLoadout', state.livePick);
     show($('loadoutModal'), false);
@@ -447,15 +519,26 @@
   function renderHud(data) {
     if (!data) return;
     const me = data.me || {};
+    const waiting = data.waiting || data.state === 'waiting' || data.state === 'idle';
+    show($('waiting'), waiting);
+    if (waiting) {
+      $('waitingTitle').textContent = 'WAITING';
+      $('waitingSub').textContent = data.mode === 'ffa' || data.mode === 'tdm'
+        ? 'Need one more fighter to start'
+        : 'Need both Orange and Blue to start';
+    }
+    const mapBit = data.mapName ? `<div class="hud-map">${(data.sizeLabel || data.mode || '').toUpperCase()} · ${(data.mapName || '').toUpperCase()}</div>` : '';
     if (data.mode === 'tdm' || data.mode === 'pvp' || data.mode === 'showdown') {
       state.hudEndsAt = data.endsAt || state.hudEndsAt;
+      const roundLabel = data.roundsToWin ? `${data.round || 1}/${data.roundsToWin}` : `${data.round || 1}`;
       $('scorePlate').innerHTML = `
         <div class="hud-side"><span class="hud-tag t1">ORANGE</span><span class="hud-score">${data.scores?.[1] || 0}</span></div>
         <div class="hud-timer">
-          <span class="hud-round">${data.round || 1}</span>
+          <span class="hud-round">${roundLabel}</span>
           <div class="hud-ring">${fmtTime(state.hudEndsAt)}</div>
         </div>
-        <div class="hud-side"><span class="hud-score">${data.scores?.[2] || 0}</span><span class="hud-tag t2">BLUE</span></div>`;
+        <div class="hud-side"><span class="hud-score">${data.scores?.[2] || 0}</span><span class="hud-tag t2">BLUE</span></div>
+        ${mapBit}`;
     } else {
       const sorted = [...(data.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0));
       const place = Math.max(1, sorted.findIndex((p) => p.id === me.id) + 1 || 1);
@@ -464,24 +547,36 @@
           <div class="mode">FREE FOR ALL</div>
           <div class="hud-score">${me.kills || 0}</div>
           <div class="mode">#${place} · ${data.killsToWin || 30} TO WIN</div>
-        </div>`;
+        </div>
+        ${mapBit}`;
     }
     const panel = $('teamPanel');
-    if (data.teamPanel) {
+    if (data.teamPanel && !waiting) {
       show(panel, true);
       const mine = (data.players || []).filter((p) => p.team === data.team);
-      panel.innerHTML = `<h4>YOUR SIDE</h4>` + mine.map((p) => `
-        <div class="tp-row ${p.alive === false ? 'down' : ''}"><span>${p.name}</span><span>${p.alive === false ? '✕' : '●'}</span></div>`).join('');
+      const label = data.team === 1 ? 'ORANGE' : data.team === 2 ? 'BLUE' : 'YOUR SIDE';
+      panel.innerHTML = `<h4>${label}</h4>` + mine.map((p) => `
+        <div class="tp-row ${p.alive === false ? 'down' : ''}"><span>${p.name}${data.titles && p.title ? ` · ${p.title}` : ''}</span><span>${p.alive === false ? '✕' : '●'}</span></div>`).join('');
     } else show(panel, false);
   }
 
   window.addEventListener('message', (event) => {
     const msg = event.data || {};
-    if (msg.action === 'open') { show($('matchHud'), false); openUI(msg.data || {}); }
+    if (msg.action === 'open') { show($('matchHud'), false); hideMatchChrome(); openUI(msg.data || {}); }
     if (msg.action === 'close') hideUI();
     if (msg.action === 'closeLoadout') show($('loadoutModal'), false);
     if (msg.action === 'refreshLobbies') {
-      nui('listLobbies').then((list) => { if (list) { state.lobbies = list; if (state.open) setTab(state.tab); } });
+      nui('listLobbies').then((list) => {
+        if (!list) return;
+        state.lobbies = list;
+        if (!state.open) return;
+        if (state.tab === 'join') renderJoin();
+        if (state.tab === 'rooms') renderRooms();
+        if (salaIsOpen() && state.selected) {
+          const next = list.find((l) => l.id === state.selected.id);
+          if (next) openSala(next);
+        }
+      });
     }
     if (msg.action === 'lobbyUpdate' && msg.data) {
       state.lobbies = state.lobbies.map((l) => l.id === msg.data.id ? msg.data : l);
@@ -496,6 +591,10 @@
     }
     if (msg.action === 'matchHud') {
       if (msg.visible) hideUI();
+      else {
+        hideMatchChrome();
+        state.currentLobbyId = null;
+      }
       show($('matchHud'), !!msg.visible);
       if (msg.visible && msg.data) renderHud(msg.data);
     }
@@ -524,6 +623,7 @@
     }
     if (msg.action === 'countdown') {
       hideUI();
+      show($('waiting'), false);
       if (!msg.seconds) { show($('countdown'), false); return; }
       $('countdownRound').textContent = msg.round ? `ROUND ${msg.round}` : '';
       show($('countdown'), true);
@@ -538,6 +638,15 @@
     }
     if (msg.action === 'bounds') { show($('bounds'), !!msg.visible); if (msg.visible) $('boundsNum').textContent = msg.seconds; }
     if (msg.action === 'deathOverlay') show($('deathOverlay'), !!msg.visible);
+    if (msg.action === 'roundBanner') {
+      if (msg.visible === false) { show($('roundBanner'), false); return; }
+      show($('waiting'), false);
+      $('roundBannerTitle').textContent = msg.round ? `ROUND ${msg.round}` : 'ROUND';
+      $('roundBannerSub').textContent = msg.winnerTeam === 1 ? 'ORANGE TOOK IT' : msg.winnerTeam === 2 ? 'BLUE TOOK IT' : '';
+      show($('roundBanner'), true);
+      clearTimeout($('roundBanner')._t);
+      $('roundBanner')._t = setTimeout(() => show($('roundBanner'), false), 2200);
+    }
     if (msg.action === 'spectate') {
       show($('spectateBar'), !!msg.visible);
       if (msg.name) $('spectateName').textContent = msg.name;
@@ -545,16 +654,23 @@
     }
     if (msg.action === 'matchResult') {
       if (!msg.data) { show($('matchResult'), false); return; }
+      const el = $('matchResult');
+      el.className = `match-result ${msg.data.outcome || ''}`;
       $('resultTitle').textContent = msg.data.outcome === 'win' ? 'VICTORY' : msg.data.outcome === 'loss' ? 'DEFEAT' : 'DRAW';
       $('resultSub').textContent = msg.data.result?.scoreline ? `Score ${msg.data.result.scoreline}` : '';
       $('resultElo').textContent = msg.data.eloChange ? `${msg.data.eloChange > 0 ? '+' : ''}${msg.data.eloChange} ELO` : '';
-      show($('matchResult'), true);
-      setTimeout(() => show($('matchResult'), false), 6500);
+      show(el, true);
+      setTimeout(() => show(el, false), 6500);
     }
   });
 
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if ($('loadoutModal') && !$('loadoutModal').classList.contains('hidden')) {
+      show($('loadoutModal'), false);
+      nui('closeLoadout');
+      return;
+    }
     if (salaIsOpen()) {
       show($('sala'), false);
       return;
@@ -570,7 +686,31 @@
   if (!IN_GAME) {
     document.body.classList.add('preview');
     MOCK.lobbies.forEach((l) => { l.loadouts = MOCK.loadouts; });
-    const tab = new URLSearchParams(location.search).get('tab') || 'join';
+    const params = new URLSearchParams(location.search);
+    const view = params.get('view');
+    if (view === 'hud' || view === 'waiting') {
+      state.playerId = 1;
+      renderHud({
+        mode: 'pvp',
+        mapName: 'Stables',
+        sizeLabel: '1v1',
+        scores: { 1: 2, 2: 1 },
+        round: 3,
+        roundsToWin: 5,
+        waiting: view === 'waiting',
+        state: view === 'waiting' ? 'waiting' : 'active',
+        team: 1,
+        teamPanel: true,
+        players: [
+          { id: 1, name: 'Diesel', team: 1, alive: true, title: 'Apex' },
+          { id: 2, name: 'Nova', team: 2, alive: true },
+        ],
+        me: { id: 1, kills: 2 },
+      });
+      show($('matchHud'), true);
+      return;
+    }
+    const tab = params.get('tab') || 'join';
     state.tab = ['join', 'rooms', 'ranking', 'history'].includes(tab) ? tab : 'join';
     openUI(MOCK);
   }
