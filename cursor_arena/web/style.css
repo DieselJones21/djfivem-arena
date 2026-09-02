@@ -105,7 +105,7 @@ button { font-family: inherit; cursor: pointer; }
 .side-cta:hover { filter: brightness(1.08); }
 
 /* ——— Main stage ——— */
-.stage { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.stage { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; overflow: hidden; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 22px 10px; border-bottom: 1px solid var(--line);
@@ -152,9 +152,12 @@ button { font-family: inherit; cursor: pointer; }
 }
 .icon-exit:hover { color: #fff; border-color: var(--cyan); }
 
-.content { overflow: auto; padding: 16px 22px 18px; }
+.content { overflow: auto; padding: 16px 22px 18px; min-height: 0; }
 .page { display: none; animation: fade 180ms ease both; }
 .page.active { display: block; }
+#page-join.active {
+  display: flex; flex-direction: column; min-height: 100%;
+}
 
 .sec-label {
   font-size: 0.72rem; letter-spacing: 0.14em; color: var(--muted);
@@ -354,10 +357,10 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .join-foot {
-  display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 16px;
-  position: sticky; bottom: 0;
-  padding: 12px 0 4px;
-  background: linear-gradient(180deg, transparent, rgba(8,9,12,0.96) 28%);
+  display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: auto;
+  position: sticky; bottom: 0; z-index: 3;
+  padding: 12px 0 8px;
+  background: linear-gradient(180deg, transparent, rgba(8,9,12,0.98) 28%);
 }
 .join-note { color: var(--muted); font-size: 0.78rem; }
 .btn-cta {
@@ -602,6 +605,14 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 1100px) {
   .hero-row, .join-grid, .room-grid, .sala-vs, .weapon-split, .map-pick { grid-template-columns: 1fr; }
   .frame { grid-template-columns: 200px 1fr; }
+}
+@media (max-height: 860px) {
+  .hero-banner, .status-card { min-height: 112px; }
+  .hero-copy h1 { font-size: 1.7rem; }
+  .weapon-list { max-height: 132px; }
+  .weapon-preview { min-height: 132px; }
+  .map-tile { min-height: 128px; }
+  .map-tile img, .map-tile .thumb { height: 72px; }
 }
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(0,242,255,0.25); border-radius: 8px; }
