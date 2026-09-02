@@ -1,461 +1,448 @@
 Arena = Arena or {}
-Arena.Matches = {}          -- [matchId] = match table
-Arena.PlayerMatch = {}      -- [src] = matchId
-Arena.PlayerHub = Arena.PlayerHub or {} -- [src] = true while in spawn lobby
+Arena.Lobbies = {}
+Arena.PlayerLobby = {}
+Arena.PlayerHub = {}
+Arena.LeaveAt = {}
 
 local matchSeq = 0
+local nextBucket = Config.StartingBucket or 100
+local voiceSeq = 0
 
-local function nextMatchId()
+local function nextMatchUid()
     matchSeq = matchSeq + 1
-    return ('m_%s_%s'):format(os.time(), matchSeq)
+    return ('a_%s_%s'):format(os.time(), matchSeq)
 end
 
-local function getWeaponDef(weaponId)
-    local def = Config.FindWeapon(weaponId)
-    return def
+local function countPlayers(lobby)
+    return Arena.Utils.TableSize(lobby.players)
 end
 
-local function broadcast(match, event, ...)
-    for src in pairs(match.players) do
-        TriggerClientEvent(event, src, ...)
-    end
-end
-
-local function publicLobby(match)
-    local players = {}
-    for src, p in pairs(match.players) do
-        players[#players + 1] = {
-            id = src,
-            name = p.name,
-            team = p.team,
-            ready = p.ready,
-            weapon = p.weapon,
-            kills = p.kills,
-            deaths = p.deaths,
-        }
-    end
-
-    return {
-        id = match.id,
-        modeId = match.mode.id,
-        modeLabel = match.mode.label,
-        modeType = match.mode.type,
-        mapId = match.map.id,
-        mapLabel = match.map.label,
-        host = match.host,
-        private = match.private,
-        state = match.state,
-        players = players,
-        maxPlayers = match.mode.maxPlayers,
-        minPlayers = match.mode.minPlayers,
-        scoreLimit = match.mode.scoreLimit,
-        timeLimit = match.mode.timeLimit,
-        teamSize = match.mode.teamSize,
-        scores = match.scores,
-        round = match.round,
-        endsAt = match.endsAt,
-        allowWeaponChoice = match.mode.allowWeaponChoice,
-        weapons = Config.GetWeaponsForMode(match.mode),
-    }
-end
-
-function Arena.GetPublicLobby(matchId)
-    local match = Arena.Matches[matchId]
-    if not match then return end
-    return publicLobby(match)
-end
-
-function Arena.GetPlayerMatch(src)
-    local id = Arena.PlayerMatch[src]
-    if not id then return end
-    return Arena.Matches[id]
-end
-
-local function countPlayers(match)
-    return Arena.Utils.TableSize(match.players)
-end
-
-local function countTeam(match, team)
+local function countTeam(lobby, team)
     local n = 0
-    for _, p in pairs(match.players) do
+    for _, p in pairs(lobby.players) do
         if p.team == team then n = n + 1 end
     end
     return n
 end
 
-local function assignTeam(match, src)
-    if not Arena.Utils.IsTeamMode(match.mode) then
-        match.players[src].team = 'ffa'
-        return
+local function livingOnTeam(lobby, team)
+    local n = 0
+    for _, p in pairs(lobby.players) do
+        if p.team == team and p.alive then n = n + 1 end
     end
+    return n
+end
 
-    local red = countTeam(match, 'red')
-    local blue = countTeam(match, 'blue')
-    local teamSize = match.mode.teamSize
+local function maxPlayers(lobby)
+    if Arena.Utils.IsTeamMode(lobby.mode) then
+        return (lobby.cfg.maxPlayersPerTeam or 8) * 2
+    end
+    return lobby.cfg.maxPlayers or 16
+end
 
-    if teamSize then
-        if red < teamSize and red <= blue then
-            match.players[src].team = 'red'
-        else
-            match.players[src].team = 'blue'
-        end
+local function broadcast(lobby, event, ...)
+    for src in pairs(lobby.players) do
+        TriggerClientEvent(event, src, ...)
+    end
+end
+
+local function setStateBags(src, lobby, p)
+    local ply = Player(src)
+    if not ply or not ply.state then return end
+    if lobby then
+        ply.state:set('in_arena', true, true)
+        ply.state:set('arena_mode', lobby.mode, true)
+        ply.state:set('arena_lobby', lobby.id, true)
+        ply.state:set('arena_team', p and p.team or nil, true)
+        ply.state:set('arena_down', p and p.alive == false or false, true)
+        ply.state:set('arena_spectator', p and p.spectating or false, true)
     else
-        match.players[src].team = red <= blue and 'red' or 'blue'
+        ply.state:set('in_arena', false, true)
+        ply.state:set('arena_mode', nil, true)
+        ply.state:set('arena_lobby', nil, true)
+        ply.state:set('arena_team', nil, true)
+        ply.state:set('arena_down', false, true)
+        ply.state:set('arena_spectator', false, true)
     end
 end
 
-local function everyoneReady(match)
-    for _, p in pairs(match.players) do
-        if not p.ready or not p.weapon then
-            return false
-        end
+local function playerPayload(lobby)
+    local players = {}
+    for src, p in pairs(lobby.players) do
+        players[#players + 1] = {
+            id = src,
+            name = p.name,
+            team = p.team,
+            kills = p.kills,
+            deaths = p.deaths,
+            alive = p.alive,
+            loadout = p.loadoutId,
+            weapon = p.weaponId,
+            title = p.title,
+        }
     end
-    return countPlayers(match) >= match.mode.minPlayers
+    table.sort(players, function(a, b) return a.kills > b.kills end)
+    return players
 end
 
-local function syncLobby(match)
-    local data = publicLobby(match)
-    broadcast(match, 'cursor_arena:client:lobbyUpdate', data)
-    TriggerEvent('cursor_arena:lobbyUpdated', match.id)
-end
-
-function Arena.CreateMatch(host, modeId, mapId, opts)
-    opts = opts or {}
-    local mode = opts.mode or Config.GetMode(modeId)
-    local map = Config.GetMap(mapId)
-    if not mode or not map then return nil, 'invalid_mode_map' end
-
-    local active = Arena.Utils.TableSize(Arena.Matches)
-    if active >= Config.MaxActiveMatches then
-        return nil, 'max_matches'
-    end
-
-    local id = nextMatchId()
-    local match = {
-        id = id,
-        mode = mode,
-        map = map,
-        host = host,
-        private = opts.private == true,
-        password = opts.password,
-        state = 'lobby',
-        players = {},
-        scores = { red = 0, blue = 0 },
-        round = 1,
-        endsAt = nil,
-        createdAt = os.time(),
-        usedSpawns = {},
-        weaponClass = opts.weaponClass or mode.weaponCategory,
+function Arena.PublicLobby(lobby)
+    local map = lobby.map
+    local cfg = lobby.cfg
+    return {
+        id = lobby.id,
+        name = cfg.name,
+        description = cfg.description,
+        mode = lobby.mode,
+        mapId = map.id,
+        mapName = map.name,
+        mapImage = map.image,
+        maxPlayers = maxPlayers(lobby),
+        maxPlayersPerTeam = cfg.maxPlayersPerTeam,
+        killsToWin = cfg.killsToWin,
+        roundsToWin = cfg.roundsToWin,
+        roundTime = cfg.roundTime,
+        playerCount = countPlayers(lobby),
+        players = playerPayload(lobby),
+        scores = lobby.scores,
+        round = lobby.round,
+        state = lobby.state,
+        endsAt = lobby.endsAt,
+        loadouts = Config.ResolveLoadouts(cfg.loadouts),
+        kill_rewards = cfg.kill_rewards,
+        win_rewards = cfg.win_rewards,
+        teamkill = cfg.teamkill == true,
+        disableKillstreaks = cfg.disableKillstreaks == true,
+        joinDuringMatch = cfg.joinDuringMatch ~= false,
+        sizeLabel = cfg.sizeLabel or cfg.name,
+        teamSize = cfg.maxPlayersPerTeam,
     }
-
-    Arena.Matches[id] = match
-    Arena.Utils.Debug('Created match', id, mode.id or modeId, mapId)
-    return match
 end
 
-function Arena.JoinMatch(src, matchId, weaponId)
-    if Arena.PlayerMatch[src] then
-        return false, 'already_in_match'
+function Arena.ListLobbies()
+    local list = {}
+    for _, lobby in pairs(Arena.Lobbies) do
+        list[#list + 1] = Arena.PublicLobby(lobby)
     end
+    table.sort(list, function(a, b)
+        if a.mode == b.mode then return a.name < b.name end
+        local order = { ffa = 1, pvp = 2, tdm = 3, showdown = 4 }
+        return (order[a.mode] or 9) < (order[b.mode] or 9)
+    end)
+    return list
+end
 
-    local match = Arena.Matches[matchId]
-    if not match then return false, 'not_found' end
-    if match.state ~= 'lobby' then return false, 'lobby_started' end
-    if countPlayers(match) >= match.mode.maxPlayers then return false, 'lobby_full' end
+function Arena.GetPlayerLobby(src)
+    local id = Arena.PlayerLobby[src]
+    if not id then return end
+    return Arena.Lobbies[id]
+end
 
-    if Config.RequireItem then
-        if not Arena.Framework.HasItem(src, Config.RequireItem, 1) then
-            return false, 'need_item'
-        end
+local function syncLobby(lobby)
+    local data = Arena.PublicLobby(lobby)
+    broadcast(lobby, 'cursor_arena:client:lobbySync', data)
+    TriggerClientEvent('cursor_arena:client:lobbiesDirty', -1)
+end
+
+local function pickTeam(lobby, requested)
+    if not Arena.Utils.IsTeamMode(lobby.mode) then return 0 end
+    local cap = lobby.cfg.maxPlayersPerTeam or 8
+    if requested == 1 or requested == 2 then
+        if countTeam(lobby, requested) < cap then return requested end
     end
+    local t1 = countTeam(lobby, 1)
+    local t2 = countTeam(lobby, 2)
+    if t1 <= t2 and t1 < cap then return 1 end
+    if t2 < cap then return 2 end
+    return nil
+end
 
-    local weapon = nil
-    if weaponId then
-        weapon = getWeaponDef(weaponId)
-        if not weapon then return false, 'invalid_weapon' end
-        local allowed = Config.GetWeaponsForMode(match.mode)
-        local ok = false
-        for i = 1, #allowed do
-            if allowed[i].id == weaponId then ok = true break end
-        end
-        if not ok then return false, 'invalid_weapon' end
-    elseif not match.mode.allowWeaponChoice then
-        local allowed = Config.GetWeaponsForMode(match.mode)
-        if allowed[1] then
-            weapon = getWeaponDef(allowed[1].id)
-            weaponId = allowed[1].id
-        end
+local function dealSpawn(lobby, team)
+    local map = lobby.map
+    if Arena.Utils.IsTeamMode(lobby.mode) then
+        local deck = team == 2 and lobby.decks.team2 or lobby.decks.team1
+        local list = team == 2 and map.team2_spawns or map.team1_spawns
+        local spawn = Arena.Utils.DealSpawn(deck, list and list[1])
+        return Arena.Utils.Vec4(spawn)
     end
+    local spawn = Arena.Utils.DealSpawn(lobby.decks.ffa, map.spawns and map.spawns[1])
+    return Arena.Utils.Vec4(spawn)
+end
 
-    match.players[src] = {
-        name = Arena.Framework.GetName(src),
-        team = 'ffa',
-        ready = weapon ~= nil,
-        weapon = weaponId,
-        kills = 0,
-        deaths = 0,
-        alive = true,
+local function resetDecks(lobby)
+    local map = lobby.map
+    lobby.decks = {
+        ffa = Arena.Utils.CreateSpawnDeck(map.spawns),
+        team1 = Arena.Utils.CreateSpawnDeck(map.team1_spawns),
+        team2 = Arena.Utils.CreateSpawnDeck(map.team2_spawns),
     }
-    assignTeam(match, src)
-    Arena.PlayerMatch[src] = matchId
-
-    syncLobby(match)
-    return true, publicLobby(match)
 end
 
-function Arena.SetReady(src, ready, weaponId)
-    local match = Arena.GetPlayerMatch(src)
-    if not match or match.state ~= 'lobby' then return false end
-
-    if weaponId then
-        local weapon = getWeaponDef(weaponId)
-        if not weapon then return false, 'invalid_weapon' end
-        local allowed = Config.GetWeaponsForMode(match.mode)
-        local ok = false
-        for i = 1, #allowed do
-            if allowed[i].id == weaponId then ok = true break end
-        end
-        if not ok then return false, 'invalid_weapon' end
-        match.players[src].weapon = weaponId
-    end
-
-    if ready and not match.players[src].weapon then
-        return false, 'need_weapon'
-    end
-
-    match.players[src].ready = ready == true
-    syncLobby(match)
-
-    if everyoneReady(match) and (match.host == src or not match.private) then
-        -- Auto-start when full & ready for public queues
-        if countPlayers(match) >= match.mode.minPlayers then
-            if match.private then
-                -- private: only host can start via StartMatch
-            else
-                Arena.StartMatch(match.id)
-            end
-        end
-    end
-
-    return true, publicLobby(match)
-end
-
-function Arena.SetTeam(src, team)
-    local match = Arena.GetPlayerMatch(src)
-    if not match or match.state ~= 'lobby' then return false end
-    if not Arena.Utils.IsTeamMode(match.mode) then return false end
-    if team ~= 'red' and team ~= 'blue' then return false end
-
-    if match.mode.teamSize and countTeam(match, team) >= match.mode.teamSize then
-        if match.players[src].team ~= team then
-            return false, 'lobby_full'
-        end
-    end
-
-    match.players[src].team = team
-    syncLobby(match)
-    return true
-end
-
-local function teleportPlayers(match)
-    match.usedSpawns = { ffa = {}, red = {}, blue = {} }
-
-    for src, p in pairs(match.players) do
-        local spawn
-        if Arena.Utils.IsTeamMode(match.mode) then
-            local teamSpawns = match.map.spawns.team and match.map.spawns.team[p.team]
-            spawn = Arena.Utils.PickSpawn(teamSpawns, match.usedSpawns[p.team])
-        else
-            spawn = Arena.Utils.PickSpawn(match.map.spawns.ffa, match.usedSpawns.ffa)
-        end
-
-        if not spawn then
-            spawn = vec4(match.map.center.x, match.map.center.y, match.map.center.z, match.map.heading or 0.0)
-        end
-
-        p.spawn = spawn
-        p.alive = true
-    end
-end
-
-local function preparePlayer(src, match)
-    local p = match.players[src]
-    local weapon = getWeaponDef(p.weapon)
-
+local function enterWorld(src, lobby, p, spawn)
+    SetPlayerRoutingBucket(src, lobby.bucket)
+    SetRoutingBucketPopulationEnabled(lobby.bucket, false)
     Arena.Ambulance.SetArenaState(src, true)
     Arena.Inventory.StashPlayer(src)
+    local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
     Arena.Inventory.GiveLoadout(src, weapon)
+    Arena.Voice.Join(src, lobby, p.team)
+    setStateBags(src, lobby, p)
 
-    TriggerClientEvent('cursor_arena:client:enterMatch', src, {
-        matchId = match.id,
-        mode = {
-            id = match.mode.id,
-            label = match.mode.label,
-            type = match.mode.type,
-            scoreLimit = match.mode.scoreLimit,
-            timeLimit = match.mode.timeLimit,
-            respawn = match.mode.respawn,
-            friendlyFire = match.mode.friendlyFire,
-        },
-        map = {
-            id = match.map.id,
-            label = match.map.label,
-            center = { x = match.map.center.x, y = match.map.center.y, z = match.map.center.z },
-            radius = match.map.radius,
-        },
+    local bounds
+    if lobby.map.boundaries and lobby.map.boundaries.points then
+        bounds = { minZ = lobby.map.boundaries.minZ, maxZ = lobby.map.boundaries.maxZ, points = {} }
+        for i = 1, #lobby.map.boundaries.points do
+            local pt = lobby.map.boundaries.points[i]
+            bounds.points[i] = { x = pt.x, y = pt.y }
+        end
+    end
+
+    TriggerClientEvent('cursor_arena:client:enterArena', src, {
+        lobby = Arena.PublicLobby(lobby),
         team = p.team,
-        spawn = { x = p.spawn.x, y = p.spawn.y, z = p.spawn.z, w = p.spawn.w },
-        weapon = p.weapon,
+        spawn = spawn,
+        weapon = weapon and weapon.weapon,
+        weaponId = p.weaponId,
+        loadoutId = p.loadoutId,
+        map = {
+            id = lobby.map.id,
+            name = lobby.map.name,
+            center = lobby.map.center and { x = lobby.map.center.x, y = lobby.map.center.y, z = lobby.map.center.z } or nil,
+            radius = lobby.map.radius,
+            boundaries = bounds,
+        },
         rules = Config.Rules,
-        hud = Config.HUD,
-        respawnDelay = Config.RespawnDelay,
+        hitMarkers = Config.HitMarkers,
+        killstreaks = not lobby.cfg.disableKillstreaks,
+        killstreakStyle = Config.KillstreakStyle,
+        nameplates = Config.Nameplates,
+        teamPanel = Config.TeamPanel,
+        bounds = Config.Boundaries,
+        respawnTime = Config.RespawnTime,
+        sounds = Config.Sounds,
     })
 end
 
-local function endMatch(match, result)
-    if match.state == 'ended' then return end
-    match.state = 'ended'
-    match.result = result
+local function shouldStart(lobby)
+    if countPlayers(lobby) < 2 then return false end
+    if Arena.Utils.IsTeamMode(lobby.mode) then
+        return countTeam(lobby, 1) >= 1 and countTeam(lobby, 2) >= 1
+    end
+    return true
+end
 
-    local winnerTeam = result.winnerTeam
-    local winnerSrc = result.winnerSrc
+local function payWinRewards(src, rewards)
+    if not rewards then return end
+    if rewards.money then
+        Arena.Framework.AddMoney(src, rewards.money)
+    end
+    if GiveItemRewards then
+        GiveItemRewards(src, rewards)
+    end
+end
 
-    for src, p in pairs(match.players) do
-        local outcome = 'draw'
-        if winnerSrc and winnerSrc == src then
-            outcome = 'win'
-        elseif winnerTeam and p.team == winnerTeam then
-            outcome = 'win'
-        elseif winnerTeam or winnerSrc then
-            outcome = 'loss'
+local function scoreline(lobby)
+    if lobby.mode == 'ffa' then
+        local best = 0
+        for _, p in pairs(lobby.players) do
+            if p.kills > best then best = p.kills end
+        end
+        return tostring(best)
+    end
+    return ('%s-%s'):format(lobby.scores[1] or 0, lobby.scores[2] or 0)
+end
+
+local function endMatch(lobby, result)
+    if lobby.state == 'ended' then return end
+    lobby.state = 'ended'
+    lobby.endsAt = nil
+    lobby.matchResult = result
+    lobby.bellRang = false
+
+    local roster = playerPayload(lobby)
+    local duration = lobby.startedAt and (os.time() - lobby.startedAt) or 0
+    local matchUid = lobby.matchUid or nextMatchUid()
+    result.lobby = lobby.id
+    result.name = lobby.cfg.name
+    result.scoreline = scoreline(lobby)
+    result.players = {}
+
+    local teamElo = { [1] = {}, [2] = {} }
+    if Arena.Utils.IsElimination(lobby.mode) then
+        for src, p in pairs(lobby.players) do
+            local row = Arena.Stats.GetPlayer(src, lobby.mode)
+            if p.team == 1 or p.team == 2 then
+                teamElo[p.team][#teamElo[p.team] + 1] = row.elo or 1000
+            end
+        end
+    end
+
+    local function avg(list)
+        if #list == 0 then return 1000 end
+        local s = 0
+        for i = 1, #list do s = s + list[i] end
+        return s / #list
+    end
+
+    local history = {}
+    local sorted = {}
+    for src, p in pairs(lobby.players) do
+        sorted[#sorted + 1] = { src = src, p = p }
+    end
+    table.sort(sorted, function(a, b) return a.p.kills > b.p.kills end)
+
+    for place, row in ipairs(sorted) do
+        local src, p = row.src, row.p
+        local won = false
+        if result.draw then
+            won = false
+        elseif result.winnerSrc then
+            won = src == result.winnerSrc
+        elseif result.winner and result.winner ~= 0 then
+            won = p.team == result.winner
         end
 
-        if Config.Rewards.enabled then
-            local reward = Config.Rewards[outcome == 'win' and 'win' or (outcome == 'loss' and 'loss' or nil)]
-            if reward and reward.money then
-                Arena.Framework.AddMoney(src, reward.money)
+        local eloChange = 0
+        if Arena.Utils.IsElimination(lobby.mode) and (p.team == 1 or p.team == 2) and not result.draw then
+            local mine = avg(teamElo[p.team])
+            local theirs = avg(teamElo[p.team == 1 and 2 or 1])
+            eloChange = Arena.Stats.ComputeElo(mine, theirs, won)
+            if result.concededBy == src then
+                eloChange = -math.abs(eloChange)
             end
         end
 
-        if Arena.Stats then
-            if outcome == 'win' then
-                Arena.Stats.RecordMatchResult(src, true)
-            elseif outcome == 'loss' then
-                Arena.Stats.RecordMatchResult(src, false)
-            end
+        local statsRow = Arena.Stats.ApplyMatch(src, lobby.mode, {
+            kills = p.kills,
+            deaths = p.deaths,
+            won = won,
+            playtime = duration,
+            eloChange = eloChange ~= 0 and eloChange or nil,
+        })
+
+        if won then
+            payWinRewards(src, lobby.cfg.win_rewards)
         end
+
+        p.title = Arena.Utils.TitleForRank(lobby.mode, place)
+        result.players[#result.players + 1] = {
+            src = src,
+            name = p.name,
+            kills = p.kills,
+            deaths = p.deaths,
+            won = won,
+            team = p.team,
+            place = place,
+            eloChange = eloChange,
+            elo = statsRow and statsRow.elo,
+        }
+
+        history[#history + 1] = {
+            matchUid = matchUid,
+            identifier = Arena.Framework.GetIdentifier(src),
+            name = p.name,
+            mode = lobby.mode,
+            lobbyId = lobby.id,
+            lobbyName = lobby.cfg.name,
+            kills = p.kills,
+            deaths = p.deaths,
+            won = won,
+            team = p.team,
+            place = place,
+            eloChange = eloChange,
+            scoreline = result.scoreline,
+            duration = duration,
+            roster = roster,
+        }
 
         TriggerClientEvent('cursor_arena:client:matchEnded', src, {
-            outcome = outcome,
+            outcome = result.draw and 'draw' or (won and 'win' or 'loss'),
             result = result,
-            scores = match.scores,
-            players = publicLobby(match).players,
+            scores = lobby.scores,
+            players = roster,
+            eloChange = eloChange,
+            duration = duration,
         })
     end
 
-    if Config.Logging.enabled and Config.Logging.logMatchEnd and Config.Logging.webhook ~= '' then
-        -- optional webhook omitted to keep dependency-free
+    Arena.Stats.RecordHistory(history)
+    Arena.Discord.MatchEnded(lobby.mode, result)
+    if MatchEnded then
+        MatchEnded(matchUid, lobby.mode, result)
     end
 
-    SetTimeout(4000, function()
-        for src in pairs(match.players) do
-            Arena.LeaveMatch(src, true)
+    local delay = Arena.Utils.IsElimination(lobby.mode) and (Config.ShowdownStartDelay or 10) or 8
+    local id = lobby.id
+    SetTimeout(delay * 1000, function()
+        local l = Arena.Lobbies[id]
+        if not l then return end
+        for _, p in pairs(l.players) do
+            p.kills = 0
+            p.deaths = 0
+            p.streak = 0
+            p.alive = true
+            p.spectating = false
         end
-        Arena.Matches[match.id] = nil
+        l.scores = { [1] = 0, [2] = 0 }
+        l.round = 1
+        l.matchResult = nil
+        if shouldStart(l) then
+            l.state = 'waiting'
+            Arena.TryStart(l.id)
+        else
+            l.state = 'idle'
+            syncLobby(l)
+        end
     end)
 end
 
-local function checkScoreWin(match)
-    local mode = match.mode
-
-    if mode.type == 'ffa' then
-        local bestSrc, bestKills = nil, -1
-        for src, p in pairs(match.players) do
-            if p.kills > bestKills then
-                bestKills = p.kills
-                bestSrc = src
-            end
-        end
-        if bestKills >= (mode.scoreLimit or 9999) then
-            endMatch(match, {
-                reason = 'score',
-                winnerSrc = bestSrc,
-                winnerName = match.players[bestSrc] and match.players[bestSrc].name,
-            })
-            return true
-        end
-    elseif mode.type == 'tdm' then
-        if match.scores.red >= (mode.scoreLimit or 9999) then
-            endMatch(match, { reason = 'score', winnerTeam = 'red' })
-            return true
-        end
-        if match.scores.blue >= (mode.scoreLimit or 9999) then
-            endMatch(match, { reason = 'score', winnerTeam = 'blue' })
-            return true
-        end
-    elseif mode.type == 'team' then
-        -- scoreLimit = rounds won
-        if match.scores.red >= (mode.scoreLimit or 9999) then
-            endMatch(match, { reason = 'rounds', winnerTeam = 'red' })
-            return true
-        end
-        if match.scores.blue >= (mode.scoreLimit or 9999) then
-            endMatch(match, { reason = 'rounds', winnerTeam = 'blue' })
-            return true
-        end
+local function startRoundTimer(lobby)
+    local limit
+    if Arena.Utils.IsElimination(lobby.mode) then
+        limit = lobby.cfg.roundTime or 120
+    else
+        limit = lobby.cfg.timeLimit or 0
     end
-    return false
-end
-
-local function startRoundTimer(match)
-    local limit = match.mode.timeLimit or Config.DefaultRoundTime
-    match.endsAt = os.time() + limit
-
-    broadcast(match, 'cursor_arena:client:timer', match.endsAt, limit)
-
-    local matchId = match.id
-    local endsAt = match.endsAt
+    if not limit or limit <= 0 then
+        lobby.endsAt = nil
+        return
+    end
+    lobby.endsAt = os.time() + limit
+    local id, endsAt = lobby.id, lobby.endsAt
+    broadcast(lobby, 'cursor_arena:client:timer', endsAt, limit)
 
     CreateThread(function()
-        while Arena.Matches[matchId] and Arena.Matches[matchId].endsAt == endsAt do
-            local m = Arena.Matches[matchId]
-            if m.state ~= 'active' then return end
+        while Arena.Lobbies[id] and Arena.Lobbies[id].endsAt == endsAt do
+            local l = Arena.Lobbies[id]
+            if l.state ~= 'active' then return end
             if os.time() >= endsAt then
-                if m.mode.type == 'team' and m.mode.respawn == false then
-                    -- time expired mid-round: no round point
-                    Arena.NextRound(m.id, nil)
-                else
-                    -- time limit: highest score wins
-                    if m.mode.type == 'ffa' then
-                        local bestSrc, bestKills = nil, -1
-                        local tie = false
-                        for src, p in pairs(m.players) do
-                            if p.kills > bestKills then
-                                bestKills = p.kills
-                                bestSrc = src
-                                tie = false
-                            elseif p.kills == bestKills then
-                                tie = true
-                            end
+                if Arena.Utils.IsElimination(l.mode) then
+                    Arena.NextRound(l.id, 0)
+                elseif l.mode == 'ffa' then
+                    local bestSrc, bestKills, tie = nil, -1, false
+                    for src, p in pairs(l.players) do
+                        if p.kills > bestKills then
+                            bestKills, bestSrc, tie = p.kills, src, false
+                        elseif p.kills == bestKills then
+                            tie = true
                         end
-                        if tie then
-                            endMatch(m, { reason = 'time', draw = true })
-                        else
-                            endMatch(m, {
-                                reason = 'time',
-                                winnerSrc = bestSrc,
-                                winnerName = m.players[bestSrc] and m.players[bestSrc].name,
-                            })
-                        end
+                    end
+                    if tie or not bestSrc then
+                        endMatch(l, { reason = 'time', draw = true, winner = 0 })
                     else
-                        if m.scores.red == m.scores.blue then
-                            endMatch(m, { reason = 'time', draw = true })
-                        else
-                            endMatch(m, {
-                                reason = 'time',
-                                winnerTeam = m.scores.red > m.scores.blue and 'red' or 'blue',
-                            })
-                        end
+                        endMatch(l, {
+                            reason = 'time',
+                            winnerSrc = bestSrc,
+                            winnerName = l.players[bestSrc].name,
+                        })
+                    end
+                else
+                    if (l.scores[1] or 0) == (l.scores[2] or 0) then
+                        endMatch(l, { reason = 'time', draw = true, winner = 0 })
+                    else
+                        endMatch(l, {
+                            reason = 'time',
+                            winner = (l.scores[1] or 0) > (l.scores[2] or 0) and 1 or 2,
+                        })
                     end
                 end
                 return
@@ -465,274 +452,541 @@ local function startRoundTimer(match)
     end)
 end
 
-function Arena.StartMatch(matchId, forced)
-    local match = Arena.Matches[matchId]
-    if not match or match.state ~= 'lobby' then return false end
-
-    if countPlayers(match) < match.mode.minPlayers and not forced then
-        return false, 'not_enough_players'
+function Arena.NextRound(lobbyId, winnerTeam)
+    local lobby = Arena.Lobbies[lobbyId]
+    if not lobby or not Arena.Utils.IsElimination(lobby.mode) then return end
+    if winnerTeam and winnerTeam ~= 0 then
+        lobby.scores[winnerTeam] = (lobby.scores[winnerTeam] or 0) + 1
+    end
+    local need = lobby.cfg.roundsToWin or 5
+    if (lobby.scores[1] or 0) >= need then
+        endMatch(lobby, { reason = 'rounds', winner = 1 })
+        return
+    end
+    if (lobby.scores[2] or 0) >= need then
+        endMatch(lobby, { reason = 'rounds', winner = 2 })
+        return
     end
 
-    for _, p in pairs(match.players) do
-        if not p.weapon then
-            return false, 'need_weapon'
-        end
+    lobby.round = (lobby.round or 1) + 1
+    lobby.state = 'countdown'
+    resetDecks(lobby)
+
+    for src, p in pairs(lobby.players) do
+        p.alive = true
+        p.spectating = false
+        p.streak = 0
+        local spawn = dealSpawn(lobby, p.team)
+        p.spawn = spawn
+        local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
+        Arena.Inventory.ClearLoadout(src)
+        Arena.Inventory.GiveLoadout(src, weapon)
+        Arena.Ambulance.Revive(src, spawn)
+        setStateBags(src, lobby, p)
+        TriggerClientEvent('cursor_arena:client:roundRestart', src, {
+            round = lobby.round,
+            spawn = spawn,
+            scores = lobby.scores,
+            winnerTeam = winnerTeam,
+        })
     end
 
-    if Arena.Utils.IsTeamMode(match.mode) and match.mode.teamSize then
-        if countTeam(match, 'red') < 1 or countTeam(match, 'blue') < 1 then
-            return false, 'not_enough_players'
-        end
-    end
-
-    match.state = 'countdown'
-    teleportPlayers(match)
-
-    for src in pairs(match.players) do
-        preparePlayer(src, match)
-    end
-
-    broadcast(match, 'cursor_arena:client:countdown', Config.CountdownSeconds)
-    syncLobby(match)
-
-    local id = match.id
-    SetTimeout(Config.CountdownSeconds * 1000, function()
-        local m = Arena.Matches[id]
-        if not m or m.state ~= 'countdown' then return end
-        m.state = 'active'
-        m.scores = { red = 0, blue = 0 }
-        m.round = 1
-        startRoundTimer(m)
-        broadcast(m, 'cursor_arena:client:matchActive', publicLobby(m))
+    broadcast(lobby, 'cursor_arena:client:countdown', Config.CountdownSeconds, lobby.round)
+    local id = lobby.id
+    SetTimeout((Config.CountdownSeconds or 5) * 1000, function()
+        local l = Arena.Lobbies[id]
+        if not l or l.state ~= 'countdown' then return end
+        l.state = 'active'
+        startRoundTimer(l)
+        broadcast(l, 'cursor_arena:client:matchActive', Arena.PublicLobby(l))
     end)
+end
 
+function Arena.TryStart(lobbyId, delayed)
+    local lobby = Arena.Lobbies[lobbyId]
+    if not lobby then return false end
+    if lobby.state == 'active' or lobby.state == 'countdown' or lobby.state == 'ended' then
+        return false
+    end
+    if not shouldStart(lobby) then
+        lobby.state = countPlayers(lobby) > 0 and 'waiting' or 'idle'
+        syncLobby(lobby)
+        return false
+    end
+
+    if Arena.Utils.IsElimination(lobby.mode) and not delayed then
+        lobby.state = 'waiting'
+        syncLobby(lobby)
+        local id = lobby.id
+        SetTimeout((Config.ShowdownStartDelay or 10) * 1000, function()
+            Arena.TryStart(id, true)
+        end)
+        return true
+    end
+
+    lobby.state = 'countdown'
+    lobby.matchUid = nextMatchUid()
+    lobby.startedAt = os.time()
+    lobby.scores = { [1] = 0, [2] = 0 }
+    lobby.round = 1
+    lobby.bellRang = false
+    resetDecks(lobby)
+
+    for src, p in pairs(lobby.players) do
+        p.kills = 0
+        p.deaths = 0
+        p.streak = 0
+        p.alive = true
+        p.spectating = false
+        local spawn = dealSpawn(lobby, p.team)
+        p.spawn = spawn
+        TriggerClientEvent('cursor_arena:client:preStart', src, { spawn = spawn })
+    end
+
+    broadcast(lobby, 'cursor_arena:client:countdown', Config.CountdownSeconds, 1)
+    syncLobby(lobby)
+
+    local id = lobby.id
+    SetTimeout((Config.CountdownSeconds or 5) * 1000, function()
+        local l = Arena.Lobbies[id]
+        if not l or l.state ~= 'countdown' then return end
+        if not shouldStart(l) then
+            l.state = 'waiting'
+            syncLobby(l)
+            return
+        end
+        l.state = 'active'
+        startRoundTimer(l)
+        broadcast(l, 'cursor_arena:client:matchActive', Arena.PublicLobby(l))
+        broadcast(l, 'cursor_arena:client:sound', 'round_start')
+    end)
     return true
 end
 
-function Arena.NextRound(matchId, winnerTeam)
-    local match = Arena.Matches[matchId]
-    if not match or match.state ~= 'active' then return end
-
-    if winnerTeam then
-        match.scores[winnerTeam] = (match.scores[winnerTeam] or 0) + 1
+local function maybeBell(lobby)
+    if lobby.bellRang then return end
+    local frac = (Config.Sounds and Config.Sounds.bellAt) or 0.9
+    if lobby.mode == 'ffa' then
+        local target = lobby.cfg.killsToWin or 30
+        for _, p in pairs(lobby.players) do
+            if p.kills >= math.floor(target * frac) then
+                lobby.bellRang = true
+                broadcast(lobby, 'cursor_arena:client:sound', 'bell')
+                return
+            end
+        end
+    elseif lobby.mode == 'tdm' then
+        local target = lobby.cfg.killsToWin or 50
+        if (lobby.scores[1] or 0) >= math.floor(target * frac) or (lobby.scores[2] or 0) >= math.floor(target * frac) then
+            lobby.bellRang = true
+            broadcast(lobby, 'cursor_arena:client:sound', 'bell')
+        end
     end
-
-    if checkScoreWin(match) then return end
-
-    match.round = match.round + 1
-    teleportPlayers(match)
-
-    for src, p in pairs(match.players) do
-        p.alive = true
-        local weapon = getWeaponDef(p.weapon)
-        Arena.Inventory.ClearLoadout(src)
-        Arena.Inventory.GiveLoadout(src, weapon)
-        TriggerClientEvent('cursor_arena:client:roundRestart', src, {
-            round = match.round,
-            spawn = { x = p.spawn.x, y = p.spawn.y, z = p.spawn.z, w = p.spawn.w },
-            scores = match.scores,
-        })
-        Arena.Ambulance.Revive(src, p.spawn)
-    end
-
-    broadcast(match, 'cursor_arena:client:countdown', Config.CountdownSeconds)
-    SetTimeout(Config.CountdownSeconds * 1000, function()
-        local m = Arena.Matches[matchId]
-        if not m or m.state ~= 'active' then return end
-        startRoundTimer(m)
-        broadcast(m, 'cursor_arena:client:matchActive', publicLobby(m))
-    end)
 end
 
-local function livingOnTeam(match, team)
-    local n = 0
-    for _, p in pairs(match.players) do
-        if p.team == team and p.alive then n = n + 1 end
+local function checkWin(lobby)
+    if lobby.mode == 'ffa' then
+        local target = lobby.cfg.killsToWin or 30
+        local bestSrc, best = nil, -1
+        for src, p in pairs(lobby.players) do
+            if p.kills > best then best, bestSrc = p.kills, src end
+        end
+        if best >= target then
+            endMatch(lobby, { reason = 'score', winnerSrc = bestSrc, winnerName = lobby.players[bestSrc].name })
+            return true
+        end
+    elseif lobby.mode == 'tdm' then
+        local target = lobby.cfg.killsToWin or 50
+        if (lobby.scores[1] or 0) >= target then
+            endMatch(lobby, { reason = 'score', winner = 1 })
+            return true
+        end
+        if (lobby.scores[2] or 0) >= target then
+            endMatch(lobby, { reason = 'score', winner = 2 })
+            return true
+        end
     end
-    return n
+    return false
 end
 
 function Arena.OnPlayerDeath(victim, killer, weaponHash)
-    local match = Arena.GetPlayerMatch(victim)
-    if not match or match.state ~= 'active' then return end
-
-    local vp = match.players[victim]
+    local lobby = Arena.GetPlayerLobby(victim)
+    if not lobby or lobby.state ~= 'active' then return end
+    local vp = lobby.players[victim]
     if not vp or not vp.alive then return end
 
     vp.alive = false
     vp.deaths = vp.deaths + 1
+    vp.streak = 0
+    vp.lastActivity = os.time()
+    setStateBags(victim, lobby, vp)
 
     local killerSrc = killer
-    if killerSrc and killerSrc > 0 and match.players[killerSrc] and killerSrc ~= victim then
-        local kp = match.players[killerSrc]
-        -- friendly fire check for team modes
-        if Arena.Utils.IsTeamMode(match.mode) and kp.team == vp.team and match.mode.friendlyFire == false then
-            -- no kill credit
-        else
-            kp.kills = kp.kills + 1
-            if match.mode.type == 'tdm' then
-                match.scores[kp.team] = (match.scores[kp.team] or 0) + 1
-            end
+    local kp = killerSrc and lobby.players[killerSrc]
+    local friendly = kp and Arena.Utils.IsTeamMode(lobby.mode) and kp.team == vp.team and kp.team ~= 0
+    local denyFriendly = friendly and lobby.cfg.teamkill ~= true
 
-            if Arena.Stats then
-                Arena.Stats.RecordKill(killerSrc, victim)
-            end
+    if kp and killerSrc ~= victim and not denyFriendly then
+        kp.kills = kp.kills + 1
+        kp.streak = (kp.streak or 0) + 1
+        kp.lastActivity = os.time()
+        if lobby.mode == 'tdm' then
+            lobby.scores[kp.team] = (lobby.scores[kp.team] or 0) + 1
+        end
 
-            if Config.Rewards.enabled and Config.Rewards.kill and Config.Rewards.kill.money then
-                Arena.Framework.AddMoney(killerSrc, Config.Rewards.kill.money)
+        local rewards = lobby.cfg.kill_rewards
+        if rewards then
+            TriggerClientEvent('cursor_arena:client:killReward', killerSrc, {
+                health = rewards.health or 0,
+                armor = rewards.armor or 0,
+            })
+            if rewards.items then
+                GiveItemRewards(killerSrc, rewards)
             end
+        end
 
-            if Config.Rules.healOnKill or Config.Rules.armorOnKill then
-                TriggerClientEvent('cursor_arena:client:killReward', killerSrc, {
-                    heal = Config.Rules.healOnKill and Config.Rules.healOnKillAmount or 0,
-                    armor = Config.Rules.armorOnKill and Config.Rules.armorOnKillAmount or 0,
+        if not lobby.cfg.disableKillstreaks then
+            local streak = Arena.Utils.KillstreakFor(kp.streak)
+            local prev = Arena.Utils.KillstreakFor(kp.streak - 1)
+            if streak and (not prev or prev.kills ~= streak.kills) then
+                TriggerClientEvent('cursor_arena:client:killstreak', killerSrc, streak)
+                broadcast(lobby, 'cursor_arena:client:killstreakCall', {
+                    name = kp.name,
+                    label = streak.label,
+                    kills = kp.streak,
                 })
             end
         end
-    elseif Arena.Stats then
-        Arena.Stats.RecordKill(nil, victim)
     end
 
-    broadcast(match, 'cursor_arena:client:killfeed', {
+    local weaponName
+    if kp then
+        local def = Config.FindWeapon(kp.weaponId)
+        weaponName = def and def.weapon
+    end
+
+    broadcast(lobby, 'cursor_arena:client:killfeed', {
         victim = vp.name,
         victimId = victim,
-        killer = killerSrc and match.players[killerSrc] and match.players[killerSrc].name or nil,
+        killer = kp and kp.name or nil,
         killerId = killerSrc,
-        scores = match.scores,
-        players = publicLobby(match).players,
+        weapon = weaponName,
+        category = Arena.Utils.WeaponCategory(weaponName),
+        headshot = false,
+        scores = lobby.scores,
+        players = playerPayload(lobby),
+        weaponHash = weaponHash,
     })
 
-    -- Round-based elimination (1v1 / 2v2 without respawn)
-    if match.mode.type == 'team' and match.mode.respawn == false then
-        local redAlive = livingOnTeam(match, 'red')
-        local blueAlive = livingOnTeam(match, 'blue')
-        if redAlive == 0 or blueAlive == 0 then
-            local winner = redAlive > 0 and 'red' or 'blue'
-            SetTimeout(1500, function()
-                Arena.NextRound(match.id, winner)
+    maybeBell(lobby)
+
+    if Arena.Utils.IsElimination(lobby.mode) then
+        vp.spectating = true
+        setStateBags(victim, lobby, vp)
+        TriggerClientEvent('cursor_arena:client:downed', victim, playerPayload(lobby))
+
+        local t1 = livingOnTeam(lobby, 1)
+        local t2 = livingOnTeam(lobby, 2)
+        if t1 == 0 or t2 == 0 then
+            local winner = t1 > 0 and 1 or 2
+            SetTimeout(1600, function()
+                Arena.NextRound(lobby.id, winner)
             end)
             return
         end
+        return
     end
 
-    if checkScoreWin(match) then return end
+    if checkWin(lobby) then return end
+    syncLobby(lobby)
 
-    -- Respawn flow
-    if match.mode.respawn ~= false then
-        SetTimeout((Config.RespawnDelay or 3) * 1000, function()
-            local m = Arena.Matches[match.id]
-            if not m or m.state ~= 'active' then return end
-            local p = m.players[victim]
-            if not p then return end
-
-            local spawn
-            if Arena.Utils.IsTeamMode(m.mode) then
-                local teamSpawns = m.map.spawns.team and m.map.spawns.team[p.team]
-                spawn = Arena.Utils.PickSpawn(teamSpawns, {})
-            else
-                spawn = Arena.Utils.PickSpawn(m.map.spawns.ffa, {})
-            end
-            if not spawn then
-                spawn = vec4(m.map.center.x, m.map.center.y, m.map.center.z, m.map.heading or 0.0)
-            end
-
-            p.alive = true
-            p.spawn = spawn
-
-            local weapon = getWeaponDef(p.weapon)
-            if Config.Rules.refillAmmoOnRespawn then
-                Arena.Inventory.RefillAmmo(victim, weapon)
-            end
-
-            Arena.Ambulance.Revive(victim, spawn)
-            TriggerClientEvent('cursor_arena:client:respawn', victim, {
-                spawn = { x = spawn.x, y = spawn.y, z = spawn.z, w = spawn.w },
-            })
-        end)
-    end
+    SetTimeout((Config.RespawnTime or 3) * 1000, function()
+        local l = Arena.Lobbies[lobby.id]
+        if not l or l.state ~= 'active' then return end
+        local p = l.players[victim]
+        if not p then return end
+        local spawn = dealSpawn(l, p.team)
+        p.spawn = spawn
+        p.alive = true
+        p.spectating = false
+        local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
+        if Config.Rules.refillAmmoOnRespawn then
+            Arena.Inventory.RefillAmmo(victim, weapon)
+        end
+        Arena.Ambulance.Revive(victim, spawn)
+        setStateBags(victim, l, p)
+        TriggerClientEvent('cursor_arena:client:respawn', victim, { spawn = spawn })
+    end)
 end
 
-function Arena.LeaveMatch(src, silent)
-    local matchId = Arena.PlayerMatch[src]
-    if not matchId then return false end
-
-    local match = Arena.Matches[matchId]
-    Arena.PlayerMatch[src] = nil
-
-    Arena.Inventory.ClearLoadout(src)
-    if Config.OxInventory.restoreOnLeave then
-        Arena.Inventory.RestorePlayer(src)
+function Arena.JoinLobby(src, lobbyId, opts)
+    opts = opts or {}
+    if Arena.PlayerLobby[src] then return false, 'already_in_match' end
+    if not Arena.PlayerHub[src] then return false, 'must_be_in_hub' end
+    if Arena.LeaveAt[src] and os.time() < Arena.LeaveAt[src] then
+        return false, 'already_in_match'
     end
-    Arena.Ambulance.Release(src)
 
-    -- Return to spawn lobby hub after leaving a match
-    local hubSpawn = Config.GetHubSpawn and Config.GetHubSpawn() or Config.ReturnLocation.coords
-    Arena.PlayerHub[src] = true
-    TriggerClientEvent('cursor_arena:client:leaveMatch', src, {
-        returnCoords = hubSpawn,
-        silent = silent == true,
-    })
+    local lobby = Arena.Lobbies[lobbyId]
+    if not lobby then return false, 'not_found' end
 
-    if match then
-        match.players[src] = nil
+    if CanPlayerJoinLobby and CanPlayerJoinLobby(src, lobbyId) == false then
+        return false, 'cannot_join'
+    end
 
-        if match.state ~= 'ended' then
-            local remaining = countPlayers(match)
-            if remaining == 0 then
-                Arena.Matches[matchId] = nil
-            elseif match.state == 'active' or match.state == 'countdown' then
-                -- Win by forfeit if one team emptied
-                if Arena.Utils.IsTeamMode(match.mode) then
-                    local red = countTeam(match, 'red')
-                    local blue = countTeam(match, 'blue')
-                    if red == 0 or blue == 0 then
-                        endMatch(match, {
-                            reason = 'forfeit',
-                            winnerTeam = red > 0 and 'red' or 'blue',
-                        })
-                        return true
-                    end
-                elseif remaining < 2 and match.mode.type == 'ffa' then
-                    local winnerSrc = next(match.players)
-                    endMatch(match, {
-                        reason = 'forfeit',
-                        winnerSrc = winnerSrc,
-                        winnerName = match.players[winnerSrc] and match.players[winnerSrc].name,
-                    })
-                    return true
-                end
-                syncLobby(match)
-            else
-                if match.host == src then
-                    local newHost = next(match.players)
-                    match.host = newHost
-                end
-                syncLobby(match)
-            end
+    if Config.RequireItem and not Arena.Framework.HasItem(src, Config.RequireItem, 1) then
+        return false, 'need_item'
+    end
+
+    if countPlayers(lobby) >= maxPlayers(lobby) then return false, 'lobby_full' end
+
+    if lobby.state == 'active' or lobby.state == 'countdown' then
+        if Arena.Utils.IsElimination(lobby.mode) and lobby.cfg.joinDuringMatch == false then
+            return false, 'lobby_full'
         end
     end
 
+    local allowed = Config.ResolveLoadouts(lobby.cfg.loadouts)
+    local loadoutId = opts.loadoutId or (allowed[1] and allowed[1].id)
+    local weaponId = opts.weaponId
+    local loadout = Config.GetLoadout(loadoutId)
+    if not loadout then return false, 'invalid_loadout' end
+    local okLoadout = false
+    for i = 1, #allowed do
+        if allowed[i].id == loadoutId then okLoadout = true break end
+    end
+    if not okLoadout then return false, 'invalid_loadout' end
+    if not weaponId then weaponId = loadout.weapons[1] and loadout.weapons[1].id end
+    if not Config.GetLoadoutWeapon(loadoutId, weaponId) then return false, 'invalid_loadout' end
+
+    local team = 0
+    if Arena.Utils.IsTeamMode(lobby.mode) then
+        team = pickTeam(lobby, tonumber(opts.team))
+        if not team then return false, 'lobby_full' end
+    end
+
+    local ped = GetPlayerPed(src)
+    local c = GetEntityCoords(ped)
+    local returnCoords = vec4(c.x, c.y, c.z, GetEntityHeading(ped))
+
+    local spawn = dealSpawn(lobby, team)
+    lobby.players[src] = {
+        name = Arena.Framework.GetName(src),
+        team = team,
+        loadoutId = loadoutId,
+        weaponId = weaponId,
+        kills = 0,
+        deaths = 0,
+        streak = 0,
+        alive = not Arena.Utils.IsElimination(lobby.mode) or lobby.state ~= 'active',
+        spectating = Arena.Utils.IsElimination(lobby.mode) and lobby.state == 'active',
+        joinedAt = os.time(),
+        lastActivity = os.time(),
+        returnCoords = returnCoords,
+        spawn = spawn,
+        title = nil,
+    }
+    Arena.PlayerLobby[src] = lobbyId
+
+    if Arena.Utils.IsElimination(lobby.mode) and lobby.state == 'active' then
+        lobby.players[src].alive = false
+        lobby.players[src].spectating = true
+    end
+
+    enterWorld(src, lobby, lobby.players[src], spawn)
+    if PlayerJoinedLobby then PlayerJoinedLobby(src, lobbyId) end
+
+    if lobby.state == 'idle' or lobby.state == 'waiting' then
+        Arena.TryStart(lobby.id)
+    end
+
+    syncLobby(lobby)
+    return true, Arena.PublicLobby(lobby)
+end
+
+function Arena.ChangeLoadout(src, loadoutId, weaponId)
+    local lobby = Arena.GetPlayerLobby(src)
+    if not lobby then return false, 'not_found' end
+    local p = lobby.players[src]
+    if not p then return false end
+
+    if Arena.Utils.IsElimination(lobby.mode) and lobby.state == 'active' and p.alive then
+        return false, 'loadout_locked'
+    end
+
+    local allowed = Config.ResolveLoadouts(lobby.cfg.loadouts)
+    local ok = false
+    for i = 1, #allowed do
+        if allowed[i].id == loadoutId then ok = true break end
+    end
+    if not ok then return false, 'invalid_loadout' end
+    local weapon = Config.GetLoadoutWeapon(loadoutId, weaponId)
+    if not weapon then return false, 'invalid_loadout' end
+
+    p.loadoutId = loadoutId
+    p.weaponId = weaponId
+    Arena.Inventory.ClearLoadout(src)
+    Arena.Inventory.GiveLoadout(src, weapon)
+    TriggerClientEvent('cursor_arena:client:loadoutApplied', src, { weapon = weapon.weapon, loadoutId = loadoutId, weaponId = weaponId })
+    syncLobby(lobby)
     return true
 end
 
--- Idle lobby cleanup
+function Arena.SetTeam(src, team)
+    local lobby = Arena.GetPlayerLobby(src)
+    if not lobby or not Arena.Utils.IsTeamMode(lobby.mode) then return false end
+    if lobby.state == 'active' or lobby.state == 'countdown' then return false, 'lobby_full' end
+    team = tonumber(team)
+    if team ~= 1 and team ~= 2 then return false end
+    local cap = lobby.cfg.maxPlayersPerTeam or 8
+    if countTeam(lobby, team) >= cap and lobby.players[src].team ~= team then
+        return false, 'lobby_full'
+    end
+    lobby.players[src].team = team
+    Arena.Voice.Join(src, lobby, team)
+    setStateBags(src, lobby, lobby.players[src])
+    syncLobby(lobby)
+    return true
+end
+
+function Arena.LeaveLobby(src, silent, conceded)
+    local lobbyId = Arena.PlayerLobby[src]
+    if not lobbyId then return false end
+    local lobby = Arena.Lobbies[lobbyId]
+    local p = lobby and lobby.players[src]
+
+    if CanPlayerLeaveLobby and lobby and CanPlayerLeaveLobby(src, lobbyId) == false then
+        return false, 'cannot_join'
+    end
+
+    Arena.PlayerLobby[src] = nil
+    Arena.LeaveAt[src] = os.time() + (Config.LeaveCooldown or 4)
+
+    Arena.Inventory.ClearLoadout(src)
+    Arena.Inventory.RestorePlayer(src)
+    Arena.Ambulance.Release(src)
+    Arena.Voice.Leave(src)
+    SetPlayerRoutingBucket(src, 0)
+    setStateBags(src, nil)
+
+    Arena.PlayerHub[src] = true
+    TriggerClientEvent('cursor_arena:client:leaveArena', src, {
+        toHub = true,
+        silent = silent == true,
+    })
+
+    if lobby then
+        lobby.players[src] = nil
+        if PlayerLeftLobby then PlayerLeftLobby(src, lobbyId) end
+
+        if lobby.state == 'active' or lobby.state == 'countdown' then
+            if Arena.Utils.IsElimination(lobby.mode) and conceded ~= false then
+                -- walking out mid-match concedes
+                if countTeam(lobby, p and p.team or 0) == 0 and Arena.Utils.IsTeamMode(lobby.mode) then
+                    local winner = (p and p.team == 1) and 2 or 1
+                    endMatch(lobby, { reason = 'forfeit', winner = winner, concededBy = src })
+                    return true
+                end
+            end
+            if Arena.Utils.IsTeamMode(lobby.mode) then
+                if countTeam(lobby, 1) == 0 or countTeam(lobby, 2) == 0 then
+                    local winner = countTeam(lobby, 1) > 0 and 1 or 2
+                    endMatch(lobby, { reason = 'forfeit', winner = winner, concededBy = src })
+                    return true
+                end
+            elseif countPlayers(lobby) < 2 then
+                local winnerSrc = next(lobby.players)
+                if winnerSrc then
+                    endMatch(lobby, {
+                        reason = 'forfeit',
+                        winnerSrc = winnerSrc,
+                        winnerName = lobby.players[winnerSrc].name,
+                    })
+                else
+                    lobby.state = 'idle'
+                end
+                return true
+            end
+        elseif countPlayers(lobby) == 0 then
+            lobby.state = 'idle'
+        end
+        syncLobby(lobby)
+    end
+    return true
+end
+
+function Arena.InitLobbies()
+    local offset = 0
+    for mode, list in pairs(Config.Lobbies) do
+        for i = 1, #list do
+            local cfg = list[i]
+            local map = Config.GetMap(cfg.map)
+            if not map then
+                print(('[cursor_arena] skipped lobby %s — unknown map %s'):format(cfg.id, tostring(cfg.map)))
+            elseif Arena.Lobbies[cfg.id] then
+                print(('[cursor_arena] skipped lobby %s — duplicate id'):format(cfg.id))
+            else
+                nextBucket = nextBucket + 1
+                voiceSeq = voiceSeq + 2
+                local lobby = {
+                    id = cfg.id,
+                    mode = mode,
+                    cfg = cfg,
+                    map = map,
+                    bucket = nextBucket,
+                    voiceOffset = voiceSeq,
+                    players = {},
+                    state = 'idle',
+                    scores = { [1] = 0, [2] = 0 },
+                    round = 1,
+                    decks = {},
+                }
+                resetDecks(lobby)
+                SetRoutingBucketPopulationEnabled(lobby.bucket, false)
+                Arena.Lobbies[cfg.id] = lobby
+            end
+            offset = offset + 1
+        end
+    end
+    Arena.Utils.Debug('Lobbies ready', Arena.Utils.TableSize(Arena.Lobbies))
+end
+
 CreateThread(function()
-    while true do
-        Wait(30000)
-        local now = os.time()
-        for id, match in pairs(Arena.Matches) do
-            if match.state == 'lobby' and countPlayers(match) == 0 then
-                if now - (match.createdAt or now) >= Config.LobbyIdleTimeout then
-                    Arena.Matches[id] = nil
+    Arena.InitLobbies()
+end)
+
+if Config.AfkKick and Config.AfkKick.enabled then
+    CreateThread(function()
+        while true do
+            Wait(15000)
+            local now = os.time()
+            local limit = (Config.AfkKick.minutes or 5) * 60
+            local warn = Config.AfkKick.warnAt or 60
+            for id, lobby in pairs(Arena.Lobbies) do
+                if lobby.state == 'active' then
+                    for src, p in pairs(lobby.players) do
+                        local idle = now - (p.lastActivity or now)
+                        if idle >= limit then
+                            Arena.Utils.Notify(src, { type = 'error', description = L('afk_kick') })
+                            Arena.LeaveLobby(src, true, true)
+                        elseif idle >= (limit - warn) and not p.afkWarned then
+                            p.afkWarned = true
+                            Arena.Utils.Notify(src, { type = 'error', description = L('afk_warn') })
+                        elseif idle < 10 then
+                            p.afkWarned = false
+                        end
+                    end
                 end
             end
         end
-    end
-end)
+    end)
+end
 
 AddEventHandler('playerDropped', function()
     local src = source
-    if Arena.PlayerMatch[src] then
-        Arena.LeaveMatch(src, true)
+    Arena.PlayerHub[src] = nil
+    if Arena.PlayerLobby[src] then
+        if PlayerLeftServer then PlayerLeftServer(src) end
+        Arena.LeaveLobby(src, true, true)
     end
 end)

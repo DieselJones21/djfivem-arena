@@ -1,121 +1,77 @@
 # cursor_arena
 
-Configurable FiveM PVP arena with a **spawn lobby hub**, custom NUI, **ox_inventory** loadouts, and **wasabi_ambulance** death/revive handling.
+PvP arenas for **Qbox + ox** servers. Players talk to a world ped, land in a spawn-lobby hub, press **G**, pick a mode and map, then drop into a **private routing-bucket copy** of that map.
 
-## How it works
+## Modes
 
-1. Player talks to the **world entry ped** (`[E]`) → teleported into the **spawn lobby map**
-2. Inside the spawn lobby, press **`G`** → opens the matchmaking UI
-3. Pick mode → map → weapon → queue / private / browse
-4. Match ends → returned to the **spawn lobby** (not the city)
-5. Talk to the **exit ped** in the hub (or `/arena_leave`) → back to the city
+| Mode | Rules |
+|------|--------|
+| **FFA** | Three maps (Construction, Cargo, Dust). Instant respawn. First to 30. |
+| **1v1 / 2v2 / 3v3 / 4v4** | Round elimination, one life. Pick size then map. Ranked ELO. |
+| **TDM** | Alpha vs Bravo. Instant respawn. Shared team score. |
 
-## Features
+## Player flow
 
-- Modes: Pistol FFA, SMG FFA, Rifle FFA, Team Deathmatch, 1v1–5v5
-- **3 weapon classes** — Pistol / SMG / Rifle — **5 weapons each**
-- **5 preset maps** with editable FFA + team spawn coords
-- Public queue + private lobbies
-- Custom lobby UI + match HUD
-- ox_inventory stash → loadout → restore
-- wasabi_ambulance arena death/respawn bridge
-- Framework auto-detect: ESX / QBCore / QBX / standalone
+1. Interact with the **entry ped** in the city (`interact` / ox_target / `[E]`). You teleport into the spawn lobby. Inventory is **not** taken.
+2. Inside the hub, press **G** to open the Envy Arena UI.
+3. **JOIN** — pick FFA / 1v1–4v4 / TDM, a weapon, and a map, then drop in.
+4. **ROOMS** — live lobby cards. Open one to see Alpha vs Bravo before joining.
+5. **Clothing ped** in the hub opens **illenium-appearance** clothing (not character creator).
+6. **Exit ped** sends you back to the city coords you entered from.
+7. Leaving a match returns you to the **hub**, not the city.
+
+`/arenas` from the city also walks you into the hub. `/leavearena` leaves a match, or exits the hub if you are not in one.
+
+## Inventory & weapons
+
+- **Nothing is confiscated.** ox_inventory stays on the player.
+- While a match is running, inventory is **blocked** (`invBusy`) so F2 / TAB cannot open it.
+- The selected gun is given **natively into your hands** (`GiveWeaponToPed`) with **infinite ammo** on match start, round start, and respawn. It is not an ox_inventory item.
 
 ## Dependencies
 
 | Resource | Required |
 |----------|----------|
 | ox_lib | Yes |
-| ox_inventory | Yes (can disable in config) |
-| wasabi_ambulance | Optional |
-
-## Install
+| oxmysql | Yes (stats + match history; KVP fallback if missing) |
+| ox_inventory | Recommended (block-in-match only) |
+| interact | Preferred for peds (darktrovx). Falls back to ox_target, qb-target, then `[E]` |
+| illenium-appearance | Clothing ped |
+| qbx_core | Optional (auto) |
+| wasabi_ambulance **or** qbx_medical | Optional (auto) |
+| pma-voice | Optional (squad radio) |
 
 ```cfg
+ensure oxmysql
 ensure ox_lib
 ensure ox_inventory
+ensure interact
+ensure illenium-appearance
+ensure qbx_core
 ensure wasabi_ambulance
+ensure pma-voice
 ensure cursor_arena
 ```
 
-### Config files to edit
+## What to paste (coords + guns)
 
-| File | What to change |
-|------|----------------|
-| `config/config.lua` | Entry ped, **spawn lobby hub coords**, menu key (`G`) |
-| `config/maps.lua` | **5 maps** — change `center`, `spawns.ffa`, `spawns.team` |
-| `config/weapons.lua` | 5 pistols / 5 SMGs / 5 rifles (ox_inventory item names) |
-| `config/modes.lua` | Score limits, player counts, which class each mode uses |
+See **`SPAWNS.md`**. Vanilla GTA fills ship so it boots without your MLO. Replace:
 
-## Spawn lobby hub
+- `config/config.lua` — entry ped, hub spawns, exit ped, clothing ped
+- `config/maps.lua` — polygon fence + FFA / Alpha / Bravo spawns per map
+- `config/weapons.lua` — `weapon = 'WEAPON_...'` spawn names
+- `config/lobbies.lua` — which maps belong to FFA / PVP / TDM
 
-In `config/config.lua` → `Config.SpawnLobby`:
-
-```lua
-Config.SpawnLobby = {
-    spawns = {
-        vec4(405.0, -997.0, -99.0, 90.0), -- CHANGE to your lobby MLO
-        -- more hub spawn points...
-    },
-    center = vec3(405.0, -997.0, -99.0),
-    radius = 40.0,
-    exitCoords = vec4(-265.0, -963.0, 31.2, 200.0), -- back to city
-    exitPed = { ... }, -- ped inside hub to leave
-}
-```
-
-World entry ped is `Config.EntryPed`.
-
-## Weapon classes
-
-Only three classes in `config/weapons.lua`:
-
-- `pistols` — 5 weapons
-- `smgs` — 5 weapons
-- `rifles` — 5 weapons
-
-Modes can lock to one class (`weaponCategory = 'pistols'`) or allow all three (`'choice'`).
-
-## Maps
-
-Five presets in `config/maps.lua`. For each map edit:
-
-- `center` / `radius`
-- `spawns.ffa` — list of `vec4(x, y, z, heading)`
-- `spawns.team.red` / `spawns.team.blue`
-
-## Player commands
-
-| Input | Action |
-|-------|--------|
-| Entry ped `[E]` | Teleport into spawn lobby |
-| **`G`** (in hub) | Open / close lobby UI |
-| Exit ped `[E]` | Leave hub to city |
-| `/arena` | Enter hub (or open UI if already inside) |
-| `/arena_leave` | Leave match → hub, or exit hub → city |
+`Config.Debug = true` draws the fence with numbered corners.
 
 ## Admin
 
 ```cfg
 add_ace group.admin arena.admin allow
-add_ace group.admin arena.forcestart allow
 ```
 
-| Command | Description |
-|---------|-------------|
-| `/arena_forcestart` | Force start current lobby |
-| `/arena_restoreinv` | Restore a stuck ox_inventory stash |
+`/arena_restoreinv [id]` — unlock the in-match inventory block after a crash.
 
-## Exports
+Hooks: `server/open_sv.lua`, `client/open_cl.lua`.
 
-```lua
-exports.cursor_arena:IsInArena()          -- client
-exports.cursor_arena:ShouldBlockAmbulance()
-exports.cursor_arena:IsInArena(source)    -- server
-exports.cursor_arena:IsInHub(source)
-exports.cursor_arena:LeaveArena(source)
-```
-
-## wasabi_ambulance
-
-See `bridges/wasabi_ambulance_guard.lua.example` — paste near death UI / EMS interactions so arena matches are not overridden.
+Exports: `IsInArena()`, `IsInHub()`, `ShouldBlockAmbulance()`. State bags: `in_arena`, `arenaHub`, `arena_mode`, `arena_lobby`, `arena_team`, `arena_down`, `arena_spectator`.

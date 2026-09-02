@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARENA</title>
+  <title>Envy Arena</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
@@ -12,208 +12,191 @@
 <body>
   <div id="app" class="hidden">
     <div class="frame">
-      <!-- TOP NAV -->
       <header class="navbar">
         <div class="nav-brand">
-          <span class="brand-icon" aria-hidden="true">⚔</span>
-          <span class="brand-text">ARENA</span>
+          <img class="brand-logo" src="assets/envy-logo.png" alt="Envy Roleplay" />
+          <div class="brand-copy">
+            <span class="brand-text">ENVY ARENA</span>
+            <small>PVP LOBBY</small>
+          </div>
         </div>
-
         <nav class="nav-tabs" id="navTabs">
-          <button class="nav-tab" data-tab="ffa">◎ ARENA FFA</button>
-          <button class="nav-tab active" data-tab="lobbies">☰ Lobbies</button>
-          <button class="nav-tab" data-tab="gungame">⚡ Gun Game</button>
-          <button class="nav-tab" data-tab="stats">🏆 FFA Stats</button>
-          <button class="nav-tab" data-tab="leaderboard">◎ Leaderboard</button>
-          <button class="nav-tab" data-tab="loadout">✦ Loadout</button>
+          <button class="nav-tab active" data-tab="join">
+            <span class="tab-ico">+</span> JOIN
+          </button>
+          <button class="nav-tab" data-tab="rooms">
+            <span class="tab-ico pin"></span> ROOMS
+          </button>
+          <button class="nav-tab" data-tab="ranking">
+            <span class="tab-ico cup"></span> RANKING
+          </button>
+          <button class="nav-tab" data-tab="history">HISTORY</button>
         </nav>
-
-        <div class="nav-right">
-          <div class="currency">
-            <span class="coin">● <b id="statCoins">0</b></span>
-            <span class="trophy">🏆 <b id="statElo">1000</b></span>
-          </div>
-          <div class="profile">
-            <div class="avatar" id="avatarCircle">A</div>
-            <div class="profile-text">
-              <strong id="profileName">Player</strong>
-              <small id="profileGang">ARENA</small>
-            </div>
-          </div>
-          <button class="icon-exit" id="btnClose" title="Close">⎋</button>
-        </div>
+        <button class="icon-exit" id="btnClose" aria-label="Close">✕</button>
       </header>
 
       <main class="content">
-        <!-- LOBBIES -->
-        <section class="page active" id="page-lobbies">
-          <div class="page-head">
-            <div>
-              <h1>Public Lobbies</h1>
-              <p>Browse and join available lobbies or create your own.</p>
+        <section class="page active" id="page-join">
+          <div class="join-grid">
+            <div class="join-col">
+              <h2 class="sec-label">GAME MODE</h2>
+              <div class="mode-grid" id="modeGrid"></div>
+
+              <div class="join-row">
+                <div>
+                  <h2 class="sec-label" id="ruleLabel">ROUNDS</h2>
+                  <div class="rule-box" id="ruleValue">First to 5</div>
+                </div>
+                <div id="teamWrap" class="hidden">
+                  <h2 class="sec-label">TEAM</h2>
+                  <div class="vis-row">
+                    <button class="vis-btn selected" data-team="1">ALPHA</button>
+                    <button class="vis-btn" data-team="2">BRAVO</button>
+                  </div>
+                </div>
+              </div>
+
+              <h2 class="sec-label">WEAPON</h2>
+              <div class="weapon-split">
+                <div class="weapon-list" id="weaponList"></div>
+                <div class="weapon-preview">
+                  <div class="wep-art" id="wepArt"></div>
+                  <strong id="wepName">Pistol</strong>
+                  <small id="wepCat">DUELIST</small>
+                </div>
+              </div>
             </div>
-            <button class="btn-accent" id="btnOpenCreate">+ Create Lobby</button>
+
+            <div class="join-col maps-col">
+              <h2 class="sec-label">SELECT MAP</h2>
+              <div class="map-pick" id="mapPick"></div>
+            </div>
           </div>
-          <div class="lobby-list" id="lobbyList"></div>
-          <div class="empty-state" id="lobbyEmpty">No public lobbies yet. Create one to get started.</div>
+          <div class="join-foot">
+            <p class="join-note">Unlimited ammo in-match. Inventory stays on you — it just cannot open.</p>
+            <button class="btn-cta" id="btnJoinArena">▶ JOIN ARENA</button>
+          </div>
         </section>
 
-        <!-- FFA -->
-        <section class="page" id="page-ffa">
+        <section class="page" id="page-rooms">
           <div class="page-head">
-            <div>
-              <h1>ARENA FFA</h1>
-              <p>Jump into free-for-all with a weapon class.</p>
+            <div class="sec-title">
+              <h2 class="sec-label">AVAILABLE ROOMS</h2>
+              <span class="count-pill" id="roomCount">0</span>
             </div>
+            <input class="search" id="roomSearch" type="search" placeholder="Search rooms..." />
           </div>
-          <div class="ffa-grid" id="ffaGrid"></div>
-          <div class="weapon-pick hidden" id="ffaWeaponPick">
-            <h3>Select Weapon</h3>
-            <div class="chip-row" id="ffaWeapons"></div>
-            <button class="btn-accent" id="btnFfaQueue">Find Match</button>
-          </div>
+          <div class="room-grid" id="roomGrid"></div>
+          <div class="empty-state hidden" id="roomsEmpty">No rooms match that filter.</div>
         </section>
 
-        <!-- GUN GAME (placeholder / coming) -->
-        <section class="page" id="page-gungame">
+        <section class="page" id="page-ranking">
           <div class="page-head">
-            <div>
-              <h1>Gun Game</h1>
-              <p>Climb the weapon ladder. Coming online with your maps.</p>
+            <h2 class="sec-label">LEADERBOARD</h2>
+            <div class="chip-row">
+              <div id="boardModes">
+                <button class="chip active" data-board="ffa">FFA</button>
+                <button class="chip" data-board="pvp">1v1–4v4</button>
+                <button class="chip" data-board="tdm">TDM</button>
+              </div>
+              <div id="boardSort">
+                <button class="chip" data-sort="kd">K/D</button>
+                <button class="chip" data-sort="kills">KILLS</button>
+                <button class="chip active" data-sort="wins">WINS</button>
+              </div>
             </div>
           </div>
-          <div class="empty-state">Gun Game mode is stubbed — enable after maps are set.</div>
-        </section>
-
-        <!-- STATS -->
-        <section class="page" id="page-stats">
-          <div class="page-head">
-            <div>
-              <h1>FFA Stats</h1>
-              <p>Your arena performance.</p>
-            </div>
-          </div>
-          <div class="stats-cards" id="myStatsCards"></div>
-        </section>
-
-        <!-- LEADERBOARD -->
-        <section class="page" id="page-leaderboard">
-          <div class="page-head">
-            <div>
-              <h1>Leaderboard</h1>
-              <p>Top players ranked by performance</p>
-            </div>
-            <div class="refresh-pill" id="refreshPill">Updates live</div>
-          </div>
-          <div class="top3" id="top3"></div>
-          <div class="board-table">
+          <div class="board" id="boardWrap">
             <div class="board-head">
-              <span>RANK</span><span>PLAYER</span><span>KILLS</span><span>DEATHS</span><span>K/D</span>
+              <span>#</span><span>PLAYER</span><span>KILLS</span><span>DEATHS</span>
+              <span>K/D</span><span>WINS</span><span>LOSSES</span><span>W/L</span>
             </div>
             <div id="boardRows"></div>
           </div>
         </section>
 
-        <!-- LOADOUT -->
-        <section class="page" id="page-loadout">
+        <section class="page" id="page-history">
           <div class="page-head">
-            <div>
-              <h1>Loadout</h1>
-              <p>Preview weapons by class. Your pick locks when you join a lobby.</p>
-            </div>
+            <h2 class="sec-label">MATCH HISTORY</h2>
           </div>
-          <div class="class-row" id="loadoutClasses"></div>
-          <div class="weapon-grid" id="loadoutWeapons"></div>
-        </section>
-
-        <!-- ACTIVE LOBBY ROOM (overlay panel) -->
-        <section class="page" id="page-room">
-          <div class="page-head">
-            <div>
-              <h1>Lobby Room</h1>
-              <p id="roomMeta">Waiting for players</p>
-            </div>
-            <div class="row-actions">
-              <button class="btn-ghost" id="btnReady">Ready</button>
-              <button class="btn-accent hidden" id="btnStart">Start Match</button>
-              <button class="btn-danger" id="btnLeaveLobby">Leave</button>
-            </div>
-          </div>
-          <div class="teams" id="teamLists"></div>
+          <div class="history-list" id="historyList"></div>
+          <div class="empty-state hidden" id="historyEmpty">No matches yet.</div>
         </section>
       </main>
     </div>
+  </div>
 
-    <!-- CREATE LOBBY MODAL -->
-    <div class="modal-backdrop hidden" id="createModal">
-      <div class="modal">
-        <div class="modal-head">
-          <h2>Create Lobby</h2>
-          <button class="icon-exit" id="btnCloseCreate">✕</button>
+  <div class="drawer-backdrop hidden" id="sala">
+    <div class="sala">
+      <button class="icon-exit drawer-x" id="btnCloseSala">✕</button>
+      <header class="sala-head">
+        <h2 id="salaName">Room</h2>
+        <p id="salaMeta">1v1 · Construction</p>
+      </header>
+      <div class="sala-vs">
+        <div class="team-col t1">
+          <h3>ALPHA</h3>
+          <div class="team-slots" id="salaTeam1"></div>
         </div>
-
-        <div class="modal-section">
-          <label>Match Type</label>
-          <div class="option-row" id="pvpSizes"></div>
-          <div class="option-row" id="tdmSizes"></div>
+        <div class="vs-mark">VS</div>
+        <div class="team-col t2">
+          <h3>BRAVO</h3>
+          <div class="team-slots" id="salaTeam2"></div>
         </div>
-
-        <div class="modal-section">
-          <label>Weapon Class</label>
-          <div class="option-row wide" id="weaponClasses"></div>
-        </div>
-
-        <div class="modal-section">
-          <label>Arena</label>
-          <div class="option-grid" id="arenaMaps"></div>
-        </div>
-
-        <div class="modal-section">
-          <label id="roundsLabel">Rounds for PVP Match</label>
-          <input type="number" id="roundsInput" min="1" max="40" value="5" />
-          <small class="hint" id="roundsHint">Choose between 1 and 40 rounds</small>
-        </div>
-
-        <div class="modal-section">
-          <label>Your Weapon</label>
-          <div class="chip-row" id="createWeapons"></div>
-        </div>
-
-        <div class="modal-section check-row">
-          <label class="check">
-            <input type="checkbox" id="privateCheck" />
-            <span>Make this lobby private</span>
-          </label>
-        </div>
-
-        <div class="modal-foot">
-          <button class="btn-ghost" id="btnCancelCreate">Cancel</button>
-          <button class="btn-accent" id="btnConfirmCreate">Create Lobby</button>
-        </div>
+      </div>
+      <div class="sala-ffa hidden" id="salaFfa"></div>
+      <div class="sala-foot">
+        <button class="btn-ghost" id="btnLeaveSala">← LEAVE</button>
+        <button class="btn-ghost" id="btnSwapTeam">⇄ CHANGE TEAM</button>
+        <button class="btn-cta" id="btnConfirmJoin">▶ JOIN</button>
       </div>
     </div>
   </div>
 
-  <!-- MATCH HUD -->
-  <div id="matchHud" class="match-hud hidden">
-    <div class="hud-top">
-      <div class="hud-mode" id="hudMode">ARENA</div>
-      <div class="hud-timer" id="hudTimer">--:--</div>
-      <div class="hud-map" id="hudMap"></div>
+  <div class="loadout-modal hidden" id="loadoutModal">
+    <div class="loadout-card">
+      <h2>Change loadout</h2>
+      <div class="chip-row" id="liveLoadouts"></div>
+      <div class="chip-row" id="liveWeapons"></div>
+      <div class="sala-foot">
+        <button class="btn-ghost" id="btnCancelLoadout">Cancel</button>
+        <button class="btn-cta" id="btnApplyLoadout">Equip</button>
+      </div>
     </div>
-    <div class="hud-score" id="hudScore"></div>
+  </div>
+
+  <div id="matchHud" class="match-hud hidden">
+    <div class="hud-bar" id="scorePlate"></div>
+    <div class="team-panel hidden" id="teamPanel"></div>
     <div class="killfeed" id="killfeed"></div>
   </div>
-
-  <div id="countdown" class="countdown hidden"><span id="countdownNum">5</span></div>
+  <div id="hitmarker" class="hitmarker hidden">
+    <svg viewBox="0 0 40 40"><path d="M8 8 L16 16 M24 16 L32 8 M8 32 L16 24 M24 24 L32 32" /></svg>
+    <span id="hitDmg"></span>
+  </div>
+  <div id="streak" class="streak hidden">
+    <small id="streakName"></small>
+    <strong id="streakLabel">DOUBLE KILL</strong>
+  </div>
+  <div id="countdown" class="countdown hidden">
+    <small id="countdownRound"></small>
+    <span id="countdownNum">5</span>
+  </div>
+  <div id="bounds" class="bounds hidden">RETURN <b id="boundsNum">5</b></div>
   <div id="deathOverlay" class="death-overlay hidden"><span>DOWN</span></div>
+  <div id="spectateBar" class="spectate hidden">
+    <small>SPECTATING</small>
+    <strong id="spectateName">—</strong>
+    <em id="spectateHint"></em>
+  </div>
   <div id="matchResult" class="match-result hidden">
     <div class="result-card">
+      <img class="result-logo" src="assets/envy-logo.png" alt="" />
       <h2 id="resultTitle">VICTORY</h2>
       <p id="resultSub"></p>
+      <div id="resultElo" class="elo-delta"></div>
     </div>
   </div>
-
   <script src="app.js"></script>
 </body>
 </html>

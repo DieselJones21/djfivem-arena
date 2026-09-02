@@ -1,13 +1,11 @@
 Arena = Arena or {}
 Arena.Utils = {}
 
-local function debugPrint(...)
+function Arena.Utils.Debug(...)
     if Config.Debug then
         print('[cursor_arena]', ...)
     end
 end
-
-Arena.Utils.Debug = debugPrint
 
 function Arena.Utils.Notify(src, data)
     if src then
@@ -42,24 +40,103 @@ function Arena.Utils.Shuffle(list)
     return t
 end
 
-function Arena.Utils.PickSpawn(spawns, usedIndexes)
-    usedIndexes = usedIndexes or {}
-    if not spawns or #spawns == 0 then return nil end
-
-    for i = 1, #spawns do
-        if not usedIndexes[i] then
-            usedIndexes[i] = true
-            return spawns[i], i, usedIndexes
-        end
-    end
-
-    -- reuse if exhausted
-    local idx = math.random(#spawns)
-    return spawns[idx], idx, usedIndexes
+function Arena.Utils.IsTeamMode(mode)
+    return mode == 'tdm' or mode == 'showdown' or mode == 'pvp'
 end
 
-function Arena.Utils.IsTeamMode(mode)
-    return mode and (mode.type == 'tdm' or mode.type == 'team')
+function Arena.Utils.IsElimination(mode)
+    return mode == 'showdown' or mode == 'pvp'
+end
+
+function Arena.Utils.Vec4(coords)
+    if not coords then return end
+    return {
+        x = coords.x or coords[1],
+        y = coords.y or coords[2],
+        z = coords.z or coords[3],
+        w = coords.w or coords[4] or 0.0,
+    }
+end
+
+--- Point in polygon (ray casting). points are vector2 / {x,y}
+function Arena.Utils.PointInPolygon(x, y, points)
+    if not points or #points < 3 then return true end
+    local inside = false
+    local j = #points
+    for i = 1, #points do
+        local xi, yi = points[i].x, points[i].y
+        local xj, yj = points[j].x, points[j].y
+        local intersect = ((yi > y) ~= (yj > y)) and (x < (xj - xi) * (y - yi) / ((yj - yi) + 0.0000001) + xi)
+        if intersect then inside = not inside end
+        j = i
+    end
+    return inside
+end
+
+function Arena.Utils.InsideMap(coords, map)
+    if not map or not coords then return true end
+    local x, y, z = coords.x, coords.y, coords.z
+    local bounds = map.boundaries
+    if bounds and bounds.points and #bounds.points >= 3 then
+        if bounds.minZ and z < bounds.minZ then return false end
+        if bounds.maxZ and z > bounds.maxZ then return false end
+        return Arena.Utils.PointInPolygon(x, y, bounds.points)
+    end
+    if map.center and map.radius then
+        local dx = x - map.center.x
+        local dy = y - map.center.y
+        return (dx * dx + dy * dy) <= (map.radius * map.radius)
+    end
+    return true
+end
+
+function Arena.Utils.CreateSpawnDeck(spawns)
+    local deck = { list = {}, cursor = 1 }
+    if not spawns or #spawns == 0 then return deck end
+    deck.list = Arena.Utils.Shuffle(spawns)
+    return deck
+end
+
+function Arena.Utils.DealSpawn(deck, fallback)
+    if not deck or not deck.list or #deck.list == 0 then
+        return fallback
+    end
+    if deck.cursor > #deck.list then
+        deck.list = Arena.Utils.Shuffle(deck.list)
+        deck.cursor = 1
+    end
+    local spawn = deck.list[deck.cursor]
+    deck.cursor = deck.cursor + 1
+    return spawn
+end
+
+function Arena.Utils.TitleForRank(mode, rank)
+    local titles = Config.LeaderboardTitles[mode] or Config.LeaderboardTitles.default or {}
+    local best
+    for i = 1, #titles do
+        if rank <= titles[i].rank then
+            if not best or titles[i].rank < best.rank then
+                best = titles[i]
+            end
+        end
+    end
+    return best and best.title or nil
+end
+
+function Arena.Utils.SerializeLoadouts()
+    local out = {}
+    for i = 1, #Config.Loadouts do
+        local l = Config.Loadouts[i]
+        out[#out + 1] = {
+            id = l.id,
+            label = l.label,
+            description = l.description,
+            icon = l.icon,
+            category = l.category,
+            weapons = l.weapons,
+        }
+    end
+    return out
 end
 
 function Arena.Utils.SerializeMaps()
@@ -68,39 +145,29 @@ function Arena.Utils.SerializeMaps()
         local m = Config.Maps[i]
         out[#out + 1] = {
             id = m.id,
-            label = m.label,
+            name = m.name,
             description = m.description,
             image = m.image,
-            modes = m.modes,
         }
     end
     return out
 end
 
-function Arena.Utils.SerializeModes()
-    local out = {}
-    for i = 1, #Config.Modes do
-        local m = Config.Modes[i]
-        out[#out + 1] = {
-            id = m.id,
-            label = m.label,
-            description = m.description,
-            type = m.type,
-            icon = m.icon,
-            weaponCategory = m.weaponCategory,
-            allowWeaponChoice = m.allowWeaponChoice,
-            minPlayers = m.minPlayers,
-            maxPlayers = m.maxPlayers,
-            scoreLimit = m.scoreLimit,
-            timeLimit = m.timeLimit,
-            teamSize = m.teamSize,
-            rounds = m.rounds,
-            color = m.color,
-            tab = m.tab,
-            style = m.style,
-        }
+function Arena.Utils.WeaponCategory(weaponName)
+    if not weaponName then return 'generic' end
+    local key = weaponName:upper()
+    return Config.WeaponCategories[key] or 'generic'
+end
+
+function Arena.Utils.KillstreakFor(kills)
+    local best
+    for i = 1, #Config.Killstreaks do
+        local row = Config.Killstreaks[i]
+        if kills >= row.kills then
+            best = row
+        end
     end
-    return out
+    return best
 end
 
 function Arena.Utils.Locale(key, ...)

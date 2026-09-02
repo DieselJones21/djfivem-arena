@@ -1,41 +1,67 @@
-# Spawn coordinates
+# Maps, hub & weapons — paste list
 
-Paste your coords in chat or edit these files directly:
+Vanilla GTA fills are in place so the resource starts. Send (or paste) the real values below.
 
-## Hub (spawn lobby)
-`cursor_arena/config/config.lua` → `Config.SpawnLobby`
+Use `vec4(x, y, z, heading)` for peds and spawns, `vec3(x, y, z)` for hub center, `vec2(x, y)` for fence corners.
+
+## 1) World entry ped
+
+`config/config.lua` → `Config.EntryPed.coords`
+
+Talking to this ped teleports you into the spawn lobby. It does **not** open the UI.
+
+## 2) Spawn lobby hub
+
+`Config.SpawnLobby`
+
+- `spawns` — a few `vec4` land points inside the MLO
+- `center` + `radius` — keep players inside the hub
+
+## 3) Exit ped (inside the hub)
+
+`Config.ExitPed.coords`
+
+Returns the player to the city coords they entered from.
+
+## 4) Clothing ped (inside the hub)
+
+`Config.ClothingPed.coords`
+
+Opens `illenium-appearance:client:openClothingShop` (clothing only).
+
+## 5) Maps
+
+`config/maps.lua` — for **construction**, **cargo**, and **dust** (the three used by FFA / 1v1–4v4 / TDM):
 
 ```lua
-spawns = {
-    vec4(x, y, z, heading),
+boundaries = {
+    points = { vec2(x, y), ... }, -- walk the perimeter in order
+    minZ = 0.0,
+    maxZ = 80.0,
 },
-center = vec3(x, y, z),
-exitCoords = vec4(x, y, z, heading),
-exitPed = { coords = vec3(x, y, z), heading = 0.0 },
+spawns        = { vec4(...), ... }, -- FFA
+team1_spawns  = { vec4(...), ... }, -- Alpha
+team2_spawns  = { vec4(...), ... }, -- Bravo
 ```
 
-## Match maps (5)
-`cursor_arena/config/maps.lua`
+`Config.Debug = true` numbers every fence corner.
 
-Maps: **Construction**, **The Pool**, **Dust**, **Cargo**, **Rooftops**
+Points are **dealt**, not rolled — the list is shuffled and every point is used before repeats.
 
-For each map paste:
-- `center = vec3(x, y, z)`
-- `spawns.ffa` list of `vec4(x, y, z, heading)`
-- `spawns.team.red` / `spawns.team.blue`
+Shipping vanilla fills:
 
-Reply in chat with blocks like:
+| id | Default location |
+|----|------------------|
+| `construction` | Alta construction pit |
+| `cargo` | Port of LS containers |
+| `dust` | Sandy Shores airfield |
+| `pool` | Vinewood Hills pool deck (unused by default lobbies) |
+| `rooftops` | Maze Bank West roof (unused by default lobbies) |
 
-```
-MAP: construction
-center: x, y, z
-ffa:
-x, y, z, h
-x, y, z, h
-red:
-...
-blue:
-...
-```
+## 6) Weapon spawn names
 
-and they can be filled in for you.
+`config/weapons.lua` — replace the `weapon = 'WEAPON_...'` field on each row with your spawn name (vanilla or addon). Labels can stay as the display name in the UI.
+
+## Interact
+
+Peds prefer `exports.interact:AddLocalEntityInteraction` (resource name `interact`). If that resource is not started, ox_target / qb-target / `[E]` are used automatically.

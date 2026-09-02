@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360">
-  <rect width="640" height="360" fill="#151a1f"/>
-  <g stroke="#e9c46a" stroke-width="4" fill="none" stroke-opacity="0.7">
+  <rect width="640" height="360" fill="#0a1216"/>
+  <g stroke="#00eaf5" stroke-width="4" fill="none" stroke-opacity="0.7">
     <path d="M40 300 L160 80 L280 300 Z"/>
     <path d="M220 300 L360 60 L500 300 Z"/>
     <path d="M420 300 L540 110 L620 300"/>
@@ -8,5 +8,5 @@
     <line x1="100" y1="220" x2="240" y2="220"/>
     <line x1="280" y1="200" x2="440" y2="200"/>
   </g>
-  <circle cx="360" cy="160" r="8" fill="#ff5a1f"/>
+  <circle cx="360" cy="160" r="8" fill="#00eaf5"/>
 </svg>
