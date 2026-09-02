@@ -215,7 +215,7 @@
     });
 
     const lobby = lobbyForPick();
-    show($('teamWrap'), state.mode !== 'ffa');
+    show($('teamWrap'), state.mode !== 'ffa' && state.mode !== '1v1');
     $('ruleLabel').textContent = state.mode === 'ffa' || state.mode === 'tdm' ? 'FIRST TO' : 'ROUNDS';
     $('ruleValue').textContent = lobby
       ? (lobby.killsToWin ? `${lobby.killsToWin} kills` : `First to ${lobby.roundsToWin || 5}`)
@@ -375,7 +375,8 @@
     const teamMode = isTeam(lobby);
     show($('salaFfa'), !teamMode);
     document.querySelector('.sala-vs').classList.toggle('hidden', !teamMode);
-    show($('btnSwapTeam'), teamMode);
+    const solo = (lobby.sizeLabel || '') === '1v1' || lobby.maxPlayersPerTeam === 1;
+    show($('btnSwapTeam'), teamMode && !solo);
     const inThis = state.currentLobbyId && state.currentLobbyId === lobby.id;
     if ($('salaTag')) $('salaTag').textContent = inThis ? 'YOUR ROOM' : (isLive(lobby) ? 'LIVE' : 'ROOM');
     const joinBtn = $('btnConfirmJoin');
@@ -470,11 +471,12 @@
     if (joinBtn) joinBtn.disabled = true;
     if (arenaBtn) arenaBtn.disabled = true;
     try {
+      const solo = (lobby.sizeLabel || state.mode) === '1v1' || lobby.maxPlayersPerTeam === 1;
       const res = await nui('joinLobby', {
         lobbyId: lobby.id,
         loadoutId: state.pick.loadoutId,
         weaponId: state.pick.weaponId,
-        team: state.pick.team,
+        team: solo ? undefined : state.pick.team,
       });
       if (res?.ok) {
         state.currentLobbyId = lobby.id;
@@ -613,28 +615,47 @@
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
+  function readScores(raw) {
+    if (Array.isArray(raw)) return { orange: raw[0] || 0, blue: raw[1] || 0 };
+    const src = raw || {};
+    return {
+      orange: src.orange ?? src.t1 ?? src[1] ?? src['1'] ?? 0,
+      blue: src.blue ?? src.t2 ?? src[2] ?? src['2'] ?? 0,
+    };
+  }
+
   function renderHud(data) {
     if (!data) return;
     const me = data.me || {};
+    const myTeam = Number(data.team || me.team || 0);
     const waiting = data.waiting || data.state === 'waiting' || data.state === 'idle';
     show($('waiting'), waiting);
     if (waiting) {
-      $('waitingTitle').textContent = 'WAITING';
-      $('waitingSub').textContent = data.mode === 'ffa' || data.mode === 'tdm'
+      const side = myTeam === 1 ? 'ORANGE' : myTeam === 2 ? 'BLUE' : '';
+      $('waitingTitle').textContent = side ? `YOU ARE ${side}` : 'WAITING';
+      if ($('waitingTeam')) {
+        $('waitingTeam').textContent = side;
+        $('waitingTeam').className = `waiting-team ${myTeam === 1 ? 't1' : myTeam === 2 ? 't2' : 'hidden'}`;
+        show($('waitingTeam'), !!side);
+      }
+      $('waitingSub').textContent = data.mode === 'ffa'
         ? 'Need one more fighter to start'
-        : 'Need both Orange and Blue to start';
+        : myTeam === 1 ? 'Waiting for Blue'
+          : myTeam === 2 ? 'Waiting for Orange'
+            : 'Need both Orange and Blue to start';
     }
     const mapBit = data.mapName ? `<div class="hud-map">${(data.sizeLabel || data.mode || '').toUpperCase()} · ${(data.mapName || '').toUpperCase()}</div>` : '';
     if (data.mode === 'tdm' || data.mode === 'pvp' || data.mode === 'showdown') {
       state.hudEndsAt = data.endsAt || state.hudEndsAt;
       const roundLabel = data.roundsToWin ? `${data.round || 1}/${data.roundsToWin}` : `${data.round || 1}`;
+      const sc = readScores(data.scores);
       $('scorePlate').innerHTML = `
-        <div class="hud-side"><span class="hud-tag t1">ORANGE</span><span class="hud-score">${data.scores?.[1] || 0}</span></div>
+        <div class="hud-side t1 ${myTeam === 1 ? 'mine' : ''}"><span class="hud-tag t1">${myTeam === 1 ? 'YOU · ORANGE' : 'ORANGE'}</span><span class="hud-score">${sc.orange}</span></div>
         <div class="hud-timer">
           <span class="hud-round">${roundLabel}</span>
           <div class="hud-ring">${fmtTime(state.hudEndsAt)}</div>
         </div>
-        <div class="hud-side"><span class="hud-score">${data.scores?.[2] || 0}</span><span class="hud-tag t2">BLUE</span></div>
+        <div class="hud-side t2 ${myTeam === 2 ? 'mine' : ''}"><span class="hud-score">${sc.blue}</span><span class="hud-tag t2">${myTeam === 2 ? 'YOU · BLUE' : 'BLUE'}</span></div>
         ${mapBit}`;
     } else {
       const sorted = [...(data.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0));
@@ -648,10 +669,10 @@
         ${mapBit}`;
     }
     const panel = $('teamPanel');
-    if (data.teamPanel && !waiting) {
+    if (data.teamPanel && (data.mode === 'tdm' || data.mode === 'pvp' || data.mode === 'showdown')) {
       show(panel, true);
-      const mine = (data.players || []).filter((p) => p.team === data.team);
-      const label = data.team === 1 ? 'ORANGE' : data.team === 2 ? 'BLUE' : 'YOUR SIDE';
+      const mine = (data.players || []).filter((p) => p.team === myTeam);
+      const label = myTeam === 1 ? 'YOUR SIDE · ORANGE' : myTeam === 2 ? 'YOUR SIDE · BLUE' : 'YOUR SIDE';
       panel.innerHTML = `<h4>${label}</h4>` + mine.map((p) => `
         <div class="tp-row ${p.alive === false ? 'down' : ''}"><span>${esc(p.name)}${data.titles && p.title ? ` · ${esc(p.title)}` : ''}</span><span>${p.alive === false ? '✕' : '●'}</span></div>`).join('');
     } else show(panel, false);
@@ -788,22 +809,25 @@
     const view = params.get('view');
     if (view === 'hud' || view === 'waiting') {
       state.playerId = 1;
+      const side = params.get('side') === 'blue' ? 2 : 1;
+      // Default to a FiveM-style JSON array so the score readout stays honest.
+      const scores = params.get('scores') === 'obj' ? { 1: 2, 2: 1 } : [2, 1];
       renderHud({
         mode: 'pvp',
         mapName: 'Stables',
         sizeLabel: '1v1',
-        scores: { 1: 2, 2: 1 },
+        scores,
         round: 3,
         roundsToWin: 5,
         waiting: view === 'waiting',
         state: view === 'waiting' ? 'waiting' : 'active',
-        team: 1,
+        team: side,
         teamPanel: true,
         players: [
           { id: 1, name: 'Diesel', team: 1, alive: true, title: 'Apex' },
           { id: 2, name: 'Nova', team: 2, alive: true },
         ],
-        me: { id: 1, kills: 2 },
+        me: { id: 1, kills: 2, team: side },
       });
       show($('matchHud'), true);
       return;
