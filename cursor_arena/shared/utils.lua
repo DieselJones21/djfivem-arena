@@ -24,6 +24,14 @@ function Arena.Utils.DeepCopy(tbl)
     return copy
 end
 
+-- Named keys so FiveM json.encode does not turn { [1]=x, [2]=y } into a JS array.
+function Arena.Utils.Scoreboard(scores)
+    scores = scores or {}
+    local orange = tonumber(scores.orange or scores.t1 or scores[1]) or 0
+    local blue = tonumber(scores.blue or scores.t2 or scores[2]) or 0
+    return { orange = orange, blue = blue, t1 = orange, t2 = blue }
+end
+
 function Arena.Utils.TableSize(tbl)
     local n = 0
     for _ in pairs(tbl) do n = n + 1 end

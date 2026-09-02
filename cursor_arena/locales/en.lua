@@ -35,6 +35,7 @@ Locales.en = {
     round_start = 'Round %s',
     team_1 = 'Orange',
     team_2 = 'Blue',
+    your_team = 'You are %s',
     spectate_hint = '← →  Spectate teammates',
     loadout_locked = 'Loadout is locked until you die.',
     conceded = 'You conceded the match.',

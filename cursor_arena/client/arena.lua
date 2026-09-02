@@ -149,14 +149,14 @@ local function hudPayload()
         mode = lobby.mode,
         name = lobby.name,
         mapName = lobby.mapName,
-        scores = lobby.scores,
+        scores = Arena.Utils.Scoreboard(lobby.scores),
         round = lobby.round,
         killsToWin = lobby.killsToWin,
         roundsToWin = lobby.roundsToWin,
         endsAt = lobby.endsAt,
         players = lobby.players,
         me = me,
-        team = Arena.Client.team,
+        team = (me and me.team) or Arena.Client.team,
         waiting = lobby.state == 'waiting' or lobby.state == 'idle',
         state = lobby.state,
         sizeLabel = lobby.sizeLabel,
@@ -202,6 +202,12 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
     SendNUIMessage({ action = 'close' })
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
     SetNuiFocus(false, false)
+    if Arena.Client.team == 1 or Arena.Client.team == 2 then
+        lib.notify({
+            type = 'inform',
+            description = L('your_team', Arena.Client.team == 1 and L('team_1') or L('team_2')),
+        })
+    end
     if PlayerJoinedLobby then PlayerJoinedLobby() end
 end)
 
@@ -255,9 +261,25 @@ RegisterNetEvent('cursor_arena:client:matchActive', function(lobby)
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
 end)
 
+local function syncMyTeam(lobby)
+    if not lobby or not lobby.players then return end
+    local myId = GetPlayerServerId(PlayerId())
+    for i = 1, #lobby.players do
+        if lobby.players[i].id == myId then
+            local nextTeam = lobby.players[i].team or 0
+            if nextTeam ~= Arena.Client.team then
+                Arena.Client.team = nextTeam
+                setupTeams(wantsTeamkill(lobby))
+            end
+            return
+        end
+    end
+end
+
 RegisterNetEvent('cursor_arena:client:lobbySync', function(lobby)
     Arena.Client.lobby = lobby
     if Arena.Client.inArena then
+        syncMyTeam(lobby)
         SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
         return
     end

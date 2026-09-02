@@ -103,7 +103,7 @@ function Arena.PublicLobby(lobby)
         roundTime = cfg.roundTime,
         playerCount = countPlayers(lobby),
         players = playerPayload(lobby),
-        scores = lobby.scores,
+        scores = Arena.Utils.Scoreboard(lobby.scores),
         round = lobby.round,
         state = lobby.state,
         endsAt = lobby.endsAt,
@@ -146,7 +146,9 @@ end
 local function pickTeam(lobby, requested)
     if not Arena.Utils.IsTeamMode(lobby.mode) then return 0 end
     local cap = lobby.cfg.maxPlayersPerTeam or 8
-    if requested == 1 or requested == 2 then
+    -- 1v1: always auto-assign opposite sides. Ignore the Orange/Blue picker.
+    local auto = cap == 1
+    if not auto and (requested == 1 or requested == 2) then
         if countTeam(lobby, requested) < cap then return requested end
     end
     local t1 = countTeam(lobby, 1)
@@ -363,7 +365,7 @@ local function endMatch(lobby, result)
         TriggerClientEvent('cursor_arena:client:matchEnded', src, {
             outcome = result.draw and 'draw' or (won and 'win' or 'loss'),
             result = result,
-            scores = lobby.scores,
+            scores = Arena.Utils.Scoreboard(lobby.scores),
             players = roster,
             eloChange = eloChange,
             duration = duration,
@@ -491,7 +493,7 @@ function Arena.NextRound(lobbyId, winnerTeam)
         TriggerClientEvent('cursor_arena:client:roundRestart', src, {
             round = lobby.round,
             spawn = spawn,
-            scores = lobby.scores,
+            scores = Arena.Utils.Scoreboard(lobby.scores),
             winnerTeam = winnerTeam,
         })
     end
@@ -683,7 +685,7 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
         weapon = weaponName,
         category = Arena.Utils.WeaponCategory(weaponName),
         headshot = false,
-        scores = lobby.scores,
+        scores = Arena.Utils.Scoreboard(lobby.scores),
         players = playerPayload(lobby),
         weaponHash = weaponHash,
     })
@@ -698,7 +700,9 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
         local t1 = livingOnTeam(lobby, 1)
         local t2 = livingOnTeam(lobby, 2)
         if t1 == 0 or t2 == 0 then
-            local winner = t1 > 0 and 1 or 2
+            local winner = 0
+            if t1 > 0 then winner = 1
+            elseif t2 > 0 then winner = 2 end
             SetTimeout(1600, function()
                 Arena.NextRound(lobby.id, winner)
             end)
@@ -772,7 +776,11 @@ function Arena.JoinLobby(src, lobbyId, opts)
 
     local team = 0
     if Arena.Utils.IsTeamMode(lobby.mode) then
-        team = pickTeam(lobby, tonumber(opts.team))
+        local requested = tonumber(opts.team)
+        if (lobby.cfg.maxPlayersPerTeam or 8) == 1 then
+            requested = nil
+        end
+        team = pickTeam(lobby, requested)
         if not team then return false, 'lobby_full' end
     end
 
