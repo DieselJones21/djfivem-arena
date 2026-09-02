@@ -257,7 +257,7 @@ end
 function Config.GetHubSpawn()
     local spawns = Config.SpawnLobby and Config.SpawnLobby.spawns
     if not spawns or #spawns == 0 then
-        return vec4(405.0, -997.0, -99.0, 90.0)
+        return vec4(5477.79, -5853.01, 1050.58, 78.04)
     end
     return spawns[math.random(#spawns)]
 end

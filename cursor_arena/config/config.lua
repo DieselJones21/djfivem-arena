@@ -123,12 +123,12 @@ Config.Target = {
 }
 
 --[[
-    WORLD ENTRY PED — PASTE COORDS
+    WORLD ENTRY PED
     Talking to this ped teleports you into the spawn lobby. It does not open the UI.
 ]]
 Config.EntryPed = {
     enabled = true,
-    coords = vec4(-265.0, -963.0, 31.2, 200.0), -- PASTE x, y, z, heading
+    coords = vec4(-195.96, -237.48, 30.56, 174.6),
     model = `s_m_y_marine_01`,
     scenario = 'WORLD_HUMAN_CLIPBOARD',
     interactDistance = 2.0,
@@ -143,29 +143,29 @@ Config.EntryPed = {
 }
 
 --[[
-    SPAWN LOBBY HUB — PASTE YOUR LOBBY MLO COORDS
-    Players land here from the entry ped. Press G to open the arena UI.
+    SPAWN LOBBY HUB — press G here to open the arena UI.
 ]]
 Config.SpawnLobby = {
     spawns = {
-        vec4(405.0, -997.0, -99.0, 90.0), -- PASTE hub spawn
-        vec4(402.0, -1000.0, -99.0, 0.0),
-        vec4(408.0, -1000.0, -99.0, 180.0),
-        vec4(405.0, -1003.0, -99.0, 270.0),
+        vec4(5477.79, -5853.01, 1050.58, 78.04),
+        vec4(5480.50, -5856.40, 1050.58, 78.04),
+        vec4(5474.90, -5849.80, 1050.58, 78.04),
+        vec4(5479.20, -5850.20, 1050.58, 168.04),
     },
-    center = vec3(405.0, -997.0, -99.0), -- PASTE hub center
-    radius = 40.0,
+    center = vec3(5477.79, -5853.01, 1050.58),
+    radius = 150.0,
     enforceBounds = true,
     hint = true,
 }
 
 --[[
-    EXIT PED — PASTE COORDS INSIDE THE HUB
-    Sends the player back to where they entered from.
+    EXIT PED — inside the hub, next to the UI spawn.
+    Sends the player back to where they entered from (city entry ped).
+    Send a tighter vec4 if you want it on a specific mark.
 ]]
 Config.ExitPed = {
     enabled = true,
-    coords = vec4(400.0, -997.0, -99.0, 270.0), -- PASTE
+    coords = vec4(5473.40, -5848.20, 1050.58, 258.04),
     model = `s_m_y_marine_01`,
     scenario = 'WORLD_HUMAN_GUARD_STAND',
     interactDistance = 2.0,
@@ -173,12 +173,12 @@ Config.ExitPed = {
 }
 
 --[[
-    CLOTHING PED — PASTE COORDS INSIDE THE HUB
+    CLOTHING PED — inside the hub. PASTE exact coords when you have them.
     Opens illenium-appearance clothing (not character creator).
 ]]
 Config.ClothingPed = {
     enabled = true,
-    coords = vec4(408.0, -997.0, -99.0, 180.0), -- PASTE
+    coords = vec4(5482.20, -5857.60, 1050.58, 348.04), -- PASTE if you have a shop mark
     model = `s_f_y_shop_mid`,
     scenario = 'WORLD_HUMAN_STAND_IMPATIENT',
     interactDistance = 2.0,

@@ -15,7 +15,7 @@ local function teleportTo(coords)
 end
 
 local function pickHubSpawn()
-    return Config.GetHubSpawn and Config.GetHubSpawn() or vec4(405.0, -997.0, -99.0, 90.0)
+    return Config.GetHubSpawn and Config.GetHubSpawn() or vec4(5477.79, -5853.01, 1050.58, 78.04)
 end
 
 local function addInteract(ped, id, label, cb, dist)

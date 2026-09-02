@@ -4,28 +4,28 @@ Vanilla GTA fills are in place so the resource starts. Send (or paste) the real 
 
 Use `vec4(x, y, z, heading)` for peds and spawns, `vec3(x, y, z)` for hub center, `vec2(x, y)` for fence corners.
 
-## 1) World entry ped
+## 1) World entry ped — SET
 
-`config/config.lua` → `Config.EntryPed.coords`
+`Config.EntryPed.coords = vec4(-195.96, -237.48, 30.56, 174.6)`
 
 Talking to this ped teleports you into the spawn lobby. It does **not** open the UI.
 
-## 2) Spawn lobby hub
+## 2) Spawn lobby hub — SET
 
 `Config.SpawnLobby`
 
-- `spawns` — a few `vec4` land points inside the MLO
-- `center` + `radius` — keep players inside the hub
+- UI / land point: `vec4(5477.79, -5853.01, 1050.58, 78.04)`
+- `center` + `radius` **150**
 
-## 3) Exit ped (inside the hub)
+## 3) Exit ped (inside the hub) — near UI spawn
 
-`Config.ExitPed.coords`
+`Config.ExitPed.coords = vec4(5473.40, -5848.20, 1050.58, 258.04)`
 
-Returns the player to the city coords they entered from.
+Returns the player to the city coords they entered from. Send a tighter vec4 if this mark is off.
 
-## 4) Clothing ped (inside the hub)
+## 4) Clothing ped (inside the hub) — still needs your mark
 
-`Config.ClothingPed.coords`
+`Config.ClothingPed.coords` is offset from the UI spawn for now.
 
 Opens `illenium-appearance:client:openClothingShop` (clothing only).
 
