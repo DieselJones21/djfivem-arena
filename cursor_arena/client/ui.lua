@@ -23,8 +23,10 @@ end
 function Arena.Client.CloseUI()
     Arena.Client.uiOpen = false
     Arena.Client.loadoutOpen = false
-    SetNuiFocus(false, false)
+    -- Message first, then drop focus. Dropping focus before the callback
+    -- returns is a common way to leave NUI overlays stuck on screen.
     SendNUIMessage({ action = 'close' })
+    SetNuiFocus(false, false)
 end
 
 function Arena.Client.OpenLoadout()
@@ -61,16 +63,19 @@ end)
 
 RegisterNUICallback('joinLobby', function(data, cb)
     local result = lib.callback.await('cursor_arena:joinLobby', false, data)
+    cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
+        if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
+        lib.hideTextUI()
     elseif result and result.message then
         lib.notify({ type = 'error', description = result.message })
     end
-    cb(result or { ok = false })
 end)
 
 RegisterNUICallback('leaveLobby', function(_, cb)
-    cb(lib.callback.await('cursor_arena:leaveLobby', false) or { ok = true })
+    local result = lib.callback.await('cursor_arena:leaveLobby', false) or { ok = true }
+    cb(result)
     Arena.Client.CloseUI()
 end)
 
@@ -80,13 +85,14 @@ end)
 
 RegisterNUICallback('changeLoadout', function(data, cb)
     local result = lib.callback.await('cursor_arena:changeLoadout', false, data)
+    cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.loadoutOpen = false
         SetNuiFocus(false, false)
+        SendNUIMessage({ action = 'closeLoadout' })
     elseif result and result.message then
         lib.notify({ type = 'error', description = result.message })
     end
-    cb(result or { ok = false })
 end)
 
 RegisterNUICallback('getLeaderboard', function(data, cb)

@@ -253,7 +253,12 @@
     return `<div class="slot"><span class="av">${initials(p.name)}</span><span>${p.name}</span></div>`;
   }
 
+  function salaIsOpen() {
+    return $('sala') && !$('sala').classList.contains('hidden');
+  }
+
   function openSala(lobby) {
+    if (!state.open || !lobby) return;
     state.selected = lobby;
     const weapons = allWeapons();
     if (!state.pick.weaponId && weapons[0]) {
@@ -341,6 +346,7 @@
 
   async function joinSelected(lobby) {
     if (!lobby) return;
+    show($('sala'), false);
     const res = await nui('joinLobby', {
       lobbyId: lobby.id,
       loadoutId: state.pick.loadoutId,
@@ -348,7 +354,6 @@
       team: state.pick.team,
     });
     if (res?.ok) {
-      show($('sala'), false);
       hideUI();
     }
   }
@@ -382,6 +387,7 @@
 
   function hideUI() {
     state.open = false;
+    state.selected = null;
     show($('app'), false);
     show($('sala'), false);
     show($('loadoutModal'), false);
@@ -473,12 +479,13 @@
     const msg = event.data || {};
     if (msg.action === 'open') { show($('matchHud'), false); openUI(msg.data || {}); }
     if (msg.action === 'close') hideUI();
+    if (msg.action === 'closeLoadout') show($('loadoutModal'), false);
     if (msg.action === 'refreshLobbies') {
-      nui('listLobbies').then((list) => { if (list) { state.lobbies = list; setTab(state.tab); } });
+      nui('listLobbies').then((list) => { if (list) { state.lobbies = list; if (state.open) setTab(state.tab); } });
     }
     if (msg.action === 'lobbyUpdate' && msg.data) {
       state.lobbies = state.lobbies.map((l) => l.id === msg.data.id ? msg.data : l);
-      if (state.selected?.id === msg.data.id) openSala(msg.data);
+      if (state.open && salaIsOpen() && state.selected?.id === msg.data.id) openSala(msg.data);
     }
     if (msg.action === 'openLoadout') {
       const loadouts = msg.data?.loadouts || state.loadouts;
@@ -487,7 +494,11 @@
       renderLoadoutPicker('liveLoadouts', 'liveWeapons', loadouts, state.livePick);
       show($('loadoutModal'), true);
     }
-    if (msg.action === 'matchHud') { show($('matchHud'), !!msg.visible); if (msg.visible && msg.data) renderHud(msg.data); }
+    if (msg.action === 'matchHud') {
+      if (msg.visible) hideUI();
+      show($('matchHud'), !!msg.visible);
+      if (msg.visible && msg.data) renderHud(msg.data);
+    }
     if (msg.action === 'timer') { state.hudEndsAt = msg.endsAt; }
     if (msg.action === 'killfeed' && msg.data) {
       const feed = $('killfeed');
@@ -512,6 +523,7 @@
       $('streak')._t = setTimeout(() => show($('streak'), false), 1600);
     }
     if (msg.action === 'countdown') {
+      hideUI();
       if (!msg.seconds) { show($('countdown'), false); return; }
       $('countdownRound').textContent = msg.round ? `ROUND ${msg.round}` : '';
       show($('countdown'), true);
@@ -542,7 +554,12 @@
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.open) closeUI();
+    if (e.key !== 'Escape') return;
+    if (salaIsOpen()) {
+      show($('sala'), false);
+      return;
+    }
+    if (state.open) closeUI();
   });
 
   setInterval(() => {

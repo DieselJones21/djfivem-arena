@@ -134,7 +134,8 @@ local function hudPayload()
 end
 
 RegisterNetEvent('cursor_arena:client:enterArena', function(data)
-    Arena.Client.CloseUI(true)
+    Arena.Client.CloseUI()
+    if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
     lib.hideTextUI()
     Arena.Client.inArena = true
     Arena.Client.lobby = data.lobby
@@ -164,7 +165,9 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
         end)
     end
 
+    SendNUIMessage({ action = 'close' })
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
+    SetNuiFocus(false, false)
     if PlayerJoinedLobby then PlayerJoinedLobby() end
 end)
 
@@ -177,7 +180,9 @@ end)
 
 RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
     CreateThread(function()
+        Arena.Client.CloseUI()
         freeze(true)
+        SendNUIMessage({ action = 'close' })
         SendNUIMessage({ action = 'countdown', seconds = seconds or 5, round = round })
         local ends = GetGameTimer() + ((seconds or 5) * 1000)
         while GetGameTimer() < ends do
@@ -208,8 +213,11 @@ RegisterNetEvent('cursor_arena:client:lobbySync', function(lobby)
     Arena.Client.lobby = lobby
     if Arena.Client.inArena then
         SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
+        return
     end
-    SendNUIMessage({ action = 'lobbyUpdate', data = lobby })
+    if Arena.Client.uiOpen then
+        SendNUIMessage({ action = 'lobbyUpdate', data = lobby })
+    end
 end)
 
 RegisterNetEvent('cursor_arena:client:timer', function(endsAt, limit)

@@ -33,7 +33,7 @@ body.preview {
     radial-gradient(ellipse at 92% 80%, rgba(0, 40, 55, 0.5), transparent 46%),
     #05070a;
 }
-.hidden { display: none !important; }
+.hidden { display: none !important; pointer-events: none !important; }
 button { font-family: inherit; cursor: pointer; }
 
 #app {
@@ -445,6 +445,11 @@ button { font-family: inherit; cursor: pointer; }
 .drawer-backdrop, .loadout-modal {
   position: absolute; inset: 0; background: rgba(0,0,0,0.62);
   display: grid; place-items: center; z-index: 30;
+  pointer-events: auto;
+}
+.drawer-backdrop.hidden, .loadout-modal.hidden, #app.hidden {
+  display: none !important;
+  pointer-events: none !important;
 }
 .sala, .loadout-card {
   width: min(820px, 94vw); background: var(--bg); border: 1px solid var(--line);
