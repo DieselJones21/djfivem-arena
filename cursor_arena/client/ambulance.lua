@@ -1,8 +1,13 @@
-local DEATH_FLAGS = { 'dead', 'isDead', 'isdead', 'Laststand', 'laststand' }
+local DEATH_FLAGS = {
+    'dead', 'isDead', 'isdead',
+    'Laststand', 'laststand', 'inLaststand', 'isLaststand',
+}
 
 local function isDown()
     local ped = PlayerPedId()
-    if IsEntityDead(ped) or IsPedFatallyInjured(ped) or GetEntityHealth(ped) <= 101 then
+    -- Player peds live at 101–200. 100 or below is dead. Laststand often
+    -- keeps health high and only sets a state bag.
+    if IsEntityDead(ped) or IsPedFatallyInjured(ped) or GetEntityHealth(ped) <= 100 then
         return true
     end
     local st = LocalPlayer.state
@@ -10,6 +15,19 @@ local function isDown()
         if st[DEATH_FLAGS[i]] then return true end
     end
     return false
+end
+
+function Arena.Client.IsPedDown()
+    return isDown()
+end
+
+local function clearDeathBags()
+    local st = LocalPlayer.state
+    for i = 1, #DEATH_FLAGS do
+        if st[DEATH_FLAGS[i]] then
+            st:set(DEATH_FLAGS[i], false, true)
+        end
+    end
 end
 
 local function nativeRevive(coords)
@@ -35,13 +53,12 @@ local function nativeRevive(coords)
     SetEntityHeading(ped, w)
     SetPlayerInvincible(PlayerId(), false)
     SetEntityInvincible(ped, false)
+    SetEntityCanBeDamaged(ped, true)
     ClearPedBloodDamage(ped)
     SetEntityHealth(ped, GetEntityMaxHealth(ped))
+    SetPedArmour(ped, 0)
     ClearPedTasksImmediately(ped)
-
-    LocalPlayer.state:set('dead', false, true)
-    LocalPlayer.state:set('isDead', false, true)
-    LocalPlayer.state:set('isdead', false, true)
+    clearDeathBags()
 end
 
 local function resourceRevive(kind, resource)
@@ -92,9 +109,38 @@ RegisterNetEvent('cursor_arena:client:arenaRevive', function(coords, kind, resou
     end)
 end)
 
+local function suppressWasabi()
+    return Arena.Client.ambulanceArena or Arena.Client.inArena
+end
+
 AddEventHandler('wasabi_ambulance:onPlayerDeath', function()
-    if Arena.Client.ambulanceArena or Arena.Client.inArena then
+    if suppressWasabi() then
         CancelEvent()
+    end
+end)
+
+-- Laststand keeps the ped "alive" (health > 100, guns locked). Treat it as a
+-- kill for arena and drop the crawl so the death watch can report it.
+AddEventHandler('wasabi_ambulance:onLaststand', function()
+    if not suppressWasabi() then return end
+    CancelEvent()
+    local ped = PlayerPedId()
+    SetPlayerInvincible(PlayerId(), false)
+    SetEntityInvincible(ped, false)
+    SetEntityCanBeDamaged(ped, true)
+    if GetEntityHealth(ped) > 100 then
+        SetEntityHealth(ped, 0)
+    end
+end)
+
+AddEventHandler('wasabi_ambulance:onPlayerLaststand', function()
+    if not suppressWasabi() then return end
+    CancelEvent()
+    local ped = PlayerPedId()
+    SetPlayerInvincible(PlayerId(), false)
+    SetEntityInvincible(ped, false)
+    if GetEntityHealth(ped) > 100 then
+        SetEntityHealth(ped, 0)
     end
 end)
 
@@ -111,7 +157,7 @@ exports('IsSpectating', function()
 end)
 
 exports('ShouldBlockAmbulance', function()
-    return Arena.Client.ambulanceArena == true
+    return Arena.Client.ambulanceArena == true or Arena.Client.inArena == true
 end)
 
 exports('GetArenaInfo', function()

@@ -363,6 +363,30 @@ local function applyAmmo(ped, hash, ammo)
 end
 
 local equipGen = 0
+local lastEquipRetryAt = 0
+
+local function weaponInHands(ped, hash, ammo)
+    if not HasPedGotWeapon(ped, hash, false) then return false end
+    SetCurrentPedWeapon(ped, hash, true)
+    applyAmmo(ped, hash, ammo)
+    Arena.Client.equipRetries = 0
+    return true
+end
+
+local function tryUseSlot(weaponName)
+    local use = findOxSlot(weaponName, Arena.Client.weaponSlot)
+    if not use then
+        use = findOxSlot(weaponName)
+    end
+    if use then
+        Arena.Client.weaponSlot = use
+        pcall(function()
+            exports.ox_inventory:useSlot(tonumber(use) or use)
+        end)
+        return true
+    end
+    return false
+end
 
 -- Equip through ox_inventory so it owns the gun. GiveWeaponToPed fights ox
 -- (weapon flashes every tick and DisablePlayerFiring / disarm blocks shots).
@@ -385,37 +409,35 @@ function Arena.Client.EquipWeapon(weaponName, ammo, slot)
     CreateThread(function()
         local ped = PlayerPedId()
         if oxOn() then
-            if HasPedGotWeapon(ped, hash, false) then
-                SetCurrentPedWeapon(ped, hash, true)
-                applyAmmo(ped, hash, ammo)
-                return
-            end
+            if weaponInHands(ped, hash, ammo) then return end
             local equipped
             pcall(function()
                 equipped = exports.ox_inventory:getCurrentWeapon()
             end)
             if equipped and (equipped.hash == hash or equipped.name and joaat(equipped.name) == hash) then
-                SetCurrentPedWeapon(ped, hash, true)
-                applyAmmo(ped, hash, ammo)
-                return
+                if weaponInHands(ped, hash, ammo) then return end
             end
-            local use = findOxSlot(weaponName, Arena.Client.weaponSlot)
-            if use then
-                Arena.Client.weaponSlot = use
-                pcall(function()
-                    exports.ox_inventory:useSlot(tonumber(use) or use)
-                end)
-            end
-            local deadline = GetGameTimer() + 2500
+
+            tryUseSlot(weaponName)
+            local deadline = GetGameTimer() + 4000
+            local nextUse = GetGameTimer() + 400
             while GetGameTimer() < deadline do
                 if gen ~= equipGen then return end
                 ped = PlayerPedId()
-                if HasPedGotWeapon(ped, hash, false) then
-                    SetCurrentPedWeapon(ped, hash, true)
-                    applyAmmo(ped, hash, ammo)
-                    return
+                if weaponInHands(ped, hash, ammo) then return end
+                if GetGameTimer() >= nextUse then
+                    tryUseSlot(weaponName)
+                    nextUse = GetGameTimer() + 450
                 end
                 Wait(80)
+            end
+
+            -- Item may not have replicated yet. Ask the server to re-send the slot.
+            local now = GetGameTimer()
+            Arena.Client.equipRetries = (Arena.Client.equipRetries or 0) + 1
+            if Arena.Client.equipRetries <= 2 and now - lastEquipRetryAt > 1500 then
+                lastEquipRetryAt = now
+                TriggerServerEvent('cursor_arena:server:equipRetry')
             end
             return
         end
@@ -423,6 +445,7 @@ function Arena.Client.EquipWeapon(weaponName, ammo, slot)
         GiveWeaponToPed(ped, hash, ammo, false, true)
         SetCurrentPedWeapon(ped, hash, true)
         applyAmmo(ped, hash, ammo)
+        Arena.Client.equipRetries = 0
     end)
 end
 
@@ -474,12 +497,14 @@ CreateThread(function()
 end)
 
 CreateThread(function()
+    local missingSince = 0
     while true do
         if Arena.Client.inArena and Arena.Client.weaponName and not Arena.Client.down and not Arena.Client.spectating then
             local ped = PlayerPedId()
             local hash = joaat(Arena.Client.weaponName)
             HideHudComponentThisFrame(19)
             if HasPedGotWeapon(ped, hash, false) then
+                missingSince = 0
                 SetPedInfiniteAmmo(ped, true, hash)
                 SetPedInfiniteAmmoClip(ped, true)
                 if GetAmmoInPedWeapon(ped, hash) < 40 then
@@ -489,9 +514,17 @@ CreateThread(function()
                 if current == `WEAPON_UNARMED` or current == 0 then
                     SetCurrentPedWeapon(ped, hash, true)
                 end
+            else
+                if missingSince == 0 then
+                    missingSince = GetGameTimer()
+                elseif GetGameTimer() - missingSince > 900 then
+                    missingSince = GetGameTimer()
+                    Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
+                end
             end
             Wait(400)
         else
+            missingSince = 0
             Wait(800)
         end
     end

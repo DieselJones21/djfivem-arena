@@ -15,13 +15,41 @@ local function applySpawn(spawn)
     SetPedArmour(ped, 0)
 end
 
+local function wantsTeamkill(lobby)
+    if not lobby then return true end
+    if lobby.mode == 'ffa' then return true end
+    return lobby.teamkill == true
+end
+
+-- Players cannot damage each other unless friendly fire is ON.
+-- Team protection is relationship groups + SetCanAttackFriendly, not this native.
+local function applyCombatLock()
+    local ped = PlayerPedId()
+    local teamkill = Arena.Client.teamkill == true
+    NetworkSetFriendlyFireOption(true)
+    SetCanAttackFriendly(ped, teamkill, false)
+    SetEntityCanBeDamaged(ped, true)
+    if not Arena.Client.frozen then
+        SetPlayerInvincible(PlayerId(), false)
+        SetEntityInvincible(ped, false)
+    end
+    LocalPlayer.state:set('invBusy', false, true)
+    LocalPlayer.state:set('canUseWeapons', true, true)
+end
+
 local function freeze(on)
     Arena.Client.frozen = on
-    FreezeEntityPosition(PlayerPedId(), on)
+    local ped = PlayerPedId()
+    FreezeEntityPosition(ped, on)
     SetPlayerInvincible(PlayerId(), on)
+    SetEntityInvincible(ped, on)
+    if not on then
+        applyCombatLock()
+    end
 end
 
 local function setupTeams(teamkill)
+    Arena.Client.teamkill = teamkill == true
     if not REL_A then
         local _, hashA = AddRelationshipGroup('ARENA_T1')
         local _, hashB = AddRelationshipGroup('ARENA_T2')
@@ -42,7 +70,7 @@ local function setupTeams(teamkill)
         SetPedRelationshipGroupHash(ped, REL_B)
     end
 
-    NetworkSetFriendlyFireOption(teamkill == true)
+    applyCombatLock()
 end
 
 local function drawBoundaries()
@@ -148,6 +176,7 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
     Arena.Client.spawn = data.spawn
     Arena.Client.down = false
     Arena.Client.spectating = false
+    Arena.Client.equipRetries = 0
     deathReported = false
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
     boundsUntil = 0
@@ -155,7 +184,8 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
     DoScreenFadeOut(200)
     while not IsScreenFadedOut() do Wait(0) end
     applySpawn(data.spawn)
-    setupTeams(data.lobby and data.lobby.teamkill)
+    setupTeams(wantsTeamkill(data.lobby))
+    applyCombatLock()
     DoScreenFadeIn(400)
 
     if data.weapon then
@@ -182,7 +212,11 @@ RegisterNetEvent('cursor_arena:client:preStart', function(data)
     end
 end)
 
+local countdownGen = 0
+
 RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
+    countdownGen = countdownGen + 1
+    local gen = countdownGen
     CreateThread(function()
         Arena.Client.CloseUI()
         freeze(true)
@@ -190,19 +224,23 @@ RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
         SendNUIMessage({ action = 'countdown', seconds = seconds or 5, round = round })
         local ends = GetGameTimer() + ((seconds or 5) * 1000)
         while GetGameTimer() < ends do
+            if gen ~= countdownGen then return end
+            if not Arena.Client.inArena then
+                freeze(false)
+                return
+            end
             DisablePlayerFiring(PlayerId(), true)
             DisableControlAction(0, 24, true)
             DisableControlAction(0, 25, true)
             DisableControlAction(0, 140, true)
             Wait(0)
         end
+        if gen ~= countdownGen then return end
         freeze(false)
+        applyCombatLock()
         SendNUIMessage({ action = 'countdown', seconds = 0 })
         if Arena.Client.weaponName then
-            local hash = joaat(Arena.Client.weaponName)
-            if GetSelectedPedWeapon(PlayerPedId()) ~= hash then
-                Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
-            end
+            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
         end
         lib.notify({ type = 'success', description = L('match_started') })
     end)
@@ -210,6 +248,10 @@ end)
 
 RegisterNetEvent('cursor_arena:client:matchActive', function(lobby)
     Arena.Client.lobby = lobby
+    deathReported = false
+    if not Arena.Client.frozen then
+        applyCombatLock()
+    end
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
 end)
 
@@ -243,11 +285,9 @@ RegisterNetEvent('cursor_arena:client:respawn', function(data)
     Arena.Spectate.Stop()
     applySpawn(data.spawn)
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
+    applyCombatLock()
     if Arena.Client.weaponName then
-        local hash = joaat(Arena.Client.weaponName)
-        if GetSelectedPedWeapon(PlayerPedId()) ~= hash then
-            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
-        end
+        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
     end
     SendNUIMessage({ action = 'deathOverlay', visible = false })
 end)
@@ -258,11 +298,9 @@ RegisterNetEvent('cursor_arena:client:roundRestart', function(data)
     Arena.Spectate.Stop()
     applySpawn(data.spawn)
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
+    applyCombatLock()
     if Arena.Client.weaponName then
-        local hash = joaat(Arena.Client.weaponName)
-        if GetSelectedPedWeapon(PlayerPedId()) ~= hash then
-            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
-        end
+        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
     end
     if Arena.Client.lobby then
         Arena.Client.lobby.scores = data.scores
@@ -296,6 +334,9 @@ RegisterNetEvent('cursor_arena:client:loadoutApplied', function(data)
     if data and data.weapon then
         Arena.Client.weaponName = data.weapon
         Arena.Client.weaponSlot = data.slot or Arena.Client.weaponSlot
+        if Arena.Client.inArena then
+            Arena.Client.EquipWeapon(data.weapon, 9999, Arena.Client.weaponSlot)
+        end
     end
 end)
 
@@ -311,6 +352,7 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     SetRunSprintMultiplierForPlayer(PlayerId(), 1.0)
     LocalPlayer.state:set('arenaActive', false, true)
     NetworkSetFriendlyFireOption(true)
+    SetCanAttackFriendly(PlayerPedId(), false, false)
 
     SendNUIMessage({ action = 'matchHud', visible = false })
     SendNUIMessage({ action = 'deathOverlay', visible = false })
@@ -355,29 +397,60 @@ RegisterNetEvent('cursor_arena:client:voice', function(channel)
     end
 end)
 
--- Death watch
+local function reportArenaDeath()
+    local ped = PlayerPedId()
+    local killer = GetPedSourceOfDeath(ped)
+    local killerServerId
+    if killer and killer ~= 0 and IsEntityAPed(killer) and IsPedAPlayer(killer) then
+        local idx = NetworkGetPlayerIndexFromPed(killer)
+        if idx and idx ~= -1 then
+            killerServerId = GetPlayerServerId(idx)
+        end
+    end
+    TriggerServerEvent('cursor_arena:server:playerDied', killerServerId, GetPedCauseOfDeath(ped))
+    SendNUIMessage({ action = 'deathOverlay', visible = true })
+end
+
+-- Death watch. Must treat wasabi laststand as a kill — health stays above 0
+-- there, and cancelling wasabi's death event would otherwise leave people crawling.
 CreateThread(function()
     while true do
         if Arena.Client.inArena and not Arena.Client.down then
             local ped = PlayerPedId()
-            if (IsEntityDead(ped) or IsPedFatallyInjured(ped) or GetEntityHealth(ped) <= 0) and not deathReported then
-                deathReported = true
-                local killer = GetPedSourceOfDeath(ped)
-                local killerServerId
-                if killer and killer ~= 0 and IsEntityAPed(killer) and IsPedAPlayer(killer) then
-                    local idx = NetworkGetPlayerIndexFromPed(killer)
-                    if idx and idx ~= -1 then
-                        killerServerId = GetPlayerServerId(idx)
+            local down = Arena.Client.IsPedDown and Arena.Client.IsPedDown()
+                or IsEntityDead(ped) or IsPedFatallyInjured(ped) or GetEntityHealth(ped) <= 100
+            local live = Arena.Client.lobby and Arena.Client.lobby.state == 'active'
+            if down and live then
+                if not deathReported then
+                    deathReported = true
+                    if not Arena.Client.frozen then
+                        SetPlayerInvincible(PlayerId(), false)
+                        SetEntityInvincible(ped, false)
+                        SetEntityCanBeDamaged(ped, true)
                     end
+                    if not IsEntityDead(ped) and GetEntityHealth(ped) > 100 then
+                        SetEntityHealth(ped, 0)
+                    end
+                    reportArenaDeath()
                 end
-                TriggerServerEvent('cursor_arena:server:playerDied', killerServerId, GetPedCauseOfDeath(ped))
-                SendNUIMessage({ action = 'deathOverlay', visible = true })
-            elseif not IsEntityDead(ped) and GetEntityHealth(ped) > 0 then
+            elseif not down then
                 deathReported = false
             end
             Wait(150)
         else
             Wait(500)
+        end
+    end
+end)
+
+-- Keep combat unlocked after countdown. Laststand / ox can flip these mid-fight.
+CreateThread(function()
+    while true do
+        if Arena.Client.inArena and not Arena.Client.frozen and not Arena.Client.down and not Arena.Client.spectating then
+            applyCombatLock()
+            Wait(250)
+        else
+            Wait(400)
         end
     end
 end)

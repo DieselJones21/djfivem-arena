@@ -196,6 +196,30 @@ function Arena.Inventory.RefillAmmo(src, weaponDef)
     TriggerClientEvent('cursor_arena:client:equipWeapon', src, weaponDef.weapon, ammo, slot)
 end
 
+RegisterNetEvent('cursor_arena:server:equipRetry', function()
+    local src = source
+    local lobby = Arena.GetPlayerLobby and Arena.GetPlayerLobby(src)
+    if not lobby or not lobby.players or not lobby.players[src] then return end
+    local p = lobby.players[src]
+    local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
+    if not weapon then return end
+
+    local given = Arena.ArenaGun[src]
+    local usedName = given and given.name
+    if usedName then
+        local slot = findSlot(src, usedName)
+        if slot then
+            TriggerClientEvent('cursor_arena:client:equipWeapon', src, weapon.weapon, weapon.ammo or 9999, slot)
+            return
+        end
+        if itemCount(src, usedName) <= 0 then
+            Arena.Inventory.GiveLoadout(src, weapon)
+            return
+        end
+    end
+    Arena.Inventory.GiveLoadout(src, weapon)
+end)
+
 lib.addCommand('arena_restoreinv', {
     help = 'Unblock arena inventory lock for a player',
     restricted = Config.Permissions.adminAce,
