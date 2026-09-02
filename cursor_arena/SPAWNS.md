@@ -9,17 +9,11 @@
 | Exit ped | `vec4(5477.07, -5828.0, 1049.95, 174.18)` |
 | Clothing ped | `vec4(5499.02, -5865.86, 1050.95, 68.63)` |
 
-Weapons are in `config/weapons.lua`.
+Weapons are in `config/weapons.lua` (`WEAPON_BLUEWIRE` for Blue Wire).
 
 Bounds are a **radius from center**. No fence.
 
-| Slot | Used by | `id` | What to send |
-|------|---------|------|----------------|
-| Arena 1 | FFA (12) + TDM (5v5) | `arena_1` | center, radius, 12 FFA, 5 Alpha, 5 Bravo |
-| Arena 2 | FFA + TDM | `arena_2` | same |
-| PVP 1–4 | 1v1–4v4 | `pvp_1` … `pvp_4` | center, radius, **1** Alpha, **1** Bravo |
-
-Copy a block per map. Heading is the direction they face.
+All six maps are pasted (`arena_1`, `arena_2`, `pvp_1`–`pvp_4`). TDM uses one Alpha mark and one Bravo mark (whole side lands there).
 
 ```
 === MAP arena_1 ===
