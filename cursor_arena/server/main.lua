@@ -7,7 +7,10 @@ local function bootstrap(src)
         playerId = src,
         playerName = Arena.Framework.GetName(src),
         framework = Arena.Framework.name,
-        loadouts = Arena.Utils.SerializeLoadouts(),
+        loadouts = Arena.Shop.SerializeLoadouts(src),
+        shop = Arena.Shop.Catalog(src),
+        coins = Arena.Donator.GetBalance(src),
+        coinLabel = Arena.Donator.Label(),
         maps = Arena.Utils.SerializeMaps(),
         lobbies = Arena.ListLobbies(),
         stats = stats,
@@ -88,6 +91,23 @@ end)
 
 lib.callback.register('cursor_arena:getHistory', function(source)
     return Arena.Stats.GetHistory(source, 25)
+end)
+
+lib.callback.register('cursor_arena:myLoadouts', function(source)
+    return Arena.Shop.SerializeLoadouts(source)
+end)
+
+lib.callback.register('cursor_arena:buyShop', function(source, data)
+    data = data or {}
+    local ok, err, extra = Arena.Shop.Purchase(source, data.weaponId)
+    if not ok then
+        return { ok = false, error = err, message = L(err or 'cannot_join') }
+    end
+    extra = extra or { coins = Arena.Donator.GetBalance(source), shop = Arena.Shop.Catalog(source), loadouts = Arena.Shop.SerializeLoadouts(source) }
+    extra.ok = true
+    extra.bought = err == 'bought'
+    extra.owned = err == 'owned'
+    return extra
 end)
 
 RegisterNetEvent('cursor_arena:server:playerDied', function(killerServerId, weaponHash)

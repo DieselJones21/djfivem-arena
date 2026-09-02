@@ -14,11 +14,13 @@ PvP arenas for **Qbox + ox** servers. Players talk to a world ped, land in a spa
 
 1. Interact with the **entry ped** in the city (`interact` / ox_target / `[E]`). You teleport into the spawn lobby. Inventory is **not** taken.
 2. Inside the hub, press **G** to open the Envy Arena UI.
-3. **JOIN** — pick FFA / 1v1–4v4 / TDM, a weapon, and a map, then drop in.
-4. **ROOMS** — live lobby cards. Open one to see Orange vs Blue before joining.
-5. **Clothing ped** in the hub opens **illenium-appearance** clothing (not character creator).
-6. **Exit ped** sends you back to the city coords you entered from.
-7. Leaving a match returns you to the **hub**, not the city.
+3. **Lobbies** — tablet UI. Browse public rooms and join. Names use Discord display names when linked.
+4. **Loadout** — pick FFA / 1v1–4v4 / TDM, a weapon, a map, and Orange/Blue, then drop in.
+5. **Shop** — buy extra arena-only guns with the same coins as the Envy Donator Store.
+6. **Ranking / History** — season board and your last drops.
+7. **Clothing ped** in the hub opens **illenium-appearance** clothing (not character creator).
+8. **Exit ped** sends you back to the city coords you entered from.
+9. Leaving a match returns you to the **hub**, not the city.
 
 `/arenas` from the city also walks you into the hub. `/leavearena` leaves a match, or exits the hub if you are not in one.
 
@@ -77,7 +79,19 @@ Hooks: `server/open_sv.lua`, `client/open_cl.lua`.
 
 Exports: `IsInArena()`, `IsInHub()`, `ShouldBlockAmbulance()`. State bags: `in_arena`, `arenaHub`, `arena_mode`, `arena_lobby`, `arena_team`, `arena_down`, `arena_spectator`.
 
+## Discord names
+
+Lobby cards, HUD, ranking, and history prefer Discord display names. Hook `GetArenaDisplayName` in `server/open_sv.lua`, or run Badger/zdiscord, or `setr cursor_arena:discord_token "BOT_TOKEN"`.
+
+Arena shop coins: hook `GetDonatorBalance` / `RemoveDonatorCurrency`, or set `Config.Donator.resource` / `item`. Shop guns are arena-only unlocks.
+
 ## Changelog
+
+### 2.4.0
+- Tablet / iPad lobby chrome with top tabs: Lobbies, Loadout, Shop, Ranking, History
+- Public lobby cards (host, mode, weapon, map, rounds, players)
+- Discord display names when linked
+- Arena shop uses donator coins; shop guns are arena-only unlocks
 
 ### 2.3.0
 - HUD: waiting overlay, map name, round `1/5`, round-end banner, you-highlighted slots

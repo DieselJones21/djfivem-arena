@@ -229,6 +229,20 @@ Config.Rewards = {
     account = 'cash', -- qbox/qb cash|bank  ·  esx money|bank
 }
 
+--[[
+    Arena shop coins — same wallet as the Envy Donator Store.
+    Prefer the hooks in server/open_sv.lua.
+    Or set resource + export names, or an ox_inventory item.
+]]
+Config.Donator = {
+    enabled = true,
+    label = 'Envy Coins',
+    resource = '',          -- e.g. 'envy_donator'
+    getBalance = 'GetCoins',
+    remove = 'RemoveCoins',
+    item = 'envy_coin',     -- ox_inventory fallback
+}
+
 Config.Permissions = {
     adminAce = 'arena.admin',
 }

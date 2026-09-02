@@ -33,12 +33,13 @@ function Arena.Client.OpenLoadout()
     if not Arena.Client.inArena then return end
     local lobby = Arena.Client.lobby
     if not lobby then return end
+    local loadouts = lib.callback.await('cursor_arena:myLoadouts', false)
     Arena.Client.loadoutOpen = true
     SetNuiFocus(true, true)
     SendNUIMessage({
         action = 'openLoadout',
         data = {
-            loadouts = lobby.loadouts,
+            loadouts = loadouts or lobby.loadouts,
             current = { loadoutId = nil, weaponId = nil },
         },
     })
@@ -108,6 +109,16 @@ end)
 
 RegisterNUICallback('getHistory', function(_, cb)
     cb(lib.callback.await('cursor_arena:getHistory', false) or {})
+end)
+
+RegisterNUICallback('buyShop', function(data, cb)
+    local result = lib.callback.await('cursor_arena:buyShop', false, data)
+    cb(result or { ok = false })
+    if result and result.message and not result.ok then
+        lib.notify({ type = 'error', description = result.message })
+    elseif result and result.ok and result.bought then
+        lib.notify({ type = 'success', description = L('shop_bought') })
+    end
 end)
 
 RegisterNUICallback('closeLoadout', function(_, cb)
