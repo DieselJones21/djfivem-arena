@@ -18,5 +18,6 @@ Arena.Client = {
     worldReturnCoords = nil,
     frozen = false,
     weaponName = nil,
+    weaponSlot = nil,
     invBlocked = false,
 }

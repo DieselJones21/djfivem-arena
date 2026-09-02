@@ -186,8 +186,9 @@ Config.ClothingPed = {
 }
 
 --[[
-    Inventory: do NOT confiscate. Block ox_inventory while in a match.
-    Weapons are given natively into the player's hands with infinite ammo.
+    Inventory: do NOT confiscate. Close/block the inventory UI in-match only.
+    Never set invBusy — ox_inventory disables firing while that bag is true.
+    Guns are given as ox items and used into the hands (not GiveWeaponToPed).
 ]]
 Config.OxInventory = {
     enabled = true,

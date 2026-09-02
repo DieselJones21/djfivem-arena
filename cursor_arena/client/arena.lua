@@ -154,7 +154,14 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
     DoScreenFadeIn(400)
 
     if data.weapon then
-        Arena.Client.EquipWeapon(data.weapon, 9999)
+        Arena.Client.weaponName = data.weapon
+        Arena.Client.weaponSlot = data.slot or Arena.Client.weaponSlot
+        CreateThread(function()
+            Wait(350)
+            if Arena.Client.weaponName then
+                Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
+            end
+        end)
     end
 
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
@@ -183,7 +190,10 @@ RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
         freeze(false)
         SendNUIMessage({ action = 'countdown', seconds = 0 })
         if Arena.Client.weaponName then
-            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999)
+            local hash = joaat(Arena.Client.weaponName)
+            if GetSelectedPedWeapon(PlayerPedId()) ~= hash then
+                Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
+            end
         end
         lib.notify({ type = 'success', description = L('match_started') })
     end)
@@ -222,7 +232,10 @@ RegisterNetEvent('cursor_arena:client:respawn', function(data)
     applySpawn(data.spawn)
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
     if Arena.Client.weaponName then
-        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999)
+        local hash = joaat(Arena.Client.weaponName)
+        if GetSelectedPedWeapon(PlayerPedId()) ~= hash then
+            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
+        end
     end
     SendNUIMessage({ action = 'deathOverlay', visible = false })
 end)
@@ -234,7 +247,10 @@ RegisterNetEvent('cursor_arena:client:roundRestart', function(data)
     applySpawn(data.spawn)
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
     if Arena.Client.weaponName then
-        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999)
+        local hash = joaat(Arena.Client.weaponName)
+        if GetSelectedPedWeapon(PlayerPedId()) ~= hash then
+            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
+        end
     end
     if Arena.Client.lobby then
         Arena.Client.lobby.scores = data.scores
@@ -266,7 +282,8 @@ end)
 
 RegisterNetEvent('cursor_arena:client:loadoutApplied', function(data)
     if data and data.weapon then
-        Arena.Client.EquipWeapon(data.weapon, 9999)
+        Arena.Client.weaponName = data.weapon
+        Arena.Client.weaponSlot = data.slot or Arena.Client.weaponSlot
     end
 end)
 
@@ -288,9 +305,13 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     SendNUIMessage({ action = 'countdown', seconds = 0 })
     SendNUIMessage({ action = 'matchResult', data = nil })
 
-    RemoveAllPedWeapons(PlayerPedId(), true)
-    Arena.Client.weaponName = nil
-    SetWeaponsNoAutoswap(false)
+    if Arena.Client.HolsterArenaWeapon then
+        Arena.Client.HolsterArenaWeapon()
+    else
+        RemoveAllPedWeapons(PlayerPedId(), true)
+        Arena.Client.weaponName = nil
+        SetWeaponsNoAutoswap(false)
+    end
 
     if data and data.toHub then
         Arena.Client.ReturnToHub()
@@ -310,16 +331,6 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     if not (data and data.silent) then
         lib.notify({ type = 'inform', description = L('left_match') })
     end
-end)
-
-RegisterNetEvent('cursor_arena:client:giveWeaponFallback', function(weaponName, ammo)
-    Arena.Client.EquipWeapon(weaponName, ammo)
-end)
-
-RegisterNetEvent('cursor_arena:client:stripWeapons', function()
-    RemoveAllPedWeapons(PlayerPedId(), true)
-    Arena.Client.weaponName = nil
-    SetWeaponsNoAutoswap(false)
 end)
 
 RegisterNetEvent('cursor_arena:client:voice', function(channel)
