@@ -318,8 +318,10 @@ end)
 
 RegisterNetEvent('cursor_arena:client:blockInventory', function(blocked)
     Arena.Client.invBlocked = blocked == true
-    LocalPlayer.state:set('invBusy', Arena.Client.invBlocked, true)
+    -- invBusy must stay false or ox_inventory disables shooting
+    LocalPlayer.state:set('invBusy', false, true)
     LocalPlayer.state:set('invHotkeys', not Arena.Client.invBlocked, true)
+    LocalPlayer.state:set('canUseWeapons', true, true)
     if Arena.Client.invBlocked and GetResourceState('ox_inventory') == 'started' then
         pcall(function()
             exports.ox_inventory:closeInventory()
@@ -327,20 +329,115 @@ RegisterNetEvent('cursor_arena:client:blockInventory', function(blocked)
     end
 end)
 
-function Arena.Client.EquipWeapon(weaponName, ammo)
-    if not weaponName then return end
-    Arena.Client.weaponName = weaponName
-    local ped = PlayerPedId()
-    local hash = joaat(weaponName)
-    GiveWeaponToPed(ped, hash, ammo or 9999, false, true)
-    SetPedAmmo(ped, hash, ammo or 9999)
-    SetPedInfiniteAmmo(ped, true, hash)
-    SetCurrentPedWeapon(ped, hash, true)
-    SetWeaponsNoAutoswap(true)
+local function oxOn()
+    return GetResourceState('ox_inventory') == 'started'
 end
 
-RegisterNetEvent('cursor_arena:client:equipWeapon', function(weaponName, ammo)
-    Arena.Client.EquipWeapon(weaponName, ammo)
+local function findOxSlot(weaponName, preferred)
+    if preferred then return tonumber(preferred) or preferred end
+    if not oxOn() or not weaponName then return end
+    local names = { weaponName, weaponName:upper(), weaponName:lower() }
+    for i = 1, #names do
+        local ok, result = pcall(function()
+            return exports.ox_inventory:Search('slots', names[i])
+        end)
+        if ok and type(result) == 'table' then
+            for _, data in pairs(result) do
+                if type(data) == 'table' and data.slot then
+                    return data.slot
+                end
+            end
+        end
+    end
+end
+
+local function applyAmmo(ped, hash, ammo)
+    SetPedInfiniteAmmo(ped, true, hash)
+    SetPedInfiniteAmmoClip(ped, true)
+    if ammo then SetPedAmmo(ped, hash, ammo) end
+    SetPedCurrentWeaponVisible(ped, true, true, true, true)
+end
+
+local equipGen = 0
+
+-- Equip through ox_inventory so it owns the gun. GiveWeaponToPed fights ox
+-- (weapon flashes every tick and DisablePlayerFiring / disarm blocks shots).
+function Arena.Client.EquipWeapon(weaponName, ammo, slot)
+    if not weaponName then return end
+    ammo = ammo or 9999
+    Arena.Client.weaponName = weaponName
+    if slot then Arena.Client.weaponSlot = slot end
+    local hash = joaat(weaponName)
+
+    equipGen = equipGen + 1
+    local gen = equipGen
+
+    LocalPlayer.state:set('invBusy', false, true)
+    LocalPlayer.state:set('canUseWeapons', true, true)
+    SetWeaponsNoAutoswap(true)
+    SetPedCanSwitchWeapon(PlayerPedId(), false)
+    SetPlayerCanDoDriveBy(PlayerId(), false)
+
+    CreateThread(function()
+        local ped = PlayerPedId()
+        if oxOn() then
+            if HasPedGotWeapon(ped, hash, false) then
+                SetCurrentPedWeapon(ped, hash, true)
+                applyAmmo(ped, hash, ammo)
+                return
+            end
+            local equipped
+            pcall(function()
+                equipped = exports.ox_inventory:getCurrentWeapon()
+            end)
+            if equipped and (equipped.hash == hash or equipped.name and joaat(equipped.name) == hash) then
+                SetCurrentPedWeapon(ped, hash, true)
+                applyAmmo(ped, hash, ammo)
+                return
+            end
+            local use = findOxSlot(weaponName, Arena.Client.weaponSlot)
+            if use then
+                Arena.Client.weaponSlot = use
+                pcall(function()
+                    exports.ox_inventory:useSlot(tonumber(use) or use)
+                end)
+            end
+            local deadline = GetGameTimer() + 2500
+            while GetGameTimer() < deadline do
+                if gen ~= equipGen then return end
+                ped = PlayerPedId()
+                if HasPedGotWeapon(ped, hash, false) then
+                    SetCurrentPedWeapon(ped, hash, true)
+                    applyAmmo(ped, hash, ammo)
+                    return
+                end
+                Wait(80)
+            end
+            return
+        end
+
+        GiveWeaponToPed(ped, hash, ammo, false, true)
+        SetCurrentPedWeapon(ped, hash, true)
+        applyAmmo(ped, hash, ammo)
+    end)
+end
+
+function Arena.Client.HolsterArenaWeapon()
+    if oxOn() then
+        pcall(function()
+            TriggerEvent('ox_inventory:disarm', true)
+        end)
+    else
+        RemoveAllPedWeapons(PlayerPedId(), true)
+    end
+    Arena.Client.weaponName = nil
+    Arena.Client.weaponSlot = nil
+    SetWeaponsNoAutoswap(false)
+    SetPedCanSwitchWeapon(PlayerPedId(), true)
+end
+
+RegisterNetEvent('cursor_arena:client:equipWeapon', function(weaponName, ammo, slot)
+    Arena.Client.EquipWeapon(weaponName, ammo, slot)
 end)
 
 RegisterNetEvent('cursor_arena:client:giveWeaponFallback', function(weaponName, ammo)
@@ -348,20 +445,23 @@ RegisterNetEvent('cursor_arena:client:giveWeaponFallback', function(weaponName, 
 end)
 
 RegisterNetEvent('cursor_arena:client:stripWeapons', function()
-    RemoveAllPedWeapons(PlayerPedId(), true)
-    Arena.Client.weaponName = nil
-    SetWeaponsNoAutoswap(false)
+    Arena.Client.HolsterArenaWeapon()
 end)
 
 CreateThread(function()
     while true do
         if Arena.Client.invBlocked then
             DisableControlAction(0, 289, true) -- F2 inventory
-            DisableControlAction(0, 37, true)  -- TAB / weapon wheel
-            DisableControlAction(0, 192, true)
-            DisableControlAction(0, 157, true)
-            DisableControlAction(0, 158, true)
-            DisableControlAction(0, 160, true)
+            DisableControlAction(0, 37, true)  -- weapon wheel
+            HideHudComponentThisFrame(19)
+            if LocalPlayer.state.invBusy then
+                LocalPlayer.state:set('invBusy', false, true)
+            end
+            if LocalPlayer.state.invOpen and oxOn() then
+                pcall(function()
+                    exports.ox_inventory:closeInventory()
+                end)
+            end
             Wait(0)
         else
             Wait(400)
@@ -374,11 +474,17 @@ CreateThread(function()
         if Arena.Client.inArena and Arena.Client.weaponName and not Arena.Client.down and not Arena.Client.spectating then
             local ped = PlayerPedId()
             local hash = joaat(Arena.Client.weaponName)
-            local current = GetSelectedPedWeapon(ped)
-            if current ~= hash then
-                GiveWeaponToPed(ped, hash, 9999, false, true)
+            HideHudComponentThisFrame(19)
+            if HasPedGotWeapon(ped, hash, false) then
                 SetPedInfiniteAmmo(ped, true, hash)
-                SetCurrentPedWeapon(ped, hash, true)
+                SetPedInfiniteAmmoClip(ped, true)
+                if GetAmmoInPedWeapon(ped, hash) < 40 then
+                    SetPedAmmo(ped, hash, 9999)
+                end
+                local current = GetSelectedPedWeapon(ped)
+                if current == `WEAPON_UNARMED` or current == 0 then
+                    SetCurrentPedWeapon(ped, hash, true)
+                end
             end
             Wait(400)
         else

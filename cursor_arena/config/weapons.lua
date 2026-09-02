@@ -1,6 +1,7 @@
 --[[
     Loadouts — your addon spawn names.
-    Players pick a class, then a gun. Guns are given natively in-hand (not ox items).
+    Guns are added as ox_inventory items (nothing else is taken) and used into
+    the hands so ox owns the weapon. Infinite ammo in-match.
 ]]
 
 Config.Loadouts = {

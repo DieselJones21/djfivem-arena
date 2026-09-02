@@ -3,12 +3,12 @@
   const resourceName = IN_GAME ? GetParentResourceName() : 'cursor_arena';
 
   const MODES = [
-    { id: 'ffa', label: 'FFA' },
-    { id: '1v1', label: '1v1' },
-    { id: '2v2', label: '2v2' },
-    { id: '3v3', label: '3v3' },
-    { id: '4v4', label: '4v4' },
-    { id: 'tdm', label: 'TDM' },
+    { id: 'ffa', label: 'FFA', blurb: '12 players · first to 30' },
+    { id: '1v1', label: '1v1', blurb: 'Duel · first to 5' },
+    { id: '2v2', label: '2v2', blurb: 'Squad · first to 4' },
+    { id: '3v3', label: '3v3', blurb: 'Squad · first to 4' },
+    { id: '4v4', label: '4v4', blurb: 'Squad · first to 4' },
+    { id: 'tdm', label: 'TDM', blurb: '5v5 · first to 50' },
   ];
 
   const state = {
@@ -148,8 +148,11 @@
     grid.innerHTML = '';
     MODES.forEach((m) => {
       const btn = document.createElement('button');
-      btn.className = `mode-btn ${state.mode === m.id ? 'selected' : ''}`;
-      btn.textContent = m.label;
+      btn.className = `mode-card ${state.mode === m.id ? 'selected' : ''}`;
+      btn.innerHTML = `
+        <span class="card-tag">${state.mode === m.id ? 'SELECTED' : 'MODE'}</span>
+        <span class="card-glyph">${m.label}</span>
+        <span class="card-sub">${m.blurb}</span>`;
       btn.addEventListener('click', () => {
         state.mode = m.id;
         const maps = mapsForMode(m.id);
@@ -200,6 +203,7 @@
       const btn = document.createElement('button');
       btn.className = `map-tile ${state.mapId === m.mapId ? 'selected' : ''}`;
       btn.innerHTML = `
+        <span class="card-tag">${state.mapId === m.mapId ? 'SELECTED' : 'MAP'}</span>
         <div class="thumb" style="background-image:url('${m.mapImage || ''}')"></div>
         <div class="label">${m.mapName || m.name}</div>
         <span class="check">✓</span>`;
@@ -223,16 +227,22 @@
       const card = document.createElement('button');
       card.className = 'room-card';
       card.innerHTML = `
-        <div class="room-top">
-          <h3>${l.sizeLabel || l.name}</h3>
+        <div class="room-art" style="background-image:url('${l.mapImage || ''}')">
           <span class="status ${st.cls}">${st.label}</span>
         </div>
-        <p>${l.mapName || ''}</p>
-        <div class="room-meta">
-          <span>${l.killsToWin ? `${l.killsToWin} kills` : `${l.roundsToWin || 0} rounds`}</span>
-          <span>${l.playerCount || 0}/${l.maxPlayers || 0}</span>
-        </div>
-        <div class="room-host">${l.players?.[0]?.name || 'Waiting for fighters'}</div>`;
+        <div class="room-body">
+          <p>${l.mapName || ''}</p>
+          <h3>${l.sizeLabel || l.name}</h3>
+          <div class="room-meta">
+            <span>${l.killsToWin ? `${l.killsToWin} kills` : `${l.roundsToWin || 0} rounds`}</span>
+            <span>${l.playerCount || 0}/${l.maxPlayers || 0}</span>
+          </div>
+          <div class="room-host">${l.players?.[0]?.name || 'Waiting for fighters'}</div>
+          <div class="room-actions">
+            <span class="room-info">Info</span>
+            <span class="room-add">Join</span>
+          </div>
+        </div>`;
       card.addEventListener('click', () => openSala(l));
       grid.appendChild(card);
     });
@@ -343,6 +353,18 @@
     }
   }
 
+  function fillPlayerChrome() {
+    const name = state.playerName || 'Player';
+    const av = initials(name);
+    const elo = (state.stats && (state.stats.pvp?.elo || state.stats.ffa?.elo)) || 1000;
+    if ($('hdrName')) $('hdrName').textContent = name;
+    if ($('hdrAv')) $('hdrAv').textContent = av;
+    if ($('hdrElo')) $('hdrElo').textContent = String(elo);
+    if ($('statusName')) $('statusName').textContent = name;
+    if ($('statusAv')) $('statusAv').textContent = av;
+    if ($('statusElo')) $('statusElo').textContent = String(elo);
+  }
+
   function openUI(data) {
     state.open = true;
     state.playerName = data.playerName || 'Player';
@@ -353,6 +375,7 @@
     state.history = data.history || [];
     const maps = mapsForMode(state.mode);
     if (maps[0] && !maps.find((m) => m.mapId === state.mapId)) state.mapId = maps[0].mapId;
+    fillPlayerChrome();
     show($('app'), true);
     setTab(state.tab || 'join');
   }
@@ -386,7 +409,7 @@
       renderBoard();
     });
   });
-  $('btnClose').addEventListener('click', closeUI);
+  document.querySelectorAll('.js-close').forEach((btn) => btn.addEventListener('click', closeUI));
   $('btnCloseSala').addEventListener('click', () => show($('sala'), false));
   $('btnLeaveSala').addEventListener('click', () => show($('sala'), false));
   $('teamWrap').addEventListener('click', (e) => {

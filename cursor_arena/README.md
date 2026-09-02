@@ -25,8 +25,9 @@ PvP arenas for **Qbox + ox** servers. Players talk to a world ped, land in a spa
 ## Inventory & weapons
 
 - **Nothing is confiscated.** ox_inventory stays on the player.
-- While a match is running, inventory is **blocked** (`invBusy`) so F2 / TAB cannot open it.
-- The selected gun is given **natively into your hands** (`GiveWeaponToPed`) with **infinite ammo** on match start, round start, and respawn. It is not an ox_inventory item.
+- In a match the inventory **UI** is closed and F2 / the weapon wheel are blocked. `invBusy` is **not** used, because ox_inventory disables firing while that state is true.
+- The selected gun is **added as an ox item** (if you do not already have it) and equipped with `useSlot`, then given infinite ammo. Native `GiveWeaponToPed` is not used while ox_inventory is running — that is what made guns flash and shots fail.
+- Only the arena-given gun (and any extra ammo we added) is removed when you leave. Guns you already owned stay.
 
 ## Dependencies
 

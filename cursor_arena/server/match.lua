@@ -188,7 +188,7 @@ local function enterWorld(src, lobby, p, spawn)
     Arena.Ambulance.SetArenaState(src, true)
     Arena.Inventory.StashPlayer(src)
     local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
-    Arena.Inventory.GiveLoadout(src, weapon)
+    local slot = Arena.Inventory.GiveLoadout(src, weapon)
     Arena.Voice.Join(src, lobby, p.team)
     setStateBags(src, lobby, p)
 
@@ -208,6 +208,7 @@ local function enterWorld(src, lobby, p, spawn)
         weapon = weapon and weapon.weapon,
         weaponId = p.weaponId,
         loadoutId = p.loadoutId,
+        slot = slot,
         map = {
             id = lobby.map.id,
             name = lobby.map.name,
@@ -484,7 +485,6 @@ function Arena.NextRound(lobbyId, winnerTeam)
         local spawn = dealSpawn(lobby, p.team)
         p.spawn = spawn
         local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
-        Arena.Inventory.ClearLoadout(src)
         Arena.Inventory.GiveLoadout(src, weapon)
         Arena.Ambulance.Revive(src, spawn)
         setStateBags(src, lobby, p)
@@ -830,9 +830,13 @@ function Arena.ChangeLoadout(src, loadoutId, weaponId)
 
     p.loadoutId = loadoutId
     p.weaponId = weaponId
-    Arena.Inventory.ClearLoadout(src)
-    Arena.Inventory.GiveLoadout(src, weapon)
-    TriggerClientEvent('cursor_arena:client:loadoutApplied', src, { weapon = weapon.weapon, loadoutId = loadoutId, weaponId = weaponId })
+    local slot = Arena.Inventory.GiveLoadout(src, weapon)
+    TriggerClientEvent('cursor_arena:client:loadoutApplied', src, {
+        weapon = weapon.weapon,
+        loadoutId = loadoutId,
+        weaponId = weaponId,
+        slot = slot,
+    })
     syncLobby(lobby)
     return true
 end
