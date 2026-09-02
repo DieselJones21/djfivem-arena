@@ -9,5 +9,5 @@
     <rect x="430" y="110" width="70" height="120"/>
     <rect x="520" y="95" width="70" height="135"/>
   </g>
-  <path d="M0 250 Q160 220 320 250 T640 250" fill="none" stroke="#ff5a1f" stroke-width="3" stroke-opacity="0.5"/>
+  <path d="M0 250 Q160 220 320 250 T640 250" fill="none" stroke="#00eaf5" stroke-width="3" stroke-opacity="0.5"/>
 </svg>

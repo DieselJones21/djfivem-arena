@@ -10,12 +10,14 @@ Config.Framework = 'auto' -- 'auto' | 'qbx' | 'qb' | 'esx' | 'standalone'
 
 --[[ Commands + keybinds (also appear in GTA Settings → Key Bindings) ]]
 Config.Commands = {
-    { name = 'arenas',        enable = true,  key = 'F6' },
+    { name = 'arenas',        enable = true,  key = 'G' }, -- only works inside the spawn lobby
     { name = 'leavearena',    enable = true,  key = '' },
     { name = 'killstreak',    enable = true,  key = '' },
     { name = 'arenasounds',   enable = true,  key = '' },
     { name = 'changeloadout', enable = true,  key = '' },
 }
+
+Config.MenuKey = 'G'
 
 Config.RequireItem = false -- e.g. 'arena_ticket' or false
 Config.RespawnTime = 3
@@ -103,38 +105,95 @@ Config.LeaderboardTitles = {
         { rank = 5,  title = 'Challenger' },
         { rank = 10, title = 'Prospect' },
     },
-}
-
---[[ ox_target / qb-target / prompt ]]
-Config.Target = {
-    enabled = true, -- auto-detect ox_target then qb-target; otherwise [E]
-}
-
---[[ Arena NPCs — walk up to open the lobby browser ]]
-Config.Peds = {
-    {
-        model = `s_m_y_marine_01`,
-        coords = vec4(-265.0, -963.0, 31.2, 200.0),
-        scenario = 'WORLD_HUMAN_CLIPBOARD',
-        interactDistance = 2.2,
-        blip = {
-            enabled = true,
-            sprite = 437,
-            color = 1,
-            scale = 0.85,
-            label = 'PVP Arena',
-        },
+    pvp = {
+        { rank = 1,  title = 'Apex' },
+        { rank = 2,  title = 'Duelist King' },
+        { rank = 3,  title = 'Bloodied' },
+        { rank = 5,  title = 'Challenger' },
+        { rank = 10, title = 'Prospect' },
     },
 }
 
---[[ ox_inventory ]]
+--[[
+    Interactions: prefers `interact` (darktrovx), then ox_target, then qb-target, then [E].
+]]
+Config.Target = {
+    enabled = true,
+    prefer = 'interact', -- 'interact' | 'ox_target' | 'auto'
+}
+
+--[[
+    WORLD ENTRY PED — PASTE COORDS
+    Talking to this ped teleports you into the spawn lobby. It does not open the UI.
+]]
+Config.EntryPed = {
+    enabled = true,
+    coords = vec4(-265.0, -963.0, 31.2, 200.0), -- PASTE x, y, z, heading
+    model = `s_m_y_marine_01`,
+    scenario = 'WORLD_HUMAN_CLIPBOARD',
+    interactDistance = 2.0,
+    interactLabel = 'Enter Arena',
+    blip = {
+        enabled = true,
+        sprite = 437,
+        color = 1,
+        scale = 0.85,
+        label = 'PVP Arena',
+    },
+}
+
+--[[
+    SPAWN LOBBY HUB — PASTE YOUR LOBBY MLO COORDS
+    Players land here from the entry ped. Press G to open the arena UI.
+]]
+Config.SpawnLobby = {
+    spawns = {
+        vec4(405.0, -997.0, -99.0, 90.0), -- PASTE hub spawn
+        vec4(402.0, -1000.0, -99.0, 0.0),
+        vec4(408.0, -1000.0, -99.0, 180.0),
+        vec4(405.0, -1003.0, -99.0, 270.0),
+    },
+    center = vec3(405.0, -997.0, -99.0), -- PASTE hub center
+    radius = 40.0,
+    enforceBounds = true,
+    hint = true,
+}
+
+--[[
+    EXIT PED — PASTE COORDS INSIDE THE HUB
+    Sends the player back to where they entered from.
+]]
+Config.ExitPed = {
+    enabled = true,
+    coords = vec4(400.0, -997.0, -99.0, 270.0), -- PASTE
+    model = `s_m_y_marine_01`,
+    scenario = 'WORLD_HUMAN_GUARD_STAND',
+    interactDistance = 2.0,
+    interactLabel = 'Leave Arena',
+}
+
+--[[
+    CLOTHING PED — PASTE COORDS INSIDE THE HUB
+    Opens illenium-appearance clothing (not character creator).
+]]
+Config.ClothingPed = {
+    enabled = true,
+    coords = vec4(408.0, -997.0, -99.0, 180.0), -- PASTE
+    model = `s_f_y_shop_mid`,
+    scenario = 'WORLD_HUMAN_STAND_IMPATIENT',
+    interactDistance = 2.0,
+    interactLabel = 'Change Clothes',
+    resource = 'illenium-appearance',
+}
+
+--[[
+    Inventory: do NOT confiscate. Block ox_inventory while in a match.
+    Weapons are given natively into the player's hands with infinite ammo.
+]]
 Config.OxInventory = {
     enabled = true,
-    clearBeforeLoadout = true,
-    restoreOnLeave = true,
-    extras = {
-        -- { item = 'armour', count = 1 },
-    },
+    confiscate = false,
+    blockWhileInMatch = true,
 }
 
 --[[ Ambulance auto-detect. First running resource wins. ]]

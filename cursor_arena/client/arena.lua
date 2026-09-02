@@ -126,7 +126,7 @@ local function hudPayload()
         players = lobby.players,
         me = me,
         team = Arena.Client.team,
-        teamPanel = Config.TeamPanel.enabled and lobby.mode == 'showdown',
+        teamPanel = Config.TeamPanel.enabled and Arena.Utils.IsElimination(lobby.mode),
         titles = Config.TeamPanel.titles,
     }
 end
@@ -151,13 +151,8 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
     setupTeams(data.lobby and data.lobby.teamkill)
     DoScreenFadeIn(400)
 
-    if Config.Rules.infiniteAmmo and data.weapon then
-        CreateThread(function()
-            Wait(600)
-            local hash = joaat(data.weapon)
-            SetPedInfiniteAmmo(PlayerPedId(), true, hash)
-            SetCurrentPedWeapon(PlayerPedId(), hash, true)
-        end)
+    if data.weapon then
+        Arena.Client.EquipWeapon(data.weapon, 9999)
     end
 
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
@@ -185,6 +180,9 @@ RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
         end
         freeze(false)
         SendNUIMessage({ action = 'countdown', seconds = 0 })
+        if Arena.Client.weaponName then
+            Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999)
+        end
         lib.notify({ type = 'success', description = L('match_started') })
     end)
 end)
@@ -221,6 +219,9 @@ RegisterNetEvent('cursor_arena:client:respawn', function(data)
     Arena.Spectate.Stop()
     applySpawn(data.spawn)
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
+    if Arena.Client.weaponName then
+        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999)
+    end
     SendNUIMessage({ action = 'deathOverlay', visible = false })
 end)
 
@@ -230,6 +231,9 @@ RegisterNetEvent('cursor_arena:client:roundRestart', function(data)
     Arena.Spectate.Stop()
     applySpawn(data.spawn)
     boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
+    if Arena.Client.weaponName then
+        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999)
+    end
     if Arena.Client.lobby then
         Arena.Client.lobby.scores = data.scores
         Arena.Client.lobby.round = data.round
@@ -259,11 +263,8 @@ RegisterNetEvent('cursor_arena:client:matchEnded', function(payload)
 end)
 
 RegisterNetEvent('cursor_arena:client:loadoutApplied', function(data)
-    if Config.Rules.infiniteAmmo and data.weapon then
-        Wait(200)
-        local hash = joaat(data.weapon)
-        SetPedInfiniteAmmo(PlayerPedId(), true, hash)
-        SetCurrentPedWeapon(PlayerPedId(), hash, true)
+    if data and data.weapon then
+        Arena.Client.EquipWeapon(data.weapon, 9999)
     end
 end)
 
@@ -286,9 +287,13 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     SendNUIMessage({ action = 'matchResult', data = nil })
 
     RemoveAllPedWeapons(PlayerPedId(), true)
+    Arena.Client.weaponName = nil
+    SetWeaponsNoAutoswap(false)
 
-    local coords = data and data.returnCoords
-    if coords then
+    if data and data.toHub then
+        Arena.Client.ReturnToHub()
+    elseif data and data.returnCoords then
+        local coords = data.returnCoords
         DoScreenFadeOut(250)
         while not IsScreenFadedOut() do Wait(0) end
         SetEntityCoordsNoOffset(PlayerPedId(), coords.x, coords.y, coords.z, false, false, false)
@@ -306,17 +311,13 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
 end)
 
 RegisterNetEvent('cursor_arena:client:giveWeaponFallback', function(weaponName, ammo)
-    local ped = PlayerPedId()
-    local hash = joaat(weaponName)
-    GiveWeaponToPed(ped, hash, ammo or 0, false, true)
-    SetCurrentPedWeapon(ped, hash, true)
-    if Config.Rules.infiniteAmmo then
-        SetPedInfiniteAmmo(ped, true, hash)
-    end
+    Arena.Client.EquipWeapon(weaponName, ammo)
 end)
 
 RegisterNetEvent('cursor_arena:client:stripWeapons', function()
     RemoveAllPedWeapons(PlayerPedId(), true)
+    Arena.Client.weaponName = nil
+    SetWeaponsNoAutoswap(false)
 end)
 
 RegisterNetEvent('cursor_arena:client:voice', function(channel)

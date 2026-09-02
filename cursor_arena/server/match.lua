@@ -1,6 +1,7 @@
 Arena = Arena or {}
 Arena.Lobbies = {}
 Arena.PlayerLobby = {}
+Arena.PlayerHub = {}
 Arena.LeaveAt = {}
 
 local matchSeq = 0
@@ -112,6 +113,8 @@ function Arena.PublicLobby(lobby)
         teamkill = cfg.teamkill == true,
         disableKillstreaks = cfg.disableKillstreaks == true,
         joinDuringMatch = cfg.joinDuringMatch ~= false,
+        sizeLabel = cfg.sizeLabel or cfg.name,
+        teamSize = cfg.maxPlayersPerTeam,
     }
 end
 
@@ -122,7 +125,7 @@ function Arena.ListLobbies()
     end
     table.sort(list, function(a, b)
         if a.mode == b.mode then return a.name < b.name end
-        local order = { ffa = 1, tdm = 2, showdown = 3 }
+        local order = { ffa = 1, pvp = 2, tdm = 3, showdown = 4 }
         return (order[a.mode] or 9) < (order[b.mode] or 9)
     end)
     return list
@@ -178,9 +181,7 @@ local function enterWorld(src, lobby, p, spawn)
     SetPlayerRoutingBucket(src, lobby.bucket)
     SetRoutingBucketPopulationEnabled(lobby.bucket, false)
     Arena.Ambulance.SetArenaState(src, true)
-    if not Arena.Inventory.IsStashed(src) then
-        Arena.Inventory.StashPlayer(src)
-    end
+    Arena.Inventory.StashPlayer(src)
     local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
     Arena.Inventory.GiveLoadout(src, weapon)
     Arena.Voice.Join(src, lobby, p.team)
@@ -266,9 +267,9 @@ local function endMatch(lobby, result)
     result.players = {}
 
     local teamElo = { [1] = {}, [2] = {} }
-    if lobby.mode == 'showdown' then
+    if Arena.Utils.IsElimination(lobby.mode) then
         for src, p in pairs(lobby.players) do
-            local row = Arena.Stats.GetPlayer(src, 'showdown')
+            local row = Arena.Stats.GetPlayer(src, lobby.mode)
             if p.team == 1 or p.team == 2 then
                 teamElo[p.team][#teamElo[p.team] + 1] = row.elo or 1000
             end
@@ -301,7 +302,7 @@ local function endMatch(lobby, result)
         end
 
         local eloChange = 0
-        if lobby.mode == 'showdown' and (p.team == 1 or p.team == 2) and not result.draw then
+        if Arena.Utils.IsElimination(lobby.mode) and (p.team == 1 or p.team == 2) and not result.draw then
             local mine = avg(teamElo[p.team])
             local theirs = avg(teamElo[p.team == 1 and 2 or 1])
             eloChange = Arena.Stats.ComputeElo(mine, theirs, won)
@@ -369,7 +370,7 @@ local function endMatch(lobby, result)
         MatchEnded(matchUid, lobby.mode, result)
     end
 
-    local delay = lobby.mode == 'showdown' and (Config.ShowdownStartDelay or 10) or 8
+    local delay = Arena.Utils.IsElimination(lobby.mode) and (Config.ShowdownStartDelay or 10) or 8
     local id = lobby.id
     SetTimeout(delay * 1000, function()
         local l = Arena.Lobbies[id]
@@ -396,7 +397,7 @@ end
 
 local function startRoundTimer(lobby)
     local limit
-    if lobby.mode == 'showdown' then
+    if Arena.Utils.IsElimination(lobby.mode) then
         limit = lobby.cfg.roundTime or 120
     else
         limit = lobby.cfg.timeLimit or 0
@@ -414,7 +415,7 @@ local function startRoundTimer(lobby)
             local l = Arena.Lobbies[id]
             if l.state ~= 'active' then return end
             if os.time() >= endsAt then
-                if l.mode == 'showdown' then
+                if Arena.Utils.IsElimination(l.mode) then
                     Arena.NextRound(l.id, 0)
                 elseif l.mode == 'ffa' then
                     local bestSrc, bestKills, tie = nil, -1, false
@@ -453,7 +454,7 @@ end
 
 function Arena.NextRound(lobbyId, winnerTeam)
     local lobby = Arena.Lobbies[lobbyId]
-    if not lobby or lobby.mode ~= 'showdown' then return end
+    if not lobby or not Arena.Utils.IsElimination(lobby.mode) then return end
     if winnerTeam and winnerTeam ~= 0 then
         lobby.scores[winnerTeam] = (lobby.scores[winnerTeam] or 0) + 1
     end
@@ -513,7 +514,7 @@ function Arena.TryStart(lobbyId, delayed)
         return false
     end
 
-    if lobby.mode == 'showdown' and not delayed then
+    if Arena.Utils.IsElimination(lobby.mode) and not delayed then
         lobby.state = 'waiting'
         syncLobby(lobby)
         local id = lobby.id
@@ -679,7 +680,7 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
 
     maybeBell(lobby)
 
-    if lobby.mode == 'showdown' then
+    if Arena.Utils.IsElimination(lobby.mode) then
         vp.spectating = true
         setStateBags(victim, lobby, vp)
         TriggerClientEvent('cursor_arena:client:downed', victim, playerPayload(lobby))
@@ -721,6 +722,7 @@ end
 function Arena.JoinLobby(src, lobbyId, opts)
     opts = opts or {}
     if Arena.PlayerLobby[src] then return false, 'already_in_match' end
+    if not Arena.PlayerHub[src] then return false, 'must_be_in_hub' end
     if Arena.LeaveAt[src] and os.time() < Arena.LeaveAt[src] then
         return false, 'already_in_match'
     end
@@ -739,7 +741,7 @@ function Arena.JoinLobby(src, lobbyId, opts)
     if countPlayers(lobby) >= maxPlayers(lobby) then return false, 'lobby_full' end
 
     if lobby.state == 'active' or lobby.state == 'countdown' then
-        if lobby.mode == 'showdown' and lobby.cfg.joinDuringMatch == false then
+        if Arena.Utils.IsElimination(lobby.mode) and lobby.cfg.joinDuringMatch == false then
             return false, 'lobby_full'
         end
     end
@@ -776,8 +778,8 @@ function Arena.JoinLobby(src, lobbyId, opts)
         kills = 0,
         deaths = 0,
         streak = 0,
-        alive = lobby.mode ~= 'showdown' or lobby.state ~= 'active',
-        spectating = lobby.mode == 'showdown' and lobby.state == 'active',
+        alive = not Arena.Utils.IsElimination(lobby.mode) or lobby.state ~= 'active',
+        spectating = Arena.Utils.IsElimination(lobby.mode) and lobby.state == 'active',
         joinedAt = os.time(),
         lastActivity = os.time(),
         returnCoords = returnCoords,
@@ -786,7 +788,7 @@ function Arena.JoinLobby(src, lobbyId, opts)
     }
     Arena.PlayerLobby[src] = lobbyId
 
-    if lobby.mode == 'showdown' and lobby.state == 'active' then
+    if Arena.Utils.IsElimination(lobby.mode) and lobby.state == 'active' then
         lobby.players[src].alive = false
         lobby.players[src].spectating = true
     end
@@ -808,7 +810,7 @@ function Arena.ChangeLoadout(src, loadoutId, weaponId)
     local p = lobby.players[src]
     if not p then return false end
 
-    if lobby.mode == 'showdown' and lobby.state == 'active' and p.alive then
+    if Arena.Utils.IsElimination(lobby.mode) and lobby.state == 'active' and p.alive then
         return false, 'loadout_locked'
     end
 
@@ -861,17 +863,15 @@ function Arena.LeaveLobby(src, silent, conceded)
     Arena.LeaveAt[src] = os.time() + (Config.LeaveCooldown or 4)
 
     Arena.Inventory.ClearLoadout(src)
-    if Config.OxInventory.restoreOnLeave then
-        Arena.Inventory.RestorePlayer(src)
-    end
+    Arena.Inventory.RestorePlayer(src)
     Arena.Ambulance.Release(src)
     Arena.Voice.Leave(src)
     SetPlayerRoutingBucket(src, 0)
     setStateBags(src, nil)
 
-    local returnCoords = p and p.returnCoords
+    Arena.PlayerHub[src] = true
     TriggerClientEvent('cursor_arena:client:leaveArena', src, {
-        returnCoords = returnCoords and Arena.Utils.Vec4(returnCoords) or nil,
+        toHub = true,
         silent = silent == true,
     })
 
@@ -880,7 +880,7 @@ function Arena.LeaveLobby(src, silent, conceded)
         if PlayerLeftLobby then PlayerLeftLobby(src, lobbyId) end
 
         if lobby.state == 'active' or lobby.state == 'countdown' then
-            if lobby.mode == 'showdown' and conceded ~= false then
+            if Arena.Utils.IsElimination(lobby.mode) and conceded ~= false then
                 -- walking out mid-match concedes
                 if countTeam(lobby, p and p.team or 0) == 0 and Arena.Utils.IsTeamMode(lobby.mode) then
                     local winner = (p and p.team == 1) and 2 or 1
@@ -984,6 +984,7 @@ end
 
 AddEventHandler('playerDropped', function()
     local src = source
+    Arena.PlayerHub[src] = nil
     if Arena.PlayerLobby[src] then
         if PlayerLeftServer then PlayerLeftServer(src) end
         Arena.LeaveLobby(src, true, true)

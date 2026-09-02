@@ -1,47 +1,67 @@
-# Maps & spawns
+# Maps, hub & weapons — paste list
 
-Edit `config/maps.lua`. Each map needs a fence and three spawn lists.
+Vanilla GTA fills are in place so the resource starts. Send (or paste) the real values below.
 
-## Fence
+Use `vec4(x, y, z, heading)` for peds and spawns, `vec3(x, y, z)` for hub center, `vec2(x, y)` for fence corners.
 
-Prefer a polygon (IC Arenas style):
+## 1) World entry ped
+
+`config/config.lua` → `Config.EntryPed.coords`
+
+Talking to this ped teleports you into the spawn lobby. It does **not** open the UI.
+
+## 2) Spawn lobby hub
+
+`Config.SpawnLobby`
+
+- `spawns` — a few `vec4` land points inside the MLO
+- `center` + `radius` — keep players inside the hub
+
+## 3) Exit ped (inside the hub)
+
+`Config.ExitPed.coords`
+
+Returns the player to the city coords they entered from.
+
+## 4) Clothing ped (inside the hub)
+
+`Config.ClothingPed.coords`
+
+Opens `illenium-appearance:client:openClothingShop` (clothing only).
+
+## 5) Maps
+
+`config/maps.lua` — for **construction**, **cargo**, and **dust** (the three used by FFA / 1v1–4v4 / TDM):
 
 ```lua
 boundaries = {
-    points = {
-        vec2(x, y), -- corner 1
-        vec2(x, y), -- corner 2
-        -- walk the perimeter in order
-    },
+    points = { vec2(x, y), ... }, -- walk the perimeter in order
     minZ = 0.0,
     maxZ = 80.0,
 },
+spawns        = { vec4(...), ... }, -- FFA
+team1_spawns  = { vec4(...), ... }, -- Alpha
+team2_spawns  = { vec4(...), ... }, -- Bravo
 ```
 
-`Config.Debug = true` draws the fence and numbers every corner in that order.
+`Config.Debug = true` numbers every fence corner.
 
-A `center` + `radius` bubble still works as a fallback.
+Points are **dealt**, not rolled — the list is shuffled and every point is used before repeats.
 
-## Spawns
-
-```lua
-spawns        = { vec4(x, y, z, heading), ... } -- FFA
-team1_spawns  = { vec4(...), ... }              -- Alpha
-team2_spawns  = { vec4(...), ... }              -- Bravo
-```
-
-Points are **dealt**, not rolled. The list is shuffled and every point is used before any repeats, so more points means people spawn further apart.
-
-## Shipping maps
-
-Vanilla GTA fills are in place so you can test without an MLO:
+Shipping vanilla fills:
 
 | id | Default location |
 |----|------------------|
 | `construction` | Alta construction pit |
-| `pool` | Vinewood Hills pool deck |
-| `dust` | Sandy Shores airfield |
 | `cargo` | Port of LS containers |
-| `rooftops` | Maze Bank West roof |
+| `dust` | Sandy Shores airfield |
+| `pool` | Vinewood Hills pool deck (unused by default lobbies) |
+| `rooftops` | Maze Bank West roof (unused by default lobbies) |
 
-Replace coords with your maps, then point lobbies at a map id in `config/lobbies.lua`.
+## 6) Weapon spawn names
+
+`config/weapons.lua` — replace the `weapon = 'WEAPON_...'` field on each row with your spawn name (vanilla or addon). Labels can stay as the display name in the UI.
+
+## Interact
+
+Peds prefer `exports.interact:AddLocalEntityInteraction` (resource name `interact`). If that resource is not started, ox_target / qb-target / `[E]` are used automatically.

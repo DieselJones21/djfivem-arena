@@ -1,48 +1,60 @@
 --[[
-    Persistent lobbies — one list per mode, same shape as IC Arenas.
+    Persistent lobbies.
 
-    FFA starts at 2 players.
-    TDM starts once both sides have someone.
-    Showdown is ranked (ELO), one life a round.
+    FFA — 3 maps. UI shows map picker.
+    PVP — 1v1 / 2v2 / 3v3 / 4v4 (round elimination, one life). UI picks size then map.
+    TDM  — team kill race.
 ]]
+
+local FFA_MAPS = { 'construction', 'cargo', 'dust' }
+local PVP_MAPS = { 'construction', 'cargo', 'dust' }
+
+local function ffaLobby(mapId)
+    return {
+        id = 'ffa_' .. mapId,
+        name = 'FFA',
+        description = 'Everyone for themselves. First to 30.',
+        map = mapId,
+        maxPlayers = 16,
+        killsToWin = 30,
+        loadouts = { 'duelist', 'raider', 'assault', 'shock', 'marksman' },
+        kill_rewards = { health = 25 },
+        sizeLabel = 'FFA',
+    }
+end
+
+local function pvpLobby(size, mapId)
+    return {
+        id = ('pvp_%sv%s_%s'):format(size, size, mapId),
+        name = ('%sv%s'):format(size, size),
+        description = 'One life a round. First to the round target.',
+        map = mapId,
+        maxPlayersPerTeam = size,
+        roundsToWin = size == 1 and 5 or 4,
+        roundTime = 90 + (size * 15),
+        loadouts = { 'duelist', 'raider', 'assault', 'shock', 'marksman' },
+        teamkill = false,
+        joinDuringMatch = false,
+        sizeLabel = ('%sv%s'):format(size, size),
+        win_rewards = { money = 250 * size },
+    }
+end
 
 Config.Lobbies = {
     ffa = {
-        {
-            id = 'construction_ffa',
-            name = 'Construction FFA',
-            description = 'Every floor is a fight. First to 30.',
-            map = 'construction',
-            maxPlayers = 16,
-            killsToWin = 30,
-            loadouts = { 'duelist', 'raider', 'assault' },
-            kill_rewards = { health = 25 },
-        },
-        {
-            id = 'cargo_ffa',
-            name = 'Cargo FFA',
-            description = 'Containers, corners, chaos.',
-            map = 'cargo',
-            maxPlayers = 16,
-            killsToWin = 30,
-            loadouts = { 'duelist', 'raider', 'assault', 'shock' },
-            kill_rewards = { health = 20, armor = 10 },
-        },
-        {
-            id = 'dust_ffa',
-            name = 'Dust FFA',
-            description = 'Long sightlines. No cover for the timid.',
-            map = 'dust',
-            maxPlayers = 16,
-            killsToWin = 25,
-            loadouts = { 'duelist', 'assault', 'marksman' },
-            kill_rewards = { health = 25 },
-        },
+        ffaLobby(FFA_MAPS[1]),
+        ffaLobby(FFA_MAPS[2]),
+        ffaLobby(FFA_MAPS[3]),
     },
-
+    pvp = {
+        pvpLobby(1, PVP_MAPS[1]), pvpLobby(1, PVP_MAPS[2]), pvpLobby(1, PVP_MAPS[3]),
+        pvpLobby(2, PVP_MAPS[1]), pvpLobby(2, PVP_MAPS[2]), pvpLobby(2, PVP_MAPS[3]),
+        pvpLobby(3, PVP_MAPS[1]), pvpLobby(3, PVP_MAPS[2]), pvpLobby(3, PVP_MAPS[3]),
+        pvpLobby(4, PVP_MAPS[1]), pvpLobby(4, PVP_MAPS[2]), pvpLobby(4, PVP_MAPS[3]),
+    },
     tdm = {
         {
-            id = 'dust_tdm',
+            id = 'tdm_dust',
             name = 'Dust TDM',
             description = 'Two sides, one strip of sand.',
             map = 'dust',
@@ -52,9 +64,10 @@ Config.Lobbies = {
             kill_rewards = { health = 20 },
             win_rewards = { money = 500 },
             teamkill = false,
+            sizeLabel = 'TDM',
         },
         {
-            id = 'cargo_tdm',
+            id = 'tdm_cargo',
             name = 'Cargo TDM',
             description = 'Close quarters. Hold the corridor.',
             map = 'cargo',
@@ -64,62 +77,26 @@ Config.Lobbies = {
             kill_rewards = { health = 25, armor = 15 },
             win_rewards = { money = 500 },
             teamkill = false,
+            sizeLabel = 'TDM',
         },
         {
-            id = 'pool_tdm',
-            name = 'Pool TDM',
-            description = 'Deck to deck. Friendly fire off.',
-            map = 'pool',
-            maxPlayersPerTeam = 5,
-            killsToWin = 35,
-            loadouts = { 'duelist', 'raider', 'assault' },
-            kill_rewards = { health = 15 },
-            teamkill = false,
-        },
-    },
-
-    showdown = {
-        {
-            id = 'rooftops_showdown',
-            name = 'Rooftops Showdown',
-            description = 'One life. Ranked. Leave and you concede.',
-            map = 'rooftops',
-            maxPlayersPerTeam = 5,
-            roundsToWin = 5,
-            roundTime = 120,
-            loadouts = { 'duelist', 'raider', 'assault', 'marksman' },
-            win_rewards = { money = 1200 },
-            teamkill = false,
-            joinDuringMatch = true,
-        },
-        {
-            id = 'construction_showdown',
-            name = 'Construction Showdown',
-            description = 'Ranked elimination across the pit.',
+            id = 'tdm_construction',
+            name = 'Construction TDM',
+            description = 'Vertical team fights.',
             map = 'construction',
-            maxPlayersPerTeam = 4,
-            roundsToWin = 5,
-            roundTime = 100,
-            loadouts = { 'duelist', 'assault', 'shock' },
-            win_rewards = { money = 1000 },
+            maxPlayersPerTeam = 6,
+            killsToWin = 40,
+            loadouts = { 'duelist', 'raider', 'assault' },
+            kill_rewards = { health = 20 },
             teamkill = false,
-            joinDuringMatch = false,
-        },
-        {
-            id = 'pool_showdown',
-            name = 'Pool Duel',
-            description = 'Tight ranked 3v3 on the deck.',
-            map = 'pool',
-            maxPlayersPerTeam = 3,
-            roundsToWin = 4,
-            roundTime = 90,
-            loadouts = { 'duelist', 'raider' },
-            win_rewards = { money = 800 },
-            teamkill = false,
-            joinDuringMatch = true,
+            sizeLabel = 'TDM',
         },
     },
 }
+
+Config.FfaMaps = FFA_MAPS
+Config.PvpMaps = PVP_MAPS
+Config.PvpSizes = { 1, 2, 3, 4 }
 
 function Config.GetLobby(lobbyId)
     for mode, list in pairs(Config.Lobbies) do

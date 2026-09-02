@@ -41,7 +41,11 @@ function Arena.Utils.Shuffle(list)
 end
 
 function Arena.Utils.IsTeamMode(mode)
-    return mode == 'tdm' or mode == 'showdown'
+    return mode == 'tdm' or mode == 'showdown' or mode == 'pvp'
+end
+
+function Arena.Utils.IsElimination(mode)
+    return mode == 'showdown' or mode == 'pvp'
 end
 
 function Arena.Utils.Vec4(coords)

@@ -142,7 +142,7 @@ end
 
 function Arena.Stats.GetAllModes(src)
     local out = {}
-    for _, mode in ipairs({ 'ffa', 'tdm', 'showdown' }) do
+    for _, mode in ipairs({ 'ffa', 'tdm', 'pvp', 'showdown' }) do
         out[mode] = Arena.Stats.GetPlayer(src, mode)
     end
     return out
@@ -237,7 +237,7 @@ function Arena.Stats.GetLeaderboard(mode, limit)
         end
     end
 
-    local ranked = mode == 'showdown'
+    local ranked = mode == 'showdown' or mode == 'pvp'
     table.sort(list, function(a, b)
         if ranked then
             if (a.elo or 0) == (b.elo or 0) then

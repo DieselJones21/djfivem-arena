@@ -14,9 +14,11 @@ local function bootstrap(src)
         leaderboard = {
             ffa = Arena.Stats.GetLeaderboard('ffa', 25),
             tdm = Arena.Stats.GetLeaderboard('tdm', 25),
+            pvp = Arena.Stats.GetLeaderboard('pvp', 25),
             showdown = Arena.Stats.GetLeaderboard('showdown', 25),
         },
         history = Arena.Stats.GetHistory(src, 20),
+        inHub = Arena.PlayerHub[src] == true,
         current = lobby and Arena.PublicLobby(lobby) or nil,
         titles = Config.LeaderboardTitles,
         sounds = Config.Sounds,
@@ -99,6 +101,10 @@ RegisterNetEvent('cursor_arena:server:activity', function()
     end
 end)
 
+RegisterNetEvent('cursor_arena:server:setHub', function(state)
+    Arena.PlayerHub[source] = state == true or nil
+end)
+
 local function findCommand(name)
     for i = 1, #Config.Commands do
         if Config.Commands[i].name == name then
@@ -119,9 +125,13 @@ end
 local leaveCmd = findCommand('leavearena')
 if not leaveCmd or leaveCmd.enable ~= false then
     lib.addCommand('leavearena', {
-        help = 'Leave the arena you are in',
+        help = 'Leave match, or exit the spawn lobby to the city',
     }, function(source)
-        Arena.LeaveLobby(source, false, true)
+        if Arena.PlayerLobby[source] then
+            Arena.LeaveLobby(source, false, true)
+        elseif Arena.PlayerHub[source] then
+            TriggerClientEvent('cursor_arena:client:exitHub', source)
+        end
     end)
 end
 
@@ -179,6 +189,10 @@ end)
 
 exports('RemovePlayerFromArena', function(src)
     return Arena.LeaveLobby(src, true, true)
+end)
+
+exports('IsInHub', function(src)
+    return Arena.PlayerHub[src] == true
 end)
 
 exports('LeaveArena', function(src)

@@ -2,6 +2,7 @@ Arena = Arena or {}
 
 Arena.Client = {
     inArena = false,
+    inHub = false,
     spectating = false,
     down = false,
     uiOpen = false,
@@ -14,5 +15,8 @@ Arena.Client = {
     muteStreaks = false,
     muteSounds = false,
     returnCoords = nil,
+    worldReturnCoords = nil,
     frozen = false,
+    weaponName = nil,
+    invBlocked = false,
 }

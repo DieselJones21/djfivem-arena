@@ -6,10 +6,15 @@ function Arena.Client.OpenUI()
         lib.notify({ type = 'error', description = L('already_in_match') })
         return
     end
+    if not Arena.Client.inHub then
+        lib.notify({ type = 'error', description = L('must_be_in_hub') })
+        return
+    end
 
     local bootstrap = lib.callback.await('cursor_arena:getBootstrap', false)
     if not bootstrap then return end
 
+    if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
     Arena.Client.uiOpen = true
     SetNuiFocus(true, true)
     SendNUIMessage({ action = 'open', data = bootstrap })
@@ -38,7 +43,11 @@ function Arena.Client.OpenLoadout()
 end
 
 RegisterNUICallback('close', function(_, cb)
+    local wasOpen = Arena.Client.uiOpen
     Arena.Client.CloseUI()
+    if wasOpen and Arena.Client.inHub and not Arena.Client.inArena and Arena.Client.ShowHubHint then
+        Arena.Client.ShowHubHint()
+    end
     cb({ ok = true })
 end)
 
@@ -90,14 +99,6 @@ end)
 
 RegisterNUICallback('getHistory', function(_, cb)
     cb(lib.callback.await('cursor_arena:getHistory', false) or {})
-end)
-
-RegisterNetEvent('cursor_arena:client:openUI', function()
-    if Arena.Client.inArena then
-        lib.notify({ type = 'error', description = L('already_in_match') })
-        return
-    end
-    Arena.Client.OpenUI()
 end)
 
 RegisterNetEvent('cursor_arena:client:openLoadout', function()

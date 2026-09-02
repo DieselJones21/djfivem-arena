@@ -4,8 +4,8 @@ lua54 'yes'
 
 name 'cursor_arena'
 author 'DJ FiveM'
-description 'PvP arenas — FFA, TDM and ranked Showdown. Qbox / ox_lib / ox_inventory / ox_target / wasabi.'
-version '2.0.0'
+description 'PvP arenas — FFA, 1v1–4v4, TDM. Qbox / ox / interact / illenium-appearance.'
+version '2.1.0'
 
 shared_scripts {
     '@ox_lib/init.lua',

@@ -253,3 +253,11 @@ function Config.GetMap(mapId)
         end
     end
 end
+
+function Config.GetHubSpawn()
+    local spawns = Config.SpawnLobby and Config.SpawnLobby.spawns
+    if not spawns or #spawns == 0 then
+        return vec4(405.0, -997.0, -99.0, 90.0)
+    end
+    return spawns[math.random(#spawns)]
+end

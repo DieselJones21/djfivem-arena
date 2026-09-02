@@ -2,7 +2,7 @@
     Loadouts by role — same idea as IC Arenas (Duelist / Raider / Assault / Shock / Marksman).
 
     Twist: each role can offer several of YOUR weapons. Players pick a role, then a gun.
-    Change weapon hashes and ox_inventory ammo items to match your server.
+    -- PASTE YOUR WEAPON SPAWN NAMES in the `weapon` field (e.g. WEAPON_PISTOL or a custom addon name).
 ]]
 
 Config.Loadouts = {
