@@ -185,7 +185,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 16px;
   border: 1px solid var(--line);
   overflow: hidden;
-  min-height: 168px;
+  min-height: 148px;
 }
 .hero-banner {
   position: relative;
@@ -295,7 +295,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .weapon-split { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .weapon-list {
-  max-height: 250px; overflow: auto; display: grid; gap: 6px; padding-right: 4px;
+  max-height: 180px; overflow: auto; display: grid; gap: 6px; padding-right: 4px;
 }
 .wep-row {
   display: flex; align-items: center; gap: 8px; text-align: left;
@@ -311,7 +311,7 @@ button { font-family: inherit; cursor: pointer; }
   position: relative;
   border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 16px;
-  min-height: 250px;
+  min-height: 180px;
 }
 .weapon-preview .card-tag { position: absolute; top: 12px; left: 12px; }
 .wep-art {
@@ -333,7 +333,7 @@ button { font-family: inherit; cursor: pointer; }
   background: #0b0f14; text-align: left; color: inherit; min-height: 150px;
 }
 .map-tile img, .map-tile .thumb {
-  width: 100%; height: 110px; object-fit: cover; display: block; background: #10151c;
+  width: 100%; height: 88px; object-fit: cover; display: block; background: #10151c;
 }
 .map-tile .thumb { background: #10151c center/cover no-repeat; }
 .map-tile .label {
@@ -352,6 +352,9 @@ button { font-family: inherit; cursor: pointer; }
 
 .join-foot {
   display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 16px;
+  position: sticky; bottom: 0;
+  padding: 12px 0 4px;
+  background: linear-gradient(180deg, transparent, rgba(8,9,12,0.96) 28%);
 }
 .join-note { color: var(--muted); font-size: 0.78rem; }
 .btn-cta {
@@ -557,9 +560,8 @@ button { font-family: inherit; cursor: pointer; }
   100% { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 @media (max-width: 1100px) {
-  .frame { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
   .hero-row, .join-grid, .room-grid, .sala-vs, .weapon-split, .map-pick { grid-template-columns: 1fr; }
+  .frame { grid-template-columns: 200px 1fr; }
 }
 ::-webkit-scrollbar { width: 8px; }
 ::-webkit-scrollbar-thumb { background: rgba(0,242,255,0.25); border-radius: 8px; }
