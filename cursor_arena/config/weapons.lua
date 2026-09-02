@@ -1,76 +1,49 @@
 --[[
-    Loadouts by role — same idea as IC Arenas (Duelist / Raider / Assault / Shock / Marksman).
-
-    Twist: each role can offer several of YOUR weapons. Players pick a role, then a gun.
-    -- PASTE YOUR WEAPON SPAWN NAMES in the `weapon` field (e.g. WEAPON_PISTOL or a custom addon name).
+    Loadouts — your addon spawn names.
+    Players pick a class, then a gun. Guns are given natively in-hand (not ox items).
 ]]
 
 Config.Loadouts = {
     {
-        id = 'duelist',
-        label = 'Duelist',
-        description = 'Close-range pistols. Fast, honest, lethal.',
+        id = 'pistols',
+        label = 'Pistols',
+        description = 'Sidearms.',
         icon = 'pistol',
         category = 'pistol',
         weapons = {
-            { id = 'pistol',       label = 'Pistol',         weapon = 'WEAPON_PISTOL',       ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'combatpistol', label = 'Combat Pistol',  weapon = 'WEAPON_COMBATPISTOL', ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'heavypistol',  label = 'Heavy Pistol',   weapon = 'WEAPON_HEAVYPISTOL',  ammo = 180, ammoItem = 'ammo-45' },
-            { id = 'appistol',     label = 'AP Pistol',      weapon = 'WEAPON_APPISTOL',     ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'pistol50',     label = 'Pistol .50',     weapon = 'WEAPON_PISTOL50',     ammo = 120, ammoItem = 'ammo-50' },
+            { id = 'g17',      label = 'G17',          weapon = 'WEAPON_G17',      ammo = 250 },
+            { id = 'g45',      label = 'G45',          weapon = 'WEAPON_G45',      ammo = 250 },
+            { id = 'spiderap', label = 'Spider AP',    weapon = 'WEAPON_SPIDERAP', ammo = 250 },
+            { id = 'snakeap',  label = 'Snake AP',     weapon = 'WEAPON_SNAKEAP',  ammo = 250 },
+            { id = 'bluewire', label = 'Blue Wire AP', weapon = 'WEAPON_BLUEWIREAP', ammo = 250 },
         },
     },
     {
-        id = 'raider',
-        label = 'Raider',
-        description = 'SMGs for rushing angles and clearing rooms.',
+        id = 'smg',
+        label = 'SMG',
+        description = 'Close-range spray.',
         icon = 'smg',
         category = 'smg',
         weapons = {
-            { id = 'smg',           label = 'SMG',            weapon = 'WEAPON_SMG',           ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'microsmg',      label = 'Micro SMG',      weapon = 'WEAPON_MICROSMG',      ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'assaultsmg',    label = 'Assault SMG',    weapon = 'WEAPON_ASSAULTSMG',    ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'combatpdw',     label = 'Combat PDW',     weapon = 'WEAPON_COMBATPDW',     ammo = 250, ammoItem = 'ammo-9' },
-            { id = 'machinepistol', label = 'Machine Pistol', weapon = 'WEAPON_MACHINEPISTOL', ammo = 250, ammoItem = 'ammo-9' },
+            { id = 'spectre',   label = 'Spectre SMG',         weapon = 'WEAPON_SPECTRESMG',         ammo = 250 },
+            { id = 'chromewire',label = 'Chrome Wire SMG',     weapon = 'WEAPON_CHROMEWIRESMG',      ammo = 250 },
+            { id = 'chromiummp5', label = 'Chromium MP5',      weapon = 'WEAPON_CHROMIUMMP5',        ammo = 250 },
+            { id = 'sharkmp',   label = 'Shark Machine Pistol', weapon = 'WEAPON_SHARKMACHINEPISTOL', ammo = 250 },
+            { id = 'pinkwire',  label = 'Pink Wire SMG',       weapon = 'WEAPON_PINKWIRESMG',        ammo = 250 },
         },
     },
     {
-        id = 'assault',
-        label = 'Assault',
-        description = 'Rifles. The default language of a gunfight.',
+        id = 'ar',
+        label = 'AR',
+        description = 'Rifles.',
         icon = 'rifle',
         category = 'rifle',
         weapons = {
-            { id = 'assaultrifle',   label = 'Assault Rifle',   weapon = 'WEAPON_ASSAULTRIFLE',   ammo = 250, ammoItem = 'ammo-rifle' },
-            { id = 'carbinerifle',   label = 'Carbine Rifle',   weapon = 'WEAPON_CARBINERIFLE',   ammo = 250, ammoItem = 'ammo-rifle' },
-            { id = 'specialcarbine', label = 'Special Carbine', weapon = 'WEAPON_SPECIALCARBINE', ammo = 250, ammoItem = 'ammo-rifle' },
-            { id = 'bullpuprifle',   label = 'Bullpup Rifle',   weapon = 'WEAPON_BULLPUPRIFLE',   ammo = 250, ammoItem = 'ammo-rifle' },
-            { id = 'advancedrifle',  label = 'Advanced Rifle',  weapon = 'WEAPON_ADVANCEDRIFLE',  ammo = 250, ammoItem = 'ammo-rifle' },
-        },
-    },
-    {
-        id = 'shock',
-        label = 'Shock',
-        description = 'Shotguns. Own the doorway or die in it.',
-        icon = 'shotgun',
-        category = 'shotgun',
-        weapons = {
-            { id = 'pumpshotgun',    label = 'Pump Shotgun',    weapon = 'WEAPON_PUMPSHOTGUN',    ammo = 80, ammoItem = 'ammo-shotgun' },
-            { id = 'sawnoff',        label = 'Sawed-Off',       weapon = 'WEAPON_SAWNOFFSHOTGUN', ammo = 80, ammoItem = 'ammo-shotgun' },
-            { id = 'combatshotgun',  label = 'Combat Shotgun',  weapon = 'WEAPON_COMBATSHOTGUN',  ammo = 80, ammoItem = 'ammo-shotgun' },
-            { id = 'assaultshotgun', label = 'Assault Shotgun', weapon = 'WEAPON_ASSAULTSHOTGUN', ammo = 80, ammoItem = 'ammo-shotgun' },
-        },
-    },
-    {
-        id = 'marksman',
-        label = 'Marksman',
-        description = 'Long rifles. One shot should be enough.',
-        icon = 'sniper',
-        category = 'sniper',
-        weapons = {
-            { id = 'sniperrifle',   label = 'Sniper Rifle',    weapon = 'WEAPON_SNIPERRIFLE',   ammo = 40, ammoItem = 'ammo-sniper' },
-            { id = 'heavysniper',   label = 'Heavy Sniper',    weapon = 'WEAPON_HEAVYSNIPER',   ammo = 30, ammoItem = 'ammo-sniper' },
-            { id = 'marksmanrifle', label = 'Marksman Rifle',  weapon = 'WEAPON_MARKSMANRIFLE', ammo = 60, ammoItem = 'ammo-sniper' },
+            { id = 'kissar',     label = 'Kiss AR',       weapon = 'WEAPON_KISSAR',       ammo = 250 },
+            { id = 'portalpurple', label = 'Portal Purple', weapon = 'WEAPON_PORTALPURPLE', ammo = 250 },
+            { id = 'easterar',   label = 'Easter AR',     weapon = 'WEAPON_EASTERAR',     ammo = 250 },
+            { id = 'hazardar',   label = 'Hazard AR',     weapon = 'WEAPON_HAZARDAR',     ammo = 250 },
+            { id = 'chromiumiso',label = 'Chromium ISO',  weapon = 'WEAPON_CHROMIUMISO',  ammo = 250 },
         },
     },
 }

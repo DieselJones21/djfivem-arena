@@ -159,13 +159,12 @@ Config.SpawnLobby = {
 }
 
 --[[
-    EXIT PED — inside the hub, next to the UI spawn.
-    Sends the player back to where they entered from (city entry ped).
-    Send a tighter vec4 if you want it on a specific mark.
+    EXIT PED — inside the hub.
+    Sends the player back to where they entered from.
 ]]
 Config.ExitPed = {
     enabled = true,
-    coords = vec4(5473.40, -5848.20, 1050.58, 258.04),
+    coords = vec4(5477.07, -5828.0, 1049.95, 174.18),
     model = `s_m_y_marine_01`,
     scenario = 'WORLD_HUMAN_GUARD_STAND',
     interactDistance = 2.0,
@@ -173,12 +172,12 @@ Config.ExitPed = {
 }
 
 --[[
-    CLOTHING PED — inside the hub. PASTE exact coords when you have them.
+    CLOTHING PED — inside the hub.
     Opens illenium-appearance clothing (not character creator).
 ]]
 Config.ClothingPed = {
     enabled = true,
-    coords = vec4(5482.20, -5857.60, 1050.58, 348.04), -- PASTE if you have a shop mark
+    coords = vec4(5499.02, -5865.86, 1050.95, 68.63),
     model = `s_f_y_shop_mid`,
     scenario = 'WORLD_HUMAN_STAND_IMPATIENT',
     interactDistance = 2.0,
@@ -234,31 +233,19 @@ Config.Permissions = {
 }
 
 Config.WeaponCategories = {
-    WEAPON_PISTOL = 'pistol',
-    WEAPON_COMBATPISTOL = 'pistol',
-    WEAPON_HEAVYPISTOL = 'pistol',
-    WEAPON_APPISTOL = 'pistol',
-    WEAPON_PISTOL50 = 'pistol',
-    WEAPON_SNSPISTOL = 'pistol',
-    WEAPON_SMG = 'smg',
-    WEAPON_MICROSMG = 'smg',
-    WEAPON_ASSAULTSMG = 'smg',
-    WEAPON_COMBATPDW = 'smg',
-    WEAPON_MACHINEPISTOL = 'smg',
-    WEAPON_MINISMG = 'smg',
-    WEAPON_ASSAULTRIFLE = 'rifle',
-    WEAPON_CARBINERIFLE = 'rifle',
-    WEAPON_SPECIALCARBINE = 'rifle',
-    WEAPON_BULLPUPRIFLE = 'rifle',
-    WEAPON_ADVANCEDRIFLE = 'rifle',
-    WEAPON_COMPACTRIFLE = 'rifle',
-    WEAPON_PUMPSHOTGUN = 'shotgun',
-    WEAPON_SAWNOFFSHOTGUN = 'shotgun',
-    WEAPON_ASSAULTSHOTGUN = 'shotgun',
-    WEAPON_HEAVYSHOTGUN = 'shotgun',
-    WEAPON_COMBATSHOTGUN = 'shotgun',
-    WEAPON_SNIPERRIFLE = 'sniper',
-    WEAPON_HEAVYSNIPER = 'sniper',
-    WEAPON_MARKSMANRIFLE = 'sniper',
-    WEAPON_MUSKET = 'sniper',
+    WEAPON_G17 = 'pistol',
+    WEAPON_G45 = 'pistol',
+    WEAPON_SPIDERAP = 'pistol',
+    WEAPON_SNAKEAP = 'pistol',
+    WEAPON_BLUEWIREAP = 'pistol',
+    WEAPON_SPECTRESMG = 'smg',
+    WEAPON_CHROMEWIRESMG = 'smg',
+    WEAPON_CHROMIUMMP5 = 'smg',
+    WEAPON_SHARKMACHINEPISTOL = 'smg',
+    WEAPON_PINKWIRESMG = 'smg',
+    WEAPON_KISSAR = 'rifle',
+    WEAPON_PORTALPURPLE = 'rifle',
+    WEAPON_EASTERAR = 'rifle',
+    WEAPON_HAZARDAR = 'rifle',
+    WEAPON_CHROMIUMISO = 'rifle',
 }

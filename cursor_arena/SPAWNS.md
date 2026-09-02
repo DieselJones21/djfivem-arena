@@ -1,67 +1,60 @@
-# Maps, hub & weapons — paste list
+# Maps, hub & weapons
 
-Vanilla GTA fills are in place so the resource starts. Send (or paste) the real values below.
+## Set
 
-Use `vec4(x, y, z, heading)` for peds and spawns, `vec3(x, y, z)` for hub center, `vec2(x, y)` for fence corners.
+| What | Coords |
+|------|--------|
+| Entry ped | `vec4(-195.96, -237.48, 30.56, 174.6)` |
+| Hub / G | `vec4(5477.79, -5853.01, 1050.58, 78.04)` radius **150** |
+| Exit ped | `vec4(5477.07, -5828.0, 1049.95, 174.18)` |
+| Clothing ped | `vec4(5499.02, -5865.86, 1050.95, 68.63)` |
 
-## 1) World entry ped — SET
+Weapons are in `config/weapons.lua` (G17 / Spectre / Kiss AR, etc.).
 
-`Config.EntryPed.coords = vec4(-195.96, -237.48, 30.56, 174.6)`
+## Map slots waiting for your paste
 
-Talking to this ped teleports you into the spawn lobby. It does **not** open the UI.
+| Slot | Used by | `id` |
+|------|---------|------|
+| Arena 1 | FFA + TDM | `arena_1` |
+| Arena 2 | FFA + TDM | `arena_2` |
+| PVP 1 | 1v1–4v4 | `pvp_1` |
+| PVP 2 | 1v1–4v4 | `pvp_2` |
+| PVP 3 | 1v1–4v4 | `pvp_3` |
+| PVP 4 | 1v1–4v4 | `pvp_4` |
 
-## 2) Spawn lobby hub — SET
+Copy **one block per map**. Rename `name`. Walk the fence in order (`Config.Debug = true` numbers corners). Aim for 6+ FFA spawns on arenas, 4+ Alpha and 4+ Bravo on every map (4v4 needs 4 per side).
 
-`Config.SpawnLobby`
-
-- UI / land point: `vec4(5477.79, -5853.01, 1050.58, 78.04)`
-- `center` + `radius` **150**
-
-## 3) Exit ped (inside the hub) — near UI spawn
-
-`Config.ExitPed.coords = vec4(5473.40, -5848.20, 1050.58, 258.04)`
-
-Returns the player to the city coords they entered from. Send a tighter vec4 if this mark is off.
-
-## 4) Clothing ped (inside the hub) — still needs your mark
-
-`Config.ClothingPed.coords` is offset from the UI spawn for now.
-
-Opens `illenium-appearance:client:openClothingShop` (clothing only).
-
-## 5) Maps
-
-`config/maps.lua` — for **construction**, **cargo**, and **dust** (the three used by FFA / 1v1–4v4 / TDM):
-
-```lua
-boundaries = {
-    points = { vec2(x, y), ... }, -- walk the perimeter in order
-    minZ = 0.0,
-    maxZ = 80.0,
-},
-spawns        = { vec4(...), ... }, -- FFA
-team1_spawns  = { vec4(...), ... }, -- Alpha
-team2_spawns  = { vec4(...), ... }, -- Bravo
+```
+=== MAP arena_1 ===
+name: 
+center: vector3(x, y, z)
+radius: 
+minZ: 
+maxZ: 
+fence:
+vector2(x, y)
+vector2(x, y)
+vector2(x, y)
+vector2(x, y)
+ffa_spawns:
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+alpha:
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+bravo:
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
+vector4(x, y, z, heading)
 ```
 
-`Config.Debug = true` numbers every fence corner.
+Repeat that block with `arena_2`, `pvp_1`, `pvp_2`, `pvp_3`, `pvp_4`.
 
-Points are **dealt**, not rolled — the list is shuffled and every point is used before repeats.
-
-Shipping vanilla fills:
-
-| id | Default location |
-|----|------------------|
-| `construction` | Alta construction pit |
-| `cargo` | Port of LS containers |
-| `dust` | Sandy Shores airfield |
-| `pool` | Vinewood Hills pool deck (unused by default lobbies) |
-| `rooftops` | Maze Bank West roof (unused by default lobbies) |
-
-## 6) Weapon spawn names
-
-`config/weapons.lua` — replace the `weapon = 'WEAPON_...'` field on each row with your spawn name (vanilla or addon). Labels can stay as the display name in the UI.
-
-## Interact
-
-Peds prefer `exports.interact:AddLocalEntityInteraction` (resource name `interact`). If that resource is not started, ox_target / qb-target / `[E]` are used automatically.
+PVP maps still need `ffa_spawns` (unused in 1v1–4v4) **or** you can skip that list — Alpha/Bravo are what matter. Arenas need all three lists (FFA uses `ffa_spawns`, TDM uses Alpha/Bravo).

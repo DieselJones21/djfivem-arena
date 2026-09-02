@@ -6,9 +6,9 @@ PvP arenas for **Qbox + ox** servers. Players talk to a world ped, land in a spa
 
 | Mode | Rules |
 |------|--------|
-| **FFA** | Three maps (Construction, Cargo, Dust). Instant respawn. First to 30. |
-| **1v1 / 2v2 / 3v3 / 4v4** | Round elimination, one life. Pick size then map. Ranked ELO. |
-| **TDM** | Alpha vs Bravo. Instant respawn. Shared team score. |
+| **FFA** | Two arenas. Instant respawn. First to 30. |
+| **1v1 / 2v2 / 3v3 / 4v4** | Four maps. One life a round. Ranked ELO. |
+| **TDM** | Same two arenas as FFA. Alpha vs Bravo. |
 
 ## Player flow
 
