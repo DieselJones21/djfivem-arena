@@ -238,12 +238,14 @@ button { font-family: inherit; cursor: pointer; }
 .lobby-rows { display: grid; gap: 7px; color: var(--muted); font-size: 0.8rem; font-weight: 600; }
 .lobby-rows div { display: flex; justify-content: space-between; }
 .lobby-rows b { color: #fff; font-weight: 700; }
+.lobby-actions { display: grid; gap: 6px; margin-top: auto; }
 .lobby-join {
-  margin-top: auto; border: 0; border-radius: 10px; padding: 10px;
+  border: 0; border-radius: 10px; padding: 10px;
   font-weight: 800; color: #041014;
   background: linear-gradient(180deg, var(--cyan), var(--cyan-2));
 }
 .lobby-join.busy { background: #2a2e35; color: var(--muted); }
+.lobby-watch { width: 100%; }
 
 .load-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 18px; }
 .join-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px; }
@@ -400,7 +402,8 @@ button { font-family: inherit; cursor: pointer; }
 .waiting-team.t1 { color: var(--orange); background: var(--orange-soft); }
 .waiting-team.t2 { color: var(--blue); background: var(--blue-soft); }
 .hud-timer { position: relative; display: grid; place-items: center; }
-.hud-round { position: absolute; top: -14px; font-size: 0.7rem; font-weight: 800; color: #fff; }
+.hud-round { position: absolute; top: -16px; font-size: 0.62rem; font-weight: 800; color: #fff; letter-spacing: 0.08em; white-space: nowrap; }
+.hud-subround { position: absolute; bottom: -16px; font-size: 0.58rem; letter-spacing: 0.1em; color: var(--muted); font-weight: 800; }
 .hud-ring {
   width: 58px; height: 58px; border-radius: 50%;
   border: 3px solid var(--cyan); display: grid; place-items: center;
@@ -408,12 +411,18 @@ button { font-family: inherit; cursor: pointer; }
 }
 .hud-ffa { text-align: center; }
 .hud-ffa .mode { font-size: 0.62rem; letter-spacing: 0.14em; color: var(--muted); font-weight: 800; }
-.killfeed { position: absolute; right: 24px; top: 90px; width: 280px; display: flex; flex-direction: column; gap: 6px; }
+.killfeed { position: absolute; right: 22px; top: 92px; width: 300px; display: flex; flex-direction: column; gap: 7px; }
 .kill-item {
-  background: rgba(6,8,12,0.82); border-left: 3px solid var(--cyan);
-  padding: 7px 10px; border-radius: 0 10px 10px 0; font-size: 0.82rem;
+  display: flex; align-items: center; gap: 8px;
+  background: linear-gradient(90deg, rgba(0,242,255,0.16), rgba(6,8,12,0.86));
+  border: 1px solid rgba(0,242,255,0.22); border-left: 3px solid var(--cyan);
+  padding: 8px 12px; border-radius: 12px; font-size: 0.82rem; font-weight: 700;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.28);
 }
-.kill-item .wep { color: var(--muted); font-size: 0.7rem; margin: 0 6px; }
+.kill-item.head { border-left-color: var(--gold); }
+.kill-item .k-x { color: var(--cyan); font-weight: 900; }
+.kill-item .k-wep { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.08em; }
+.kill-item .k-name.down { color: #fca5a5; }
 .team-panel {
   position: absolute; left: 18px; top: 110px; width: 190px;
   background: rgba(6,8,12,0.78); border: 1px solid var(--line); border-radius: 14px; padding: 10px;
@@ -446,13 +455,32 @@ button { font-family: inherit; cursor: pointer; }
 .waiting p { color: var(--muted); font-weight: 600; }
 .waiting .result-logo { height: 64px; margin-bottom: 4px; }
 .round-banner { animation: slam 700ms ease both; }
+.round-banner.t1 strong { color: var(--orange); text-shadow: 0 0 24px rgba(255,138,26,0.45); }
+.round-banner.t2 strong { color: var(--blue); text-shadow: 0 0 24px rgba(59,158,255,0.45); }
+.round-banner small { letter-spacing: 0.28em; }
+.watch-card { width: min(560px, 94vw); }
+.watch-fighters { display: grid; gap: 8px; margin-bottom: 16px; }
+.watch-pick {
+  display: flex; justify-content: space-between; align-items: center;
+  border: 1px solid var(--line); background: rgba(255,255,255,0.03);
+  color: inherit; border-radius: 12px; padding: 10px 12px; font-weight: 700;
+}
+.watch-pick.selected { border-color: var(--cyan); box-shadow: var(--cyan-glow); }
+.watch-pick small { color: var(--muted); letter-spacing: 0.08em; }
+.bet-box { border-top: 1px solid var(--line); padding-top: 14px; }
+.bet-items { display: grid; gap: 6px; margin: 10px 0 4px; max-height: 160px; overflow: auto; }
+.bet-item {
+  display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-weight: 600;
+}
+.bet-item small { margin-left: auto; color: var(--muted); letter-spacing: 0.08em; font-size: 0.68rem; }
 .match-result.win .result-card h2 { color: var(--cyan); }
 .match-result.loss .result-card h2 { color: #ff8a96; }
 .countdown, .death-overlay, .match-result, .bounds {
   position: absolute; inset: 0; display: grid; place-items: center; z-index: 28; pointer-events: none;
 }
-.countdown { background: rgba(0,0,0,0.45); }
-.countdown span { font-size: clamp(5rem, 16vw, 9rem); font-weight: 900; animation: slam 600ms ease both; color: var(--cyan); }
+.countdown { background: radial-gradient(circle at 50% 40%, rgba(0,242,255,0.16), rgba(0,0,0,0.62)); }
+.countdown span { font-size: clamp(5rem, 16vw, 9rem); font-weight: 900; animation: slam 600ms ease both; color: var(--cyan); text-shadow: 0 0 40px rgba(0,242,255,0.55); }
 .countdown small { position: absolute; top: 28%; letter-spacing: 0.2em; color: var(--muted); font-weight: 800; }
 .death-overlay { background: rgba(40,0,0,0.45); }
 .death-overlay span { font-size: 4.4rem; letter-spacing: 0.18em; color: #ff6b6b; font-weight: 900; }

@@ -197,6 +197,29 @@
     </div>
   </div>
 
+  <div class="drawer-backdrop hidden" id="watch">
+    <div class="sala watch-card">
+      <button class="icon-exit drawer-x" id="btnCloseWatch">✕</button>
+      <header class="sala-head">
+        <span class="card-tag cyan">WATCH</span>
+        <h2 id="watchName">Live room</h2>
+        <p>Sit in the stands. Bet cash (max $100,000) or stake a gun / car key from ox_inventory.</p>
+      </header>
+      <h2 class="sec-label">Fighters</h2>
+      <div class="watch-fighters" id="watchFighters"></div>
+      <div class="bet-box">
+        <h2 class="sec-label">Place a bet</h2>
+        <input class="search" id="betCash" type="number" min="0" max="100000" step="100" placeholder="Cash · max $100,000" />
+        <p class="sec-help" id="betCashHint">Max $100,000</p>
+        <div class="bet-items" id="betItems"></div>
+        <div class="sala-foot">
+          <button class="btn-ghost" id="btnWatchLive">Watch live</button>
+          <button class="btn-cta" id="btnPlaceBet">Lock bet</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="loadout-modal hidden" id="loadoutModal">
     <div class="loadout-card">
       <span class="card-tag cyan">IN MATCH</span>

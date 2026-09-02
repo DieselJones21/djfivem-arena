@@ -407,6 +407,10 @@ function Arena.Client.EquipWeapon(weaponName, ammo, slot)
     SetPlayerCanDoDriveBy(PlayerId(), false)
 
     CreateThread(function()
+        while Arena.Client.frozen and gen == equipGen do
+            Wait(50)
+        end
+        if gen ~= equipGen then return end
         local ped = PlayerPedId()
         if oxOn() then
             if weaponInHands(ped, hash, ammo) then return end
@@ -439,6 +443,11 @@ function Arena.Client.EquipWeapon(weaponName, ammo, slot)
                 lastEquipRetryAt = now
                 TriggerServerEvent('cursor_arena:server:equipRetry')
             end
+            -- Last resort: native give so the player can still fire this match.
+            ped = PlayerPedId()
+            GiveWeaponToPed(ped, hash, ammo, false, true)
+            SetCurrentPedWeapon(ped, hash, true)
+            applyAmmo(ped, hash, ammo)
             return
         end
 
@@ -499,7 +508,7 @@ end)
 CreateThread(function()
     local missingSince = 0
     while true do
-        if Arena.Client.inArena and Arena.Client.weaponName and not Arena.Client.down and not Arena.Client.spectating then
+        if Arena.Client.inArena and Arena.Client.weaponName and not Arena.Client.frozen and not Arena.Client.down and not Arena.Client.spectating then
             local ped = PlayerPedId()
             local hash = joaat(Arena.Client.weaponName)
             HideHudComponentThisFrame(19)

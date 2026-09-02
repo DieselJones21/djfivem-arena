@@ -4,6 +4,7 @@ Arena.Client = {
     inArena = false,
     inHub = false,
     spectating = false,
+    watching = false,
     down = false,
     uiOpen = false,
     loadoutOpen = false,
