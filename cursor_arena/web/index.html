@@ -3,214 +3,173 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ARENA</title>
+  <title>ARENAS</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app" class="hidden">
-    <div class="frame">
-      <!-- TOP NAV -->
-      <header class="navbar">
-        <div class="nav-brand">
-          <span class="brand-icon" aria-hidden="true">⚔</span>
-          <span class="brand-text">ARENA</span>
+    <div class="shell">
+      <aside class="rail">
+        <div class="brand">
+          <span class="brand-mark">⚔</span>
+          <div>
+            <strong>ARENAS</strong>
+            <small>Private instances</small>
+          </div>
         </div>
 
-        <nav class="nav-tabs" id="navTabs">
-          <button class="nav-tab" data-tab="ffa">◎ ARENA FFA</button>
-          <button class="nav-tab active" data-tab="lobbies">☰ Lobbies</button>
-          <button class="nav-tab" data-tab="gungame">⚡ Gun Game</button>
-          <button class="nav-tab" data-tab="stats">🏆 FFA Stats</button>
-          <button class="nav-tab" data-tab="leaderboard">◎ Leaderboard</button>
-          <button class="nav-tab" data-tab="loadout">✦ Loadout</button>
+        <nav class="rail-nav">
+          <button class="rail-btn active" data-page="arenas">Lobbies</button>
+          <button class="rail-btn" data-page="leaderboard">Ranks</button>
+          <button class="rail-btn" data-page="history">History</button>
+          <button class="rail-btn" data-page="stats">Record</button>
         </nav>
 
-        <div class="nav-right">
-          <div class="currency">
-            <span class="coin">● <b id="statCoins">0</b></span>
-            <span class="trophy">🏆 <b id="statElo">1000</b></span>
+        <div class="rail-profile">
+          <div class="avatar" id="avatarCircle">A</div>
+          <div>
+            <strong id="profileName">Player</strong>
+            <small id="profileTitle">Unranked</small>
           </div>
-          <div class="profile">
-            <div class="avatar" id="avatarCircle">A</div>
-            <div class="profile-text">
-              <strong id="profileName">Player</strong>
-              <small id="profileGang">ARENA</small>
-            </div>
-          </div>
-          <button class="icon-exit" id="btnClose" title="Close">⎋</button>
         </div>
-      </header>
+      </aside>
 
-      <main class="content">
-        <!-- LOBBIES -->
-        <section class="page active" id="page-lobbies">
-          <div class="page-head">
-            <div>
-              <h1>Public Lobbies</h1>
-              <p>Browse and join available lobbies or create your own.</p>
-            </div>
-            <button class="btn-accent" id="btnOpenCreate">+ Create Lobby</button>
+      <section class="stage">
+        <header class="stage-head">
+          <div>
+            <h1 id="pageTitle">Choose a fight</h1>
+            <p id="pageSub">Every lobby is its own world. Pick a side, pick a loadout, drop in.</p>
           </div>
-          <div class="lobby-list" id="lobbyList"></div>
-          <div class="empty-state" id="lobbyEmpty">No public lobbies yet. Create one to get started.</div>
-        </section>
+          <button class="icon-x" id="btnClose" title="Close">✕</button>
+        </header>
 
-        <!-- FFA -->
-        <section class="page" id="page-ffa">
-          <div class="page-head">
-            <div>
-              <h1>ARENA FFA</h1>
-              <p>Jump into free-for-all with a weapon class.</p>
-            </div>
-          </div>
-          <div class="ffa-grid" id="ffaGrid"></div>
-          <div class="weapon-pick hidden" id="ffaWeaponPick">
-            <h3>Select Weapon</h3>
-            <div class="chip-row" id="ffaWeapons"></div>
-            <button class="btn-accent" id="btnFfaQueue">Find Match</button>
-          </div>
-        </section>
+        <div class="mode-filters" id="modeFilters">
+          <button class="mode-chip active" data-mode="all">All</button>
+          <button class="mode-chip ffa" data-mode="ffa">Free For All</button>
+          <button class="mode-chip tdm" data-mode="tdm">Team Deathmatch</button>
+          <button class="mode-chip showdown" data-mode="showdown">Showdown</button>
+        </div>
 
-        <!-- GUN GAME (placeholder / coming) -->
-        <section class="page" id="page-gungame">
-          <div class="page-head">
-            <div>
-              <h1>Gun Game</h1>
-              <p>Climb the weapon ladder. Coming online with your maps.</p>
-            </div>
+        <div class="pages">
+          <div class="page active" id="page-arenas">
+            <div class="lobby-grid" id="lobbyGrid"></div>
+            <div class="empty-state hidden" id="lobbyEmpty">No lobbies in this mode.</div>
           </div>
-          <div class="empty-state">Gun Game mode is stubbed — enable after maps are set.</div>
-        </section>
 
-        <!-- STATS -->
-        <section class="page" id="page-stats">
-          <div class="page-head">
-            <div>
-              <h1>FFA Stats</h1>
-              <p>Your arena performance.</p>
+          <div class="page" id="page-leaderboard">
+            <div class="mode-filters compact" id="boardModes">
+              <button class="mode-chip ffa active" data-board="ffa">FFA</button>
+              <button class="mode-chip tdm" data-board="tdm">TDM</button>
+              <button class="mode-chip showdown" data-board="showdown">Showdown</button>
+            </div>
+            <div class="top3" id="top3"></div>
+            <div class="board">
+              <div class="board-head">
+                <span>Rank</span><span>Player</span><span>Title</span><span>Kills</span><span>K/D</span><span>ELO</span>
+              </div>
+              <div id="boardRows"></div>
             </div>
           </div>
-          <div class="stats-cards" id="myStatsCards"></div>
-        </section>
 
-        <!-- LEADERBOARD -->
-        <section class="page" id="page-leaderboard">
-          <div class="page-head">
-            <div>
-              <h1>Leaderboard</h1>
-              <p>Top players ranked by performance</p>
-            </div>
-            <div class="refresh-pill" id="refreshPill">Updates live</div>
+          <div class="page" id="page-history">
+            <div class="history-list" id="historyList"></div>
+            <div class="empty-state hidden" id="historyEmpty">No matches recorded yet.</div>
           </div>
-          <div class="top3" id="top3"></div>
-          <div class="board-table">
-            <div class="board-head">
-              <span>RANK</span><span>PLAYER</span><span>KILLS</span><span>DEATHS</span><span>K/D</span>
-            </div>
-            <div id="boardRows"></div>
-          </div>
-        </section>
 
-        <!-- LOADOUT -->
-        <section class="page" id="page-loadout">
-          <div class="page-head">
-            <div>
-              <h1>Loadout</h1>
-              <p>Preview weapons by class. Your pick locks when you join a lobby.</p>
-            </div>
+          <div class="page" id="page-stats">
+            <div class="stats-grid" id="statsGrid"></div>
           </div>
-          <div class="class-row" id="loadoutClasses"></div>
-          <div class="weapon-grid" id="loadoutWeapons"></div>
-        </section>
-
-        <!-- ACTIVE LOBBY ROOM (overlay panel) -->
-        <section class="page" id="page-room">
-          <div class="page-head">
-            <div>
-              <h1>Lobby Room</h1>
-              <p id="roomMeta">Waiting for players</p>
-            </div>
-            <div class="row-actions">
-              <button class="btn-ghost" id="btnReady">Ready</button>
-              <button class="btn-accent hidden" id="btnStart">Start Match</button>
-              <button class="btn-danger" id="btnLeaveLobby">Leave</button>
-            </div>
-          </div>
-          <div class="teams" id="teamLists"></div>
-        </section>
-      </main>
+        </div>
+      </section>
     </div>
+  </div>
 
-    <!-- CREATE LOBBY MODAL -->
-    <div class="modal-backdrop hidden" id="createModal">
-      <div class="modal">
-        <div class="modal-head">
-          <h2>Create Lobby</h2>
-          <button class="icon-exit" id="btnCloseCreate">✕</button>
+  <!-- Lobby detail -->
+  <div class="drawer-backdrop hidden" id="drawer">
+    <div class="drawer">
+      <button class="icon-x drawer-x" id="btnCloseDrawer">✕</button>
+      <div class="drawer-hero">
+        <img id="drawerImage" alt="" />
+        <div class="drawer-hero-copy">
+          <span class="mode-pill" id="drawerMode">FFA</span>
+          <h2 id="drawerName">Arena</h2>
+          <p id="drawerDesc"></p>
         </div>
+      </div>
+      <div class="drawer-meta" id="drawerMeta"></div>
+      <div class="drawer-split">
+        <div>
+          <h3>Loadouts</h3>
+          <div class="loadout-list" id="drawerLoadouts"></div>
+          <div class="weapon-list" id="drawerWeapons"></div>
+        </div>
+        <div>
+          <h3>Live board</h3>
+          <div class="live-board" id="drawerBoard"></div>
+        </div>
+      </div>
+      <div class="team-pick hidden" id="teamPick">
+        <button class="team-btn t1" data-team="1">Join Alpha</button>
+        <button class="team-btn t2" data-team="2">Join Bravo</button>
+      </div>
+      <div class="drawer-foot">
+        <div class="rewards" id="drawerRewards"></div>
+        <button class="btn-join" id="btnJoin">Drop in</button>
+      </div>
+    </div>
+  </div>
 
-        <div class="modal-section">
-          <label>Match Type</label>
-          <div class="option-row" id="pvpSizes"></div>
-          <div class="option-row" id="tdmSizes"></div>
-        </div>
-
-        <div class="modal-section">
-          <label>Weapon Class</label>
-          <div class="option-row wide" id="weaponClasses"></div>
-        </div>
-
-        <div class="modal-section">
-          <label>Arena</label>
-          <div class="option-grid" id="arenaMaps"></div>
-        </div>
-
-        <div class="modal-section">
-          <label id="roundsLabel">Rounds for PVP Match</label>
-          <input type="number" id="roundsInput" min="1" max="40" value="5" />
-          <small class="hint" id="roundsHint">Choose between 1 and 40 rounds</small>
-        </div>
-
-        <div class="modal-section">
-          <label>Your Weapon</label>
-          <div class="chip-row" id="createWeapons"></div>
-        </div>
-
-        <div class="modal-section check-row">
-          <label class="check">
-            <input type="checkbox" id="privateCheck" />
-            <span>Make this lobby private</span>
-          </label>
-        </div>
-
-        <div class="modal-foot">
-          <button class="btn-ghost" id="btnCancelCreate">Cancel</button>
-          <button class="btn-accent" id="btnConfirmCreate">Create Lobby</button>
-        </div>
+  <!-- In-match loadout -->
+  <div class="loadout-modal hidden" id="loadoutModal">
+    <div class="loadout-card">
+      <h2>Change loadout</h2>
+      <div class="loadout-list" id="liveLoadouts"></div>
+      <div class="weapon-list" id="liveWeapons"></div>
+      <div class="drawer-foot">
+        <button class="btn-ghost" id="btnCancelLoadout">Cancel</button>
+        <button class="btn-join" id="btnApplyLoadout">Equip</button>
       </div>
     </div>
   </div>
 
   <!-- MATCH HUD -->
   <div id="matchHud" class="match-hud hidden">
-    <div class="hud-top">
-      <div class="hud-mode" id="hudMode">ARENA</div>
-      <div class="hud-timer" id="hudTimer">--:--</div>
-      <div class="hud-map" id="hudMap"></div>
-    </div>
-    <div class="hud-score" id="hudScore"></div>
+    <div class="score-plate" id="scorePlate"></div>
+    <div class="team-panel hidden" id="teamPanel"></div>
     <div class="killfeed" id="killfeed"></div>
   </div>
 
-  <div id="countdown" class="countdown hidden"><span id="countdownNum">5</span></div>
+  <div id="hitmarker" class="hitmarker hidden">
+    <svg viewBox="0 0 40 40"><path d="M8 8 L16 16 M24 16 L32 8 M8 32 L16 24 M24 24 L32 32" /></svg>
+    <span id="hitDmg"></span>
+  </div>
+
+  <div id="streak" class="streak hidden">
+    <small id="streakName"></small>
+    <strong id="streakLabel">DOUBLE KILL</strong>
+  </div>
+
+  <div id="countdown" class="countdown hidden">
+    <small id="countdownRound"></small>
+    <span id="countdownNum">5</span>
+  </div>
+
+  <div id="bounds" class="bounds hidden">RETURN <b id="boundsNum">5</b></div>
   <div id="deathOverlay" class="death-overlay hidden"><span>DOWN</span></div>
+  <div id="spectateBar" class="spectate hidden">
+    <small>SPECTATING</small>
+    <strong id="spectateName">—</strong>
+    <em id="spectateHint"></em>
+  </div>
   <div id="matchResult" class="match-result hidden">
     <div class="result-card">
+      <small id="resultMode"></small>
       <h2 id="resultTitle">VICTORY</h2>
       <p id="resultSub"></p>
+      <div id="resultElo" class="elo-delta"></div>
     </div>
   </div>
 

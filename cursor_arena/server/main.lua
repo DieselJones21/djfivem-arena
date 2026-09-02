@@ -1,266 +1,186 @@
 Arena = Arena or {}
-Arena.PlayerHub = Arena.PlayerHub or {}
 
-local function requireHub(src)
-    if not Arena.PlayerHub[src] then
-        return false, 'must_be_in_hub'
-    end
-    return true
-end
-
-local function bootstrapPayload(src)
-    local stats = Arena.Stats and Arena.Stats.GetPlayer(src) or { kills = 0, deaths = 0, elo = 1000, wins = 0 }
+local function bootstrap(src)
+    local lobby = Arena.GetPlayerLobby(src)
+    local stats = Arena.Stats.GetAllModes(src)
     return {
-        modes = Arena.Utils.SerializeModes(),
-        maps = Arena.Utils.SerializeMaps(),
-        weapons = (function()
-            local all = {}
-            for catId, cat in pairs(Config.WeaponCategories) do
-                all[catId] = {
-                    label = cat.label,
-                    weapons = cat.weapons,
-                }
-            end
-            return all
-        end)(),
-        choiceCategories = Config.ChoiceCategories,
-        lobby = {
-            command = Config.Command,
-            openKey = Config.MenuKey or 'G',
-        },
-        locale = Config.Locale,
         playerId = src,
         playerName = Arena.Framework.GetName(src),
-        inHub = Arena.PlayerHub[src] == true,
-        inMatch = Arena.PlayerMatch[src] ~= nil,
-        queue = Arena.GetQueueStatus(src),
-        openLobbies = Arena.ListOpenLobbies(),
+        framework = Arena.Framework.name,
+        loadouts = Arena.Utils.SerializeLoadouts(),
+        maps = Arena.Utils.SerializeMaps(),
+        lobbies = Arena.ListLobbies(),
         stats = stats,
-        leaderboard = Arena.Stats and Arena.Stats.GetLeaderboard(25) or {},
+        leaderboard = {
+            ffa = Arena.Stats.GetLeaderboard('ffa', 25),
+            tdm = Arena.Stats.GetLeaderboard('tdm', 25),
+            showdown = Arena.Stats.GetLeaderboard('showdown', 25),
+        },
+        history = Arena.Stats.GetHistory(src, 20),
+        current = lobby and Arena.PublicLobby(lobby) or nil,
+        titles = Config.LeaderboardTitles,
+        sounds = Config.Sounds,
+        killstreakStyle = Config.KillstreakStyle,
     }
 end
 
-RegisterNetEvent('cursor_arena:server:setHub', function(state)
-    local src = source
-    Arena.PlayerHub[src] = state == true or nil
-end)
-
 lib.callback.register('cursor_arena:getBootstrap', function(source)
-    return bootstrapPayload(source)
+    return bootstrap(source)
 end)
 
-lib.callback.register('cursor_arena:getWeaponsForMode', function(_, modeId)
-    local mode = Config.GetMode(modeId)
-    return Config.GetWeaponsForMode(mode)
+lib.callback.register('cursor_arena:listLobbies', function()
+    return Arena.ListLobbies()
 end)
 
-lib.callback.register('cursor_arena:getMapsForMode', function(_, modeId)
-    local maps = Config.GetMapsForMode(modeId)
-    local out = {}
-    for i = 1, #maps do
-        out[#out + 1] = {
-            id = maps[i].id,
-            label = maps[i].label,
-            description = maps[i].description,
-            image = maps[i].image,
-        }
-    end
-    return out
+lib.callback.register('cursor_arena:getLobby', function(_, lobbyId)
+    local lobby = Arena.Lobbies[lobbyId]
+    if not lobby then return end
+    return Arena.PublicLobby(lobby)
 end)
 
-lib.callback.register('cursor_arena:joinQueue', function(source, modeId, weaponId, mapId)
-    local hubOk, hubErr = requireHub(source)
-    if not hubOk then
-        return { ok = false, error = hubErr, message = L(hubErr) }
-    end
-    local ok, result = Arena.JoinQueue(source, modeId, weaponId, mapId)
+lib.callback.register('cursor_arena:joinLobby', function(source, data)
+    data = data or {}
+    local ok, result = Arena.JoinLobby(source, data.lobbyId, {
+        team = data.team,
+        loadoutId = data.loadoutId,
+        weaponId = data.weaponId,
+    })
     if not ok then
-        return { ok = false, error = result, message = L(result) }
-    end
-    return { ok = true, data = result }
-end)
-
-lib.callback.register('cursor_arena:leaveQueue', function(source)
-    Arena.LeaveQueue(source)
-    return true
-end)
-
-lib.callback.register('cursor_arena:createPrivate', function(source, modeId, mapId, weaponId)
-    local hubOk, hubErr = requireHub(source)
-    if not hubOk then
-        return { ok = false, error = hubErr, message = L(hubErr) }
-    end
-    local ok, result = Arena.CreatePrivateLobby(source, modeId, mapId, weaponId)
-    if not ok then
-        return { ok = false, error = result, message = L(result) }
+        return { ok = false, error = result, message = L(result or 'cannot_join') }
     end
     return { ok = true, lobby = result }
 end)
 
-lib.callback.register('cursor_arena:createLobby', function(source, data)
-    local hubOk, hubErr = requireHub(source)
-    if not hubOk then
-        return { ok = false, error = hubErr, message = L(hubErr) }
+lib.callback.register('cursor_arena:leaveLobby', function(source)
+    local ok, err = Arena.LeaveLobby(source, false, true)
+    if ok == false and err then
+        return { ok = false, message = L(err) }
     end
-    local ok, result = Arena.CreateLobbyFromUI(source, data)
-    if not ok then
-        return { ok = false, error = result, message = L(result or 'error') }
-    end
-    return { ok = true, lobby = result }
-end)
-
-lib.callback.register('cursor_arena:getLeaderboard', function()
-    return Arena.Stats and Arena.Stats.GetLeaderboard(50) or {}
-end)
-
-lib.callback.register('cursor_arena:getMyStats', function(source)
-    return Arena.Stats and Arena.Stats.GetPlayer(source) or {}
-end)
-
-lib.callback.register('cursor_arena:getWeaponsForClass', function(_, classId)
-    local cat = Config.WeaponCategories[classId]
-    if not cat then return {} end
-    local list = {}
-    for i = 1, #cat.weapons do
-        local w = cat.weapons[i]
-        list[#list + 1] = {
-            id = w.id,
-            label = w.label,
-            weapon = w.weapon,
-            ammo = w.ammo,
-            category = classId,
-            categoryLabel = cat.label,
-        }
-    end
-    return list
-end)
-
-lib.callback.register('cursor_arena:joinLobby', function(source, matchId, weaponId)
-    local hubOk, hubErr = requireHub(source)
-    if not hubOk then
-        return { ok = false, error = hubErr, message = L(hubErr) }
-    end
-    local ok, result = Arena.JoinMatch(source, matchId, weaponId)
-    if not ok then
-        return { ok = false, error = result, message = L(result) }
-    end
-    return { ok = true, lobby = result }
-end)
-
-lib.callback.register('cursor_arena:setReady', function(source, ready, weaponId)
-    local ok, result = Arena.SetReady(source, ready, weaponId)
-    if not ok then
-        return { ok = false, error = result or 'error', message = L(result or 'need_weapon') }
-    end
-    return { ok = true, lobby = result }
+    return { ok = true }
 end)
 
 lib.callback.register('cursor_arena:setTeam', function(source, team)
     local ok, err = Arena.SetTeam(source, team)
     if not ok then
-        return { ok = false, error = err, message = L(err or 'lobby_full') }
+        return { ok = false, message = L(err or 'lobby_full') }
     end
     return { ok = true }
 end)
 
-lib.callback.register('cursor_arena:startMatch', function(source)
-    local match = Arena.GetPlayerMatch(source)
-    if not match then return { ok = false, message = 'Not in a lobby' } end
-    if match.host ~= source and not IsPlayerAceAllowed(source, Config.Permissions.forceStartAce) then
-        return { ok = false, message = L('no_permission') }
-    end
-    local ok, err = Arena.StartMatch(match.id)
+lib.callback.register('cursor_arena:changeLoadout', function(source, data)
+    data = data or {}
+    local ok, err = Arena.ChangeLoadout(source, data.loadoutId, data.weaponId)
     if not ok then
-        return { ok = false, error = err, message = L(err or 'not_enough_players') }
+        return { ok = false, message = L(err or 'invalid_loadout') }
     end
     return { ok = true }
 end)
 
-lib.callback.register('cursor_arena:leave', function(source)
-    Arena.LeaveQueue(source)
-    Arena.LeaveMatch(source, false)
-    return true
+lib.callback.register('cursor_arena:getLeaderboard', function(_, mode)
+    return Arena.Stats.GetLeaderboard(mode or 'ffa', 50)
 end)
 
-lib.callback.register('cursor_arena:listLobbies', function()
-    return Arena.ListOpenLobbies()
+lib.callback.register('cursor_arena:getMyStats', function(source)
+    return Arena.Stats.GetAllModes(source)
 end)
 
-lib.callback.register('cursor_arena:getLobby', function(source)
-    local match = Arena.GetPlayerMatch(source)
-    if not match then return nil end
-    return Arena.GetPublicLobby(match.id)
+lib.callback.register('cursor_arena:getHistory', function(source)
+    return Arena.Stats.GetHistory(source, 25)
 end)
 
 RegisterNetEvent('cursor_arena:server:playerDied', function(killerServerId, weaponHash)
-    local src = source
-    Arena.OnPlayerDeath(src, killerServerId, weaponHash)
+    Arena.OnPlayerDeath(source, killerServerId, weaponHash)
 end)
 
-RegisterNetEvent('cursor_arena:server:invite', function(targetId)
-    local src = source
-    local match = Arena.GetPlayerMatch(src)
-    if not match or match.state ~= 'lobby' then return end
-    targetId = tonumber(targetId)
-    if not targetId or not GetPlayerName(targetId) then return end
-
-    TriggerClientEvent('cursor_arena:client:invite', targetId, {
-        from = Arena.Framework.GetName(src),
-        fromId = src,
-        matchId = match.id,
-        modeLabel = match.mode.label,
-        mapLabel = match.map.label,
-        timeout = Config.InviteTimeout,
-    })
-
-    Arena.Utils.Notify(src, { type = 'inform', description = L('invite_sent') })
-end)
-
-lib.addCommand(Config.Command, {
-    help = 'Enter the arena spawn lobby (or open UI if already inside)',
-}, function(source)
-    TriggerClientEvent('cursor_arena:client:openUI', source)
-end)
-
-lib.addCommand('arena_leave', {
-    help = 'Leave match/queue, or exit the spawn lobby to the city',
-}, function(source)
-    Arena.LeaveQueue(source)
-    if Arena.PlayerMatch[source] then
-        Arena.LeaveMatch(source, false)
-        Arena.Utils.Notify(source, { type = 'inform', description = L('left_match') })
-    elseif Arena.PlayerHub[source] then
-        TriggerClientEvent('cursor_arena:client:exitHub', source)
+RegisterNetEvent('cursor_arena:server:activity', function()
+    local lobby = Arena.GetPlayerLobby(source)
+    if lobby and lobby.players[source] then
+        lobby.players[source].lastActivity = os.time()
     end
 end)
 
-AddEventHandler('playerDropped', function()
-    Arena.PlayerHub[source] = nil
-end)
+local function findCommand(name)
+    for i = 1, #Config.Commands do
+        if Config.Commands[i].name == name then
+            return Config.Commands[i]
+        end
+    end
+end
 
-lib.addCommand('arena_forcestart', {
-    help = 'Force start your current arena lobby',
-    restricted = Config.Permissions.forceStartAce,
+local arenasCmd = findCommand('arenas')
+if not arenasCmd or arenasCmd.enable ~= false then
+    lib.addCommand('arenas', {
+        help = 'Open the arena lobby browser',
+    }, function(source)
+        TriggerClientEvent('cursor_arena:client:openUI', source)
+    end)
+end
+
+local leaveCmd = findCommand('leavearena')
+if not leaveCmd or leaveCmd.enable ~= false then
+    lib.addCommand('leavearena', {
+        help = 'Leave the arena you are in',
+    }, function(source)
+        Arena.LeaveLobby(source, false, true)
+    end)
+end
+
+lib.addCommand('changeloadout', {
+    help = 'Change your arena loadout',
 }, function(source)
-    local match = Arena.GetPlayerMatch(source)
-    if not match then return end
-    Arena.StartMatch(match.id, true)
+    TriggerClientEvent('cursor_arena:client:openLoadout', source)
 end)
 
--- Export API for other resources
+if Config.Announcements and Config.Announcements.enabled then
+    CreateThread(function()
+        while true do
+            Wait(Config.Announcements.interval or 300000)
+            local n = 0
+            for src in pairs(Arena.PlayerLobby) do
+                if src then n = n + 1 end
+            end
+            if n > 0 then
+                TriggerClientEvent('ox_lib:notify', -1, {
+                    type = 'inform',
+                    description = L('announcement', tostring(n)),
+                })
+            end
+        end
+    end)
+end
+
+exports('IsPlayerInArena', function(src)
+    return Arena.PlayerLobby[src] ~= nil
+end)
+
 exports('IsInArena', function(src)
-    return Arena.PlayerMatch[src] ~= nil
+    return Arena.PlayerLobby[src] ~= nil
 end)
 
-exports('IsInHub', function(src)
-    return Arena.PlayerHub[src] == true
+exports('GetPlayerArena', function(src)
+    local lobby = Arena.GetPlayerLobby(src)
+    if not lobby then return end
+    local p = lobby.players[src]
+    return {
+        lobby = lobby.id,
+        mode = lobby.mode,
+        team = p and p.team,
+        joinedAt = p and p.joinedAt,
+    }
 end)
 
-exports('GetMatchId', function(src)
-    return Arena.PlayerMatch[src]
+exports('GetArenaPlayers', function()
+    local list = {}
+    for src in pairs(Arena.PlayerLobby) do
+        list[#list + 1] = src
+    end
+    return list
+end)
+
+exports('RemovePlayerFromArena', function(src)
+    return Arena.LeaveLobby(src, true, true)
 end)
 
 exports('LeaveArena', function(src)
-    Arena.LeaveQueue(src)
-    return Arena.LeaveMatch(src, true)
+    return Arena.LeaveLobby(src, true, true)
 end)

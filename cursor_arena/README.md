@@ -1,121 +1,104 @@
 # cursor_arena
 
-Configurable FiveM PVP arena with a **spawn lobby hub**, custom NUI, **ox_inventory** loadouts, and **wasabi_ambulance** death/revive handling.
+PvP arenas for **Qbox + ox** servers, modelled on the IC Arenas flow: walk up to an NPC (or bind a key), browse live lobbies, pick a loadout, and drop into a **private routing-bucket copy** of the map.
 
-## How it works
+Three modes ship:
 
-1. Player talks to the **world entry ped** (`[E]`) → teleported into the **spawn lobby map**
-2. Inside the spawn lobby, press **`G`** → opens the matchmaking UI
-3. Pick mode → map → weapon → queue / private / browse
-4. Match ends → returned to the **spawn lobby** (not the city)
-5. Talk to the **exit ped** in the hub (or `/arena_leave`) → back to the city
+| Mode | Rules |
+|------|--------|
+| **Free For All** | No teams. Instant respawn. First to the kill target wins. |
+| **Team Deathmatch** | Alpha vs Bravo. Instant respawn. Shared team score. Optional friendly fire per lobby. |
+| **Showdown** | Ranked. One life a round. Spectate teammates. ELO moves on the result. Leaving mid-match concedes. |
 
-## Features
+## Twists vs the stock IC script
 
-- Modes: Pistol FFA, SMG FFA, Rifle FFA, Team Deathmatch, 1v1–5v5
-- **3 weapon classes** — Pistol / SMG / Rifle — **5 weapons each**
-- **5 preset maps** with editable FFA + team spawn coords
-- Public queue + private lobbies
-- Custom lobby UI + match HUD
-- ox_inventory stash → loadout → restore
-- wasabi_ambulance arena death/respawn bridge
-- Framework auto-detect: ESX / QBCore / QBX / standalone
+- **Your maps** — five named arenas in `config/maps.lua` (Construction, The Pool, Dust, Cargo, Rooftops). Vanilla GTA spots are filled in so it works on first start; replace the polygons and spawns with your MLOs.
+- **Your weapons** — loadouts are still named Duelist / Raider / Assault / Shock / Marksman, but **each role can offer several guns** from `config/weapons.lua`.
+- **ox-first** — `ox_lib`, `ox_inventory`, `ox_target`, `oxmysql`. Qbox (`qbx_core` / `qbx_medical`) is auto-detected.
+- **wasabi_ambulance** is first in the ambulance detect list; the client **checks the player actually stood up** and retries if they did not.
 
 ## Dependencies
 
 | Resource | Required |
 |----------|----------|
 | ox_lib | Yes |
-| ox_inventory | Yes (can disable in config) |
-| wasabi_ambulance | Optional |
-
-## Install
+| oxmysql | Yes (stats + match history) |
+| ox_inventory | Strongly recommended |
+| ox_target | Optional (falls back to qb-target, then `[E]`) |
+| qbx_core | Optional (auto) |
+| wasabi_ambulance **or** qbx_medical | Optional (auto) |
+| pma-voice | Optional (squad radio) |
 
 ```cfg
+ensure oxmysql
 ensure ox_lib
 ensure ox_inventory
+ensure ox_target
+ensure qbx_core
 ensure wasabi_ambulance
+ensure pma-voice
 ensure cursor_arena
 ```
 
-### Config files to edit
+Tables `cursor_arena_stats` and `cursor_arena_matches` are created on first start. Nothing to import by hand.
 
-| File | What to change |
-|------|----------------|
-| `config/config.lua` | Entry ped, **spawn lobby hub coords**, menu key (`G`) |
-| `config/maps.lua` | **5 maps** — change `center`, `spawns.ffa`, `spawns.team` |
-| `config/weapons.lua` | 5 pistols / 5 SMGs / 5 rifles (ox_inventory item names) |
-| `config/modes.lua` | Score limits, player counts, which class each mode uses |
+## What to edit
 
-## Spawn lobby hub
+| File | Purpose |
+|------|---------|
+| `config/config.lua` | NPC, commands/keybinds, buckets, ELO, killstreaks, titles, ambulance list |
+| `config/maps.lua` | **Your maps** — polygon fence + FFA / Alpha / Bravo spawns |
+| `config/weapons.lua` | **Your guns** per loadout role + ox_inventory ammo items |
+| `config/lobbies.lua` | Permanent FFA / TDM / Showdown rooms |
+| `config/discord.lua` | Webhook (server-only, never sent to clients) |
 
-In `config/config.lua` → `Config.SpawnLobby`:
+Turn on `Config.Debug = true` and the fence draws in the world with **numbered corners** matching the `points` list.
+
+## Player flow
+
+1. Blip / NPC / `/arenas` / `F6` opens the lobby browser.
+2. Filter FFA / TDM / Showdown. Open a card to see the map, loadouts, kill payouts, and the live scoreboard.
+3. Pick a role, pick a weapon, pick a side (team modes), drop in.
+4. Fight. Killfeed, hit markers, killstreak callouts, out-of-bounds countdown.
+5. `/leavearena` returns you to where you entered. Match end does **not** kick you — the lobby starts the next fight.
+
+Every command is also a **GTA Settings → Key Bindings** entry so players can bind them without you editing config.
+
+## ox_inventory note
+
+If weapons will not equip inside a match, add this at the bottom of `ox_inventory/client.lua` (same workaround IC Arenas documents):
 
 ```lua
-Config.SpawnLobby = {
-    spawns = {
-        vec4(405.0, -997.0, -99.0, 90.0), -- CHANGE to your lobby MLO
-        -- more hub spawn points...
-    },
-    center = vec3(405.0, -997.0, -99.0),
-    radius = 40.0,
-    exitCoords = vec4(-265.0, -963.0, 31.2, 200.0), -- back to city
-    exitPed = { ... }, -- ped inside hub to leave
-}
+exports("SetCurrentWeapon", function(ThisWeapon)
+    local inArenas = LocalPlayer.state.in_arena
+    if not inArenas and string.lower(ThisWeapon) ~= "weapon_unarmed" then return end
+    if string.lower(ThisWeapon) == "weapon_unarmed" then currentWeapon = nil return end
+    currentWeapon = {}
+    currentWeapon.metadata = { durability = 100, ammo = 250, specialAmmo = "false" }
+    currentWeapon.timer = false
+    currentWeapon.name = ThisWeapon
+end)
 ```
 
-World entry ped is `Config.EntryPed`.
+## wasabi_ambulance
 
-## Weapon classes
+The resource detects `wasabi_ambulance` / `wasabi_ambulance_v2` automatically and drives its own revive. If wasabi's death UI still appears, paste the guard in `bridges/wasabi_ambulance_guard.lua.example` near the death-screen open.
 
-Only three classes in `config/weapons.lua`:
+Client exports other medical scripts can query:
 
-- `pistols` — 5 weapons
-- `smgs` — 5 weapons
-- `rifles` — 5 weapons
+```lua
+exports.cursor_arena:IsInArena()
+exports.cursor_arena:ShouldBlockAmbulance()
+```
 
-Modes can lock to one class (`weaponCategory = 'pistols'`) or allow all three (`'choice'`).
-
-## Maps
-
-Five presets in `config/maps.lua`. For each map edit:
-
-- `center` / `radius`
-- `spawns.ffa` — list of `vec4(x, y, z, heading)`
-- `spawns.team.red` / `spawns.team.blue`
-
-## Player commands
-
-| Input | Action |
-|-------|--------|
-| Entry ped `[E]` | Teleport into spawn lobby |
-| **`G`** (in hub) | Open / close lobby UI |
-| Exit ped `[E]` | Leave hub to city |
-| `/arena` | Enter hub (or open UI if already inside) |
-| `/arena_leave` | Leave match → hub, or exit hub → city |
+Replicated state bags: `in_arena`, `arena_mode`, `arena_lobby`, `arena_team`, `arena_down`, `arena_spectator`.
 
 ## Admin
 
 ```cfg
 add_ace group.admin arena.admin allow
-add_ace group.admin arena.forcestart allow
 ```
 
-| Command | Description |
-|---------|-------------|
-| `/arena_forcestart` | Force start current lobby |
-| `/arena_restoreinv` | Restore a stuck ox_inventory stash |
+`/arena_restoreinv [id]` — force-return a confiscated ox_inventory after a crash.
 
-## Exports
-
-```lua
-exports.cursor_arena:IsInArena()          -- client
-exports.cursor_arena:ShouldBlockAmbulance()
-exports.cursor_arena:IsInArena(source)    -- server
-exports.cursor_arena:IsInHub(source)
-exports.cursor_arena:LeaveArena(source)
-```
-
-## wasabi_ambulance
-
-See `bridges/wasabi_ambulance_guard.lua.example` — paste near death UI / EMS interactions so arena matches are not overridden.
+Hooks you can edit without touching match logic: `server/open_sv.lua`, `client/open_cl.lua`.

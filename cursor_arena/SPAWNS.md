@@ -1,41 +1,47 @@
-# Spawn coordinates
+# Maps & spawns
 
-Paste your coords in chat or edit these files directly:
+Edit `config/maps.lua`. Each map needs a fence and three spawn lists.
 
-## Hub (spawn lobby)
-`cursor_arena/config/config.lua` → `Config.SpawnLobby`
+## Fence
+
+Prefer a polygon (IC Arenas style):
 
 ```lua
-spawns = {
-    vec4(x, y, z, heading),
+boundaries = {
+    points = {
+        vec2(x, y), -- corner 1
+        vec2(x, y), -- corner 2
+        -- walk the perimeter in order
+    },
+    minZ = 0.0,
+    maxZ = 80.0,
 },
-center = vec3(x, y, z),
-exitCoords = vec4(x, y, z, heading),
-exitPed = { coords = vec3(x, y, z), heading = 0.0 },
 ```
 
-## Match maps (5)
-`cursor_arena/config/maps.lua`
+`Config.Debug = true` draws the fence and numbers every corner in that order.
 
-Maps: **Construction**, **The Pool**, **Dust**, **Cargo**, **Rooftops**
+A `center` + `radius` bubble still works as a fallback.
 
-For each map paste:
-- `center = vec3(x, y, z)`
-- `spawns.ffa` list of `vec4(x, y, z, heading)`
-- `spawns.team.red` / `spawns.team.blue`
+## Spawns
 
-Reply in chat with blocks like:
-
-```
-MAP: construction
-center: x, y, z
-ffa:
-x, y, z, h
-x, y, z, h
-red:
-...
-blue:
-...
+```lua
+spawns        = { vec4(x, y, z, heading), ... } -- FFA
+team1_spawns  = { vec4(...), ... }              -- Alpha
+team2_spawns  = { vec4(...), ... }              -- Bravo
 ```
 
-and they can be filled in for you.
+Points are **dealt**, not rolled. The list is shuffled and every point is used before any repeats, so more points means people spawn further apart.
+
+## Shipping maps
+
+Vanilla GTA fills are in place so you can test without an MLO:
+
+| id | Default location |
+|----|------------------|
+| `construction` | Alta construction pit |
+| `pool` | Vinewood Hills pool deck |
+| `dust` | Sandy Shores airfield |
+| `cargo` | Port of LS containers |
+| `rooftops` | Maze Bank West roof |
+
+Replace coords with your maps, then point lobbies at a map id in `config/lobbies.lua`.

@@ -1,100 +1,135 @@
 Config = {}
 
 --[[
-    General
+    cursor_arena — IC Arenas-style PvP with your maps, weapons, and ox/qbox stack.
 ]]
+
 Config.Debug = false
 Config.Locale = 'en'
-Config.Command = 'arena'           -- /arena enters the spawn lobby (or opens UI if already inside)
-Config.MenuKey = 'G'               -- open lobby UI while inside the spawn lobby
-Config.RequireItem = false         -- set to item name (e.g. 'arena_ticket') or false
-Config.MaxActiveMatches = 12
-Config.LobbyIdleTimeout = 120      -- seconds before empty lobby is closed
-Config.InviteTimeout = 30          -- seconds for private match invites
-Config.DefaultRoundTime = 600      -- seconds
+Config.Framework = 'auto' -- 'auto' | 'qbx' | 'qb' | 'esx' | 'standalone'
+
+--[[ Commands + keybinds (also appear in GTA Settings → Key Bindings) ]]
+Config.Commands = {
+    { name = 'arenas',        enable = true,  key = 'F6' },
+    { name = 'leavearena',    enable = true,  key = '' },
+    { name = 'killstreak',    enable = true,  key = '' },
+    { name = 'arenasounds',   enable = true,  key = '' },
+    { name = 'changeloadout', enable = true,  key = '' },
+}
+
+Config.RequireItem = false -- e.g. 'arena_ticket' or false
+Config.RespawnTime = 3
 Config.CountdownSeconds = 5
-Config.RespawnDelay = 3            -- seconds after death before respawn
-Config.LeaveCooldown = 5           -- seconds before player can rejoin after leaving
+Config.StartingBucket = 100
+Config.ShowdownStartDelay = 10
+Config.MatchHistoryDays = 7
+Config.LeaveCooldown = 4
 
---[[
-    Framework bridge: 'auto' | 'esx' | 'qb' | 'qbx' | 'standalone'
-]]
-Config.Framework = 'auto'
-
---[[
-    World entry ped — talking to this ped teleports you INTO the spawn lobby map.
-    It does NOT open the UI.
-]]
-Config.EntryPed = {
+Config.Announcements = {
     enabled = true,
-    coords = vec3(-265.0, -963.0, 31.2),
-    heading = 200.0,
-    drawDistance = 25.0,
-    interactDistance = 2.0,
-    marker = {
-        type = 1,
-        scale = vec3(1.2, 1.2, 0.6),
-        color = { r = 220, g = 80, b = 40, a = 140 },
-        bob = false,
-        faceCamera = false,
+    interval = 5 * 60000,
+}
+
+Config.Sounds = {
+    enabled = true,
+    volume = 0.18,
+    bellAt = 0.9,
+}
+
+Config.SquadVoice = {
+    enabled = true,
+    channel = 1000, -- pma-voice; each lobby uses two channels from here up
+}
+
+Config.Elo = {
+    k = 32,
+    floor = 100,
+    start = 1000,
+}
+
+Config.AfkKick = {
+    enabled = false,
+    minutes = 5,
+    warnAt = 60,
+}
+
+Config.Nameplates = {
+    enabled = true,
+    range = 120.0,
+}
+
+Config.TeamPanel = {
+    enabled = true,
+    titles = true,
+}
+
+Config.HitMarkers = {
+    enabled = true,
+    damage = true,
+}
+
+Config.Boundaries = {
+    show = false,
+    warningTime = 5,
+    immunityTime = 3,
+}
+
+Config.KillstreakStyle = 'medalslam' -- medalslam | badge | emblem | tactical
+Config.KillstreakVolume = 0.18
+Config.Killstreaks = {
+    { kills = 2,  label = 'DOUBLE KILL' },
+    { kills = 3,  label = 'TRIPLE KILL' },
+    { kills = 4,  label = 'DOMINATING',     reward = 'armor', amount = 100 },
+    { kills = 5,  label = 'RAMPAGE' },
+    { kills = 6,  label = 'KILLING SPREE' },
+    { kills = 7,  label = 'MONSTER KILL' },
+    { kills = 8,  label = 'UNSTOPPABLE',    reward = 'speed', seconds = 20 },
+    { kills = 9,  label = 'ULTRA KILL' },
+    { kills = 10, label = 'GODLIKE',        reward = 'armor', amount = 100 },
+}
+
+Config.LeaderboardTitles = {
+    default = {
+        { rank = 1,  title = 'Champion' },
+        { rank = 2,  title = 'Warlord' },
+        { rank = 3,  title = 'Executioner' },
+        { rank = 5,  title = 'Veteran' },
+        { rank = 10, title = 'Contender' },
     },
-    blip = {
-        enabled = true,
-        sprite = 437,
-        color = 1,
-        scale = 0.85,
-        label = 'PVP Arena',
+    showdown = {
+        { rank = 1,  title = 'Apex' },
+        { rank = 2,  title = 'Duelist King' },
+        { rank = 3,  title = 'Bloodied' },
+        { rank = 5,  title = 'Challenger' },
+        { rank = 10, title = 'Prospect' },
     },
-    ped = {
-        enabled = true,
+}
+
+--[[ ox_target / qb-target / prompt ]]
+Config.Target = {
+    enabled = true, -- auto-detect ox_target then qb-target; otherwise [E]
+}
+
+--[[ Arena NPCs — walk up to open the lobby browser ]]
+Config.Peds = {
+    {
         model = `s_m_y_marine_01`,
+        coords = vec4(-265.0, -963.0, 31.2, 200.0),
         scenario = 'WORLD_HUMAN_CLIPBOARD',
+        interactDistance = 2.2,
+        blip = {
+            enabled = true,
+            sprite = 437,
+            color = 1,
+            scale = 0.85,
+            label = 'PVP Arena',
+        },
     },
 }
 
---[[
-    Spawn lobby hub map
-    PASTE your lobby MLO / interior coords here.
-    Players land here from the entry ped. Press G for UI.
-]]
-Config.SpawnLobby = {
-    spawns = {
-        -- PASTE HUB SPAWN POINTS (vec4 x, y, z, heading)
-        vec4(405.0, -997.0, -99.0, 90.0),
-        vec4(402.0, -1000.0, -99.0, 0.0),
-        vec4(408.0, -1000.0, -99.0, 180.0),
-        vec4(405.0, -1003.0, -99.0, 270.0),
-    },
-    center = vec3(405.0, -997.0, -99.0), -- PASTE hub center
-    radius = 40.0,
-    enforceBounds = true,
-    exitCoords = vec4(-265.0, -963.0, 31.2, 200.0), -- PASTE city return
-    hint = true,
-    exitPed = {
-        enabled = true,
-        coords = vec3(400.0, -997.0, -99.0), -- PASTE exit ped in hub
-        heading = 270.0,
-        model = `s_m_y_marine_01`,
-        scenario = 'WORLD_HUMAN_GUARD_STAND',
-        interactDistance = 2.0,
-    },
-}
-
---[[
-    Legacy alias — match leave returns to spawn lobby, not the city.
-]]
-Config.ReturnLocation = {
-    coords = Config.SpawnLobby.spawns[1],
-}
-
---[[
-    ox_inventory integration
-]]
+--[[ ox_inventory ]]
 Config.OxInventory = {
     enabled = true,
-    stashPrefix = 'arena_',
-    stashSlots = 50,
-    stashWeight = 200000,
     clearBeforeLoadout = true,
     restoreOnLeave = true,
     extras = {
@@ -102,65 +137,69 @@ Config.OxInventory = {
     },
 }
 
---[[
-    wasabi_ambulance integration
-]]
-Config.WasabiAmbulance = {
+--[[ Ambulance auto-detect. First running resource wins. ]]
+Config.Ambulance = {
     enabled = true,
-    resourceName = 'wasabi_ambulance',
-    reviveEvent = 'wasabi_ambulance:revive',
-    deathStateExport = 'isPlayerDead',
+    forceRevive = true,
     blockDeathScreen = true,
-    forceReviveOnRespawn = true,
-    disableJobInteractions = true,
+    resources = {
+        'wasabi_ambulance',
+        'wasabi_ambulance_v2',
+        'qbx_medical',
+        'qbx_ambulancejob',
+        'qb-ambulancejob',
+        'esx_ambulancejob',
+        'tk_ambulancejob',
+        'p_ambulancejob',
+        'ND_Ambulance',
+        'ars_ambulancejob',
+        'ak47_qb_ambulancejob',
+    },
 }
 
---[[
-    Match rules
-]]
 Config.Rules = {
-    friendlyFire = false,
     allowVehicles = false,
     clearWanted = true,
-    godModeOutsideCombat = false,
-    healOnKill = false,
-    healOnKillAmount = 25,
-    armorOnKill = false,
-    armorOnKillAmount = 15,
     infiniteAmmo = true,
     refillAmmoOnRespawn = true,
     disableIdleCam = true,
-    blockedControls = {},
-    enforceBounds = true,
-    boundsWarning = true,
-}
-
-Config.HUD = {
-    showKills = true,
-    showDeaths = true,
-    showTimer = true,
-    showTeamScores = true,
-    killfeed = true,
-    killfeedDuration = 4000,
+    godModeOutsideCombat = false,
 }
 
 Config.Rewards = {
-    enabled = false,
-    win = { money = 500, items = {} },
-    loss = { money = 100, items = {} },
-    kill = { money = 25, items = {} },
-    account = 'money',
-}
-
-Config.Logging = {
-    enabled = false,
-    webhook = '',
-    logMatchStart = true,
-    logMatchEnd = true,
+    account = 'cash', -- qbox/qb cash|bank  ·  esx money|bank
 }
 
 Config.Permissions = {
     adminAce = 'arena.admin',
-    forceStartAce = 'arena.forcestart',
-    createPrivateAce = false,
+}
+
+Config.WeaponCategories = {
+    WEAPON_PISTOL = 'pistol',
+    WEAPON_COMBATPISTOL = 'pistol',
+    WEAPON_HEAVYPISTOL = 'pistol',
+    WEAPON_APPISTOL = 'pistol',
+    WEAPON_PISTOL50 = 'pistol',
+    WEAPON_SNSPISTOL = 'pistol',
+    WEAPON_SMG = 'smg',
+    WEAPON_MICROSMG = 'smg',
+    WEAPON_ASSAULTSMG = 'smg',
+    WEAPON_COMBATPDW = 'smg',
+    WEAPON_MACHINEPISTOL = 'smg',
+    WEAPON_MINISMG = 'smg',
+    WEAPON_ASSAULTRIFLE = 'rifle',
+    WEAPON_CARBINERIFLE = 'rifle',
+    WEAPON_SPECIALCARBINE = 'rifle',
+    WEAPON_BULLPUPRIFLE = 'rifle',
+    WEAPON_ADVANCEDRIFLE = 'rifle',
+    WEAPON_COMPACTRIFLE = 'rifle',
+    WEAPON_PUMPSHOTGUN = 'shotgun',
+    WEAPON_SAWNOFFSHOTGUN = 'shotgun',
+    WEAPON_ASSAULTSHOTGUN = 'shotgun',
+    WEAPON_HEAVYSHOTGUN = 'shotgun',
+    WEAPON_COMBATSHOTGUN = 'shotgun',
+    WEAPON_SNIPERRIFLE = 'sniper',
+    WEAPON_HEAVYSNIPER = 'sniper',
+    WEAPON_MARKSMANRIFLE = 'sniper',
+    WEAPON_MUSKET = 'sniper',
 }

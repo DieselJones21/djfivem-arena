@@ -1,28 +1,20 @@
 Arena = Arena or {}
-Arena.Framework = {
-    name = 'standalone',
-}
+Arena.Framework = { name = 'standalone' }
 
 local function detectFramework()
     local configured = Config.Framework
     if configured and configured ~= 'auto' then
         return configured
     end
-
-    if GetResourceState('qbx_core') == 'started' then
-        return 'qbx'
-    end
-    if GetResourceState('qb-core') == 'started' then
-        return 'qb'
-    end
-    if GetResourceState('es_extended') == 'started' then
-        return 'esx'
-    end
+    if GetResourceState('qbx_core') == 'started' then return 'qbx' end
+    if GetResourceState('qb-core') == 'started' then return 'qb' end
+    if GetResourceState('es_extended') == 'started' then return 'esx' end
+    if GetResourceState('ox_core') == 'started' then return 'ox' end
     return 'standalone'
 end
 
 CreateThread(function()
-    Wait(500)
+    Wait(400)
     Arena.Framework.name = detectFramework()
     Arena.Utils.Debug('Framework:', Arena.Framework.name)
 end)
@@ -30,11 +22,9 @@ end)
 function Arena.Framework.GetPlayer(src)
     local fw = Arena.Framework.name
     if fw == 'esx' then
-        local ESX = exports['es_extended']:getSharedObject()
-        return ESX.GetPlayerFromId(src)
+        return exports['es_extended']:getSharedObject().GetPlayerFromId(src)
     elseif fw == 'qb' then
-        local QBCore = exports['qb-core']:GetCoreObject()
-        return QBCore.Functions.GetPlayer(src)
+        return exports['qb-core']:GetCoreObject().Functions.GetPlayer(src)
     elseif fw == 'qbx' then
         return exports.qbx_core:GetPlayer(src)
     end
@@ -43,7 +33,6 @@ end
 function Arena.Framework.GetName(src)
     local player = Arena.Framework.GetPlayer(src)
     local fw = Arena.Framework.name
-
     if player then
         if fw == 'esx' then
             return player.getName and player.getName() or GetPlayerName(src)
@@ -54,14 +43,12 @@ function Arena.Framework.GetName(src)
             end
         end
     end
-
     return GetPlayerName(src) or ('Player %s'):format(src)
 end
 
 function Arena.Framework.GetIdentifier(src)
     local player = Arena.Framework.GetPlayer(src)
     local fw = Arena.Framework.name
-
     if player then
         if fw == 'esx' then
             return player.identifier
@@ -69,12 +56,15 @@ function Arena.Framework.GetIdentifier(src)
             return player.PlayerData and player.PlayerData.citizenid
         end
     end
-
+    if fw == 'ox' then
+        local ok, playerId = pcall(function()
+            return exports.ox_core:GetPlayer(src).charId
+        end)
+        if ok and playerId then return tostring(playerId) end
+    end
     for i = 0, GetNumPlayerIdentifiers(src) - 1 do
         local id = GetPlayerIdentifier(src, i)
-        if id and id:find('license:') then
-            return id
-        end
+        if id and id:find('license:') then return id end
     end
     return tostring(src)
 end
@@ -82,10 +72,9 @@ end
 function Arena.Framework.AddMoney(src, amount, account)
     if not amount or amount <= 0 then return end
     local player = Arena.Framework.GetPlayer(src)
-    local fw = Arena.Framework.name
-    account = account or Config.Rewards.account or 'money'
-
     if not player then return end
+    local fw = Arena.Framework.name
+    account = account or (Config.Rewards and Config.Rewards.account) or 'cash'
 
     if fw == 'esx' then
         if account == 'bank' then
@@ -96,7 +85,7 @@ function Arena.Framework.AddMoney(src, amount, account)
             player.addMoney(amount)
         end
     elseif fw == 'qb' or fw == 'qbx' then
-        local atype = account == 'bank' and 'bank' or (account == 'black_money' and 'crypto' or 'cash')
+        local atype = account == 'bank' and 'bank' or 'cash'
         player.Functions.AddMoney(atype, amount, 'arena-reward')
     end
 end
@@ -104,16 +93,7 @@ end
 function Arena.Framework.HasItem(src, item, count)
     count = count or 1
     if GetResourceState('ox_inventory') == 'started' then
-        local n = exports.ox_inventory:Search(src, 'count', item) or 0
-        return n >= count
-    end
-    return true
-end
-
-function Arena.Framework.RemoveItem(src, item, count)
-    count = count or 1
-    if GetResourceState('ox_inventory') == 'started' then
-        return exports.ox_inventory:RemoveItem(src, item, count)
+        return (exports.ox_inventory:Search(src, 'count', item) or 0) >= count
     end
     return true
 end

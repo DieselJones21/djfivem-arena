@@ -1,302 +1,151 @@
-Arena = Arena or {}
+local spawned = {}
 
-local entryBlip
-local entryPed
-local exitPed
-local hubHintShown = false
-
-local function teleportTo(coords)
-    if not coords then return end
-    local ped = PlayerPedId()
-    DoScreenFadeOut(400)
-    while not IsScreenFadedOut() do Wait(0) end
-    RequestCollisionAtCoord(coords.x, coords.y, coords.z)
-    SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false)
-    if coords.w then SetEntityHeading(ped, coords.w) end
-    ClearPedTasksImmediately(ped)
-    Wait(300)
-    DoScreenFadeIn(500)
+local function hasOxTarget()
+    return Config.Target.enabled and GetResourceState('ox_target') == 'started'
 end
 
-local function pickHubSpawn()
-    local spawns = Config.SpawnLobby.spawns
-    if not spawns or #spawns == 0 then
-        return vec4(405.0, -997.0, -99.0, 90.0)
-    end
-    return spawns[math.random(#spawns)]
+local function hasQbTarget()
+    return Config.Target.enabled and GetResourceState('qb-target') == 'started'
 end
 
-function Arena.Client.EnterHub(silent)
-    if Arena.Client.inMatch then
-        lib.notify({ type = 'error', description = L('already_in_match') })
-        return
-    end
-    if Arena.Client.inHub then
-        if not silent then
-            lib.notify({ type = 'inform', description = L('already_in_hub') })
-        end
-        return
-    end
-
-    Arena.Client.worldReturnCoords = GetEntityCoords(PlayerPedId())
-    local spawn = pickHubSpawn()
-    teleportTo(spawn)
-
-    Arena.Client.inHub = true
-    LocalPlayer.state:set('arenaHub', true, true)
-    TriggerServerEvent('cursor_arena:server:setHub', true)
-
-    if Config.SpawnLobby.hint then
-        lib.showTextUI(L('hub_hint'), { position = 'left-center', icon = 'list' })
-        hubHintShown = true
-    end
-
-    if not silent then
-        lib.notify({ type = 'success', description = L('entered_hub') })
-    end
-end
-
-function Arena.Client.ExitHub(silent)
-    if Arena.Client.inMatch then
-        lib.notify({ type = 'error', description = L('leave_match_first') })
-        return
-    end
-    if not Arena.Client.inHub then return end
-
-    Arena.Client.CloseUI()
-    lib.callback.await('cursor_arena:leave', false)
-
-    local exit = Config.SpawnLobby.exitCoords or Config.EntryPed and vec4(
-        Config.EntryPed.coords.x,
-        Config.EntryPed.coords.y,
-        Config.EntryPed.coords.z,
-        Config.EntryPed.heading or 0.0
-    )
-
-    Arena.Client.inHub = false
-    LocalPlayer.state:set('arenaHub', false, true)
-    TriggerServerEvent('cursor_arena:server:setHub', false)
-
-    if hubHintShown then
-        lib.hideTextUI()
-        hubHintShown = false
-    end
-
-    teleportTo(exit)
-
-    if not silent then
-        lib.notify({ type = 'inform', description = L('left_hub') })
-    end
-end
-
-function Arena.Client.ReturnToHub()
-    local spawn = pickHubSpawn()
-    teleportTo(spawn)
-    Arena.Client.inHub = true
-    LocalPlayer.state:set('arenaHub', true, true)
-    TriggerServerEvent('cursor_arena:server:setHub', true)
-
-    if Config.SpawnLobby.hint and not hubHintShown then
-        lib.showTextUI(L('hub_hint'), { position = 'left-center', icon = 'list' })
-        hubHintShown = true
-    end
-end
-
-local function spawnEntryPed()
-    local cfg = Config.EntryPed
-    if not cfg or not cfg.enabled or not cfg.ped or not cfg.ped.enabled then return end
-
-    local model = cfg.ped.model
-    lib.requestModel(model)
-    entryPed = CreatePed(0, model, cfg.coords.x, cfg.coords.y, cfg.coords.z - 1.0, cfg.heading or 0.0, false, false)
-    SetEntityInvincible(entryPed, true)
-    SetBlockingOfNonTemporaryEvents(entryPed, true)
-    FreezeEntityPosition(entryPed, true)
-    if cfg.ped.scenario then
-        TaskStartScenarioInPlace(entryPed, cfg.ped.scenario, 0, true)
-    end
-    SetModelAsNoLongerNeeded(model)
-end
-
-local function spawnExitPed()
-    local cfg = Config.SpawnLobby.exitPed
-    if not cfg or not cfg.enabled then return end
-
+local function spawnPed(cfg)
     local model = cfg.model
     lib.requestModel(model)
-    exitPed = CreatePed(0, model, cfg.coords.x, cfg.coords.y, cfg.coords.z - 1.0, cfg.heading or 0.0, false, false)
-    SetEntityInvincible(exitPed, true)
-    SetBlockingOfNonTemporaryEvents(exitPed, true)
-    FreezeEntityPosition(exitPed, true)
+    local ped = CreatePed(0, model, cfg.coords.x, cfg.coords.y, cfg.coords.z - 1.0, cfg.coords.w or 0.0, false, false)
+    SetEntityInvincible(ped, true)
+    SetBlockingOfNonTemporaryEvents(ped, true)
+    FreezeEntityPosition(ped, true)
     if cfg.scenario then
-        TaskStartScenarioInPlace(exitPed, cfg.scenario, 0, true)
+        TaskStartScenarioInPlace(ped, cfg.scenario, 0, true)
     end
     SetModelAsNoLongerNeeded(model)
+
+    if hasOxTarget() then
+        exports.ox_target:addLocalEntity(ped, {
+            {
+                name = 'cursor_arena_open',
+                icon = 'fa-solid fa-crosshairs',
+                label = L('target_open'),
+                distance = cfg.interactDistance or 2.2,
+                onSelect = function()
+                    Arena.Client.OpenUI()
+                end,
+            },
+        })
+    elseif hasQbTarget() then
+        exports['qb-target']:AddTargetEntity(ped, {
+            options = {{
+                icon = 'fas fa-crosshairs',
+                label = L('target_open'),
+                action = function()
+                    Arena.Client.OpenUI()
+                end,
+            }},
+            distance = cfg.interactDistance or 2.2,
+        })
+    end
+
+    return ped
 end
 
-local function createEntryBlip()
-    local cfg = Config.EntryPed
-    if not cfg or not cfg.enabled or not cfg.blip or not cfg.blip.enabled then return end
-
-    entryBlip = AddBlipForCoord(cfg.coords.x, cfg.coords.y, cfg.coords.z)
-    SetBlipSprite(entryBlip, cfg.blip.sprite)
-    SetBlipColour(entryBlip, cfg.blip.color)
-    SetBlipScale(entryBlip, cfg.blip.scale)
-    SetBlipAsShortRange(entryBlip, true)
+local function createBlip(cfg)
+    if not cfg.blip or cfg.blip.enabled == false then return end
+    local blip = AddBlipForCoord(cfg.coords.x, cfg.coords.y, cfg.coords.z)
+    SetBlipSprite(blip, cfg.blip.sprite or 437)
+    SetBlipColour(blip, cfg.blip.color or 1)
+    SetBlipScale(blip, cfg.blip.scale or 0.85)
+    SetBlipAsShortRange(blip, true)
     BeginTextCommandSetBlipName('STRING')
     AddTextComponentSubstringPlayerName(cfg.blip.label or 'PVP Arena')
-    EndTextCommandSetBlipName(entryBlip)
+    EndTextCommandSetBlipName(blip)
+    return blip
 end
 
 CreateThread(function()
-    createEntryBlip()
-    spawnEntryPed()
-    spawnExitPed()
+    for i = 1, #Config.Peds do
+        local cfg = Config.Peds[i]
+        spawned[#spawned + 1] = {
+            ped = spawnPed(cfg),
+            blip = createBlip(cfg),
+            cfg = cfg,
+        }
+    end
 end)
 
--- World entry ped: teleport into spawn lobby (does not open UI)
+-- Prompt fallback when no target resource is running
 CreateThread(function()
-    local cfg = Config.EntryPed
-    if not cfg or not cfg.enabled then return end
-
+    if hasOxTarget() or hasQbTarget() then return end
     while true do
         local sleep = 1000
-        if not Arena.Client.inHub and not Arena.Client.inMatch then
+        if not Arena.Client.inArena then
             local coords = GetEntityCoords(PlayerPedId())
-            local dist = #(coords - cfg.coords)
-
-            if dist < cfg.drawDistance then
-                sleep = 0
-                local m = cfg.marker
-                if m then
-                    DrawMarker(
-                        m.type,
-                        cfg.coords.x, cfg.coords.y, cfg.coords.z - 1.0,
-                        0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                        m.scale.x, m.scale.y, m.scale.z,
-                        m.color.r, m.color.g, m.color.b, m.color.a,
-                        m.bob, m.faceCamera, 2, false, nil, nil, false
-                    )
-                end
-
-                if dist < cfg.interactDistance then
-                    lib.showTextUI(L('enter_prompt'), { position = 'left-center', icon = 'door-open' })
-                    if IsControlJustReleased(0, 38) then -- E
-                        lib.hideTextUI()
-                        Arena.Client.EnterHub()
+            for i = 1, #spawned do
+                local cfg = spawned[i].cfg
+                local dist = #(coords - vec3(cfg.coords.x, cfg.coords.y, cfg.coords.z))
+                if dist < 12.0 then
+                    sleep = 0
+                    if dist < (cfg.interactDistance or 2.2) then
+                        lib.showTextUI(L('enter_prompt'), { position = 'left-center', icon = 'crosshairs' })
+                        if IsControlJustReleased(0, 38) then
+                            lib.hideTextUI()
+                            Arena.Client.OpenUI()
+                        end
                     end
+                end
+            end
+        end
+        Wait(sleep)
+    end
+end)
+
+local function bind(cmd)
+    if not cmd or cmd.enable == false then return end
+    local name = cmd.name
+    lib.addKeybind({
+        name = 'cursor_arena_' .. name,
+        description = 'Arena: ' .. name,
+        defaultKey = cmd.key or '',
+        onPressed = function()
+            if name == 'arenas' then
+                if Arena.Client.uiOpen then
+                    Arena.Client.CloseUI()
                 else
-                    lib.hideTextUI()
+                    Arena.Client.OpenUI()
                 end
-            end
-        end
-        Wait(sleep)
-    end
-end)
-
--- Hub exit ped
-CreateThread(function()
-    local cfg = Config.SpawnLobby.exitPed
-    if not cfg or not cfg.enabled then return end
-
-    while true do
-        local sleep = 1000
-        if Arena.Client.inHub and not Arena.Client.inMatch then
-            local coords = GetEntityCoords(PlayerPedId())
-            local dist = #(coords - cfg.coords)
-            if dist < (cfg.interactDistance or 2.0) + 8.0 then
-                sleep = 0
-                if dist < (cfg.interactDistance or 2.0) then
-                    lib.showTextUI(L('exit_prompt'), { position = 'left-center', icon = 'door-closed' })
-                    if IsControlJustReleased(0, 38) then
-                        lib.hideTextUI()
-                        Arena.Client.ExitHub()
-                    end
+            elseif name == 'leavearena' then
+                if Arena.Client.inArena then
+                    lib.callback.await('cursor_arena:leaveLobby', false)
                 end
+            elseif name == 'killstreak' then
+                Arena.Client.muteStreaks = not Arena.Client.muteStreaks
+                lib.notify({
+                    type = 'inform',
+                    description = L('mute_streaks', Arena.Client.muteStreaks and L('off') or L('on')),
+                })
+            elseif name == 'arenasounds' then
+                Arena.Client.muteSounds = not Arena.Client.muteSounds
+                lib.notify({
+                    type = 'inform',
+                    description = L('mute_sounds', Arena.Client.muteSounds and L('off') or L('on')),
+                })
+            elseif name == 'changeloadout' then
+                Arena.Client.OpenLoadout()
             end
-        end
-        Wait(sleep)
-    end
-end)
+        end,
+    })
+end
 
--- Soft bounds inside spawn lobby hub
-CreateThread(function()
-    while true do
-        local sleep = 1000
-        local hub = Config.SpawnLobby
-        if Arena.Client.inHub and not Arena.Client.inMatch and hub.enforceBounds and hub.center and hub.radius then
-            sleep = 400
-            local coords = GetEntityCoords(PlayerPedId())
-            local dist = #(coords - hub.center)
-            if dist > hub.radius then
-                local spawn = pickHubSpawn()
-                SetEntityCoordsNoOffset(PlayerPedId(), spawn.x, spawn.y, spawn.z, false, false, false)
-                if spawn.w then SetEntityHeading(PlayerPedId(), spawn.w) end
-                lib.notify({ type = 'error', description = L('out_of_bounds') })
-            end
-        end
-        Wait(sleep)
-    end
-end)
-
--- G opens the lobby UI only while inside the spawn lobby
-lib.addKeybind({
-    name = 'cursor_arena_menu',
-    description = 'Open Arena lobbies (spawn lobby only)',
-    defaultKey = Config.MenuKey or 'G',
-    onPressed = function()
-        if Arena.Client.inMatch then return end
-        if not Arena.Client.inHub then
-            lib.notify({ type = 'error', description = L('must_be_in_hub') })
-            return
-        end
-        if Arena.Client.uiOpen then
-            Arena.Client.CloseUI()
-        else
-            if hubHintShown then
-                lib.hideTextUI()
-                hubHintShown = false
-            end
-            Arena.Client.OpenUI()
-        end
-    end,
-})
-
-RegisterNetEvent('cursor_arena:client:openUI', function()
-    if Arena.Client.inHub and not Arena.Client.inMatch then
-        Arena.Client.OpenUI()
-    elseif not Arena.Client.inHub then
-        Arena.Client.EnterHub()
-    end
-end)
-
-RegisterNetEvent('cursor_arena:client:enterHub', function()
-    Arena.Client.EnterHub()
-end)
-
-RegisterNetEvent('cursor_arena:client:exitHub', function()
-    Arena.Client.ExitHub()
-end)
-
-RegisterNetEvent('cursor_arena:client:giveWeaponFallback', function(weaponName, ammo)
-    local ped = PlayerPedId()
-    local hash = joaat(weaponName)
-    GiveWeaponToPed(ped, hash, ammo or 0, false, true)
-    SetCurrentPedWeapon(ped, hash, true)
-    if Config.Rules.infiniteAmmo then
-        SetPedInfiniteAmmo(ped, true, hash)
-    end
-end)
-
-RegisterNetEvent('cursor_arena:client:stripWeapons', function()
-    RemoveAllPedWeapons(PlayerPedId(), true)
-end)
+for i = 1, #Config.Commands do
+    bind(Config.Commands[i])
+end
 
 AddEventHandler('onResourceStop', function(res)
     if res ~= GetCurrentResourceName() then return end
-    if entryBlip then RemoveBlip(entryBlip) end
-    if entryPed and DoesEntityExist(entryPed) then DeleteEntity(entryPed) end
-    if exitPed and DoesEntityExist(exitPed) then DeleteEntity(exitPed) end
+    for i = 1, #spawned do
+        if spawned[i].blip then RemoveBlip(spawned[i].blip) end
+        if spawned[i].ped and DoesEntityExist(spawned[i].ped) then DeleteEntity(spawned[i].ped) end
+    end
     lib.hideTextUI()
     SetNuiFocus(false, false)
+    SetRunSprintMultiplierForPlayer(PlayerId(), 1.0)
 end)

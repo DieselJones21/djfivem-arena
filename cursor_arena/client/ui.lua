@@ -2,12 +2,8 @@ Arena = Arena or {}
 
 function Arena.Client.OpenUI()
     if Arena.Client.uiOpen then return end
-    if Arena.Client.inMatch then
+    if Arena.Client.inArena then
         lib.notify({ type = 'error', description = L('already_in_match') })
-        return
-    end
-    if not Arena.Client.inHub then
-        lib.notify({ type = 'error', description = L('must_be_in_hub') })
         return
     end
 
@@ -16,22 +12,29 @@ function Arena.Client.OpenUI()
 
     Arena.Client.uiOpen = true
     SetNuiFocus(true, true)
-    SendNUIMessage({
-        action = 'open',
-        data = bootstrap,
-    })
+    SendNUIMessage({ action = 'open', data = bootstrap })
 end
 
-function Arena.Client.CloseUI(keepSilent)
-    if not Arena.Client.uiOpen and not keepSilent then return end
+function Arena.Client.CloseUI()
     Arena.Client.uiOpen = false
+    Arena.Client.loadoutOpen = false
     SetNuiFocus(false, false)
     SendNUIMessage({ action = 'close' })
+end
 
-    -- Restore hub hint after closing menu
-    if Arena.Client.inHub and not Arena.Client.inMatch and Config.SpawnLobby.hint then
-        lib.showTextUI(L('hub_hint'), { position = 'left-center', icon = 'list' })
-    end
+function Arena.Client.OpenLoadout()
+    if not Arena.Client.inArena then return end
+    local lobby = Arena.Client.lobby
+    if not lobby then return end
+    Arena.Client.loadoutOpen = true
+    SetNuiFocus(true, true)
+    SendNUIMessage({
+        action = 'openLoadout',
+        data = {
+            loadouts = lobby.loadouts,
+            current = { loadoutId = nil, weaponId = nil },
+        },
+    })
 end
 
 RegisterNUICallback('close', function(_, cb)
@@ -39,115 +42,66 @@ RegisterNUICallback('close', function(_, cb)
     cb({ ok = true })
 end)
 
-RegisterNUICallback('exitHub', function(_, cb)
-    Arena.Client.CloseUI()
-    Arena.Client.ExitHub()
-    cb({ ok = true })
+RegisterNUICallback('listLobbies', function(_, cb)
+    cb(lib.callback.await('cursor_arena:listLobbies', false) or {})
 end)
 
-RegisterNUICallback('getWeapons', function(data, cb)
-    local weapons = lib.callback.await('cursor_arena:getWeaponsForMode', false, data.modeId)
-    cb(weapons or {})
-end)
-
-RegisterNUICallback('getMaps', function(data, cb)
-    local maps = lib.callback.await('cursor_arena:getMapsForMode', false, data.modeId)
-    cb(maps or {})
-end)
-
-RegisterNUICallback('joinQueue', function(data, cb)
-    local result = lib.callback.await('cursor_arena:joinQueue', false, data.modeId, data.weaponId, data.mapId)
-    cb(result or { ok = false })
-end)
-
-RegisterNUICallback('leaveQueue', function(_, cb)
-    lib.callback.await('cursor_arena:leaveQueue', false)
-    cb({ ok = true })
-end)
-
-RegisterNUICallback('createPrivate', function(data, cb)
-    local result = lib.callback.await('cursor_arena:createPrivate', false, data.modeId, data.mapId, data.weaponId)
-    cb(result or { ok = false })
-end)
-
-RegisterNUICallback('createLobby', function(data, cb)
-    local result = lib.callback.await('cursor_arena:createLobby', false, data)
-    cb(result or { ok = false })
-end)
-
-RegisterNUICallback('getLeaderboard', function(_, cb)
-    local list = lib.callback.await('cursor_arena:getLeaderboard', false)
-    cb(list or {})
-end)
-
-RegisterNUICallback('getMyStats', function(_, cb)
-    local stats = lib.callback.await('cursor_arena:getMyStats', false)
-    cb(stats or {})
-end)
-
-RegisterNUICallback('getWeaponsForClass', function(data, cb)
-    local weapons = lib.callback.await('cursor_arena:getWeaponsForClass', false, data.classId)
-    cb(weapons or {})
+RegisterNUICallback('getLobby', function(data, cb)
+    cb(lib.callback.await('cursor_arena:getLobby', false, data and data.lobbyId))
 end)
 
 RegisterNUICallback('joinLobby', function(data, cb)
-    local result = lib.callback.await('cursor_arena:joinLobby', false, data.matchId, data.weaponId)
+    local result = lib.callback.await('cursor_arena:joinLobby', false, data)
+    if result and result.ok then
+        Arena.Client.CloseUI()
+    end
     cb(result or { ok = false })
 end)
 
-RegisterNUICallback('setReady', function(data, cb)
-    local result = lib.callback.await('cursor_arena:setReady', false, data.ready, data.weaponId)
-    cb(result or { ok = false })
+RegisterNUICallback('leaveLobby', function(_, cb)
+    cb(lib.callback.await('cursor_arena:leaveLobby', false) or { ok = true })
+    Arena.Client.CloseUI()
 end)
 
 RegisterNUICallback('setTeam', function(data, cb)
-    local result = lib.callback.await('cursor_arena:setTeam', false, data.team)
-    cb(result or { ok = false })
+    cb(lib.callback.await('cursor_arena:setTeam', false, data and data.team) or { ok = false })
 end)
 
-RegisterNUICallback('startMatch', function(_, cb)
-    local result = lib.callback.await('cursor_arena:startMatch', false)
-    cb(result or { ok = false })
-end)
-
-RegisterNUICallback('leave', function(_, cb)
-    lib.callback.await('cursor_arena:leave', false)
-    Arena.Client.CloseUI()
-    cb({ ok = true })
-end)
-
-RegisterNUICallback('listLobbies', function(_, cb)
-    local list = lib.callback.await('cursor_arena:listLobbies', false)
-    cb(list or {})
-end)
-
-RegisterNUICallback('refreshLobby', function(_, cb)
-    local lobby = lib.callback.await('cursor_arena:getLobby', false)
-    cb(lobby)
-end)
-
-RegisterNUICallback('invite', function(data, cb)
-    if data and data.targetId then
-        TriggerServerEvent('cursor_arena:server:invite', data.targetId)
+RegisterNUICallback('changeLoadout', function(data, cb)
+    local result = lib.callback.await('cursor_arena:changeLoadout', false, data)
+    if result and result.ok then
+        Arena.Client.loadoutOpen = false
+        SetNuiFocus(false, false)
     end
-    cb({ ok = true })
+    cb(result or { ok = false })
 end)
 
-RegisterNetEvent('cursor_arena:client:lobbyUpdate', function(lobby)
-    SendNUIMessage({ action = 'lobbyUpdate', data = lobby })
+RegisterNUICallback('getLeaderboard', function(data, cb)
+    cb(lib.callback.await('cursor_arena:getLeaderboard', false, data and data.mode) or {})
 end)
 
-RegisterNetEvent('cursor_arena:client:queueMatched', function(lobby)
-    SendNUIMessage({ action = 'queueMatched', data = lobby })
-    lib.notify({ type = 'success', description = L('match_starting', tostring(Config.CountdownSeconds)) })
+RegisterNUICallback('getMyStats', function(_, cb)
+    cb(lib.callback.await('cursor_arena:getMyStats', false) or {})
 end)
 
-RegisterNetEvent('cursor_arena:client:invite', function(payload)
-    lib.notify({
-        type = 'inform',
-        title = 'Arena Invite',
-        description = L('invite_received', payload.from, payload.modeLabel),
-        duration = (payload.timeout or 30) * 1000,
-    })
-    SendNUIMessage({ action = 'invite', data = payload })
+RegisterNUICallback('getHistory', function(_, cb)
+    cb(lib.callback.await('cursor_arena:getHistory', false) or {})
+end)
+
+RegisterNetEvent('cursor_arena:client:openUI', function()
+    if Arena.Client.inArena then
+        lib.notify({ type = 'error', description = L('already_in_match') })
+        return
+    end
+    Arena.Client.OpenUI()
+end)
+
+RegisterNetEvent('cursor_arena:client:openLoadout', function()
+    Arena.Client.OpenLoadout()
+end)
+
+RegisterNetEvent('cursor_arena:client:lobbiesDirty', function()
+    if Arena.Client.uiOpen then
+        SendNUIMessage({ action = 'refreshLobbies' })
+    end
 end)

@@ -1,40 +1,87 @@
 (() => {
-  const app = document.getElementById('app');
-  const resourceName = typeof GetParentResourceName === 'function'
-    ? GetParentResourceName()
-    : 'cursor_arena';
+  const IN_GAME = typeof GetParentResourceName === 'function';
+  const resourceName = IN_GAME ? GetParentResourceName() : 'cursor_arena';
 
   const state = {
     open: false,
-    tab: 'lobbies',
-    modes: [],
-    maps: [],
-    weaponsByCat: {},
-    choiceCategories: ['pistols', 'smgs', 'rifles'],
-    playerId: null,
+    page: 'arenas',
+    modeFilter: 'all',
+    boardMode: 'ffa',
     playerName: 'Player',
+    playerId: 0,
+    lobbies: [],
+    loadouts: [],
     stats: {},
-    leaderboard: [],
-    lobby: null,
-    ready: false,
-    timerInterval: null,
-    serverOffset: 0,
-    // create modal
-    create: {
-      size: 1,
-      style: 'pvp',
-      weaponClass: 'pistols',
-      mapId: null,
-      rounds: 5,
-      private: false,
-      weaponId: null,
+    leaderboard: { ffa: [], tdm: [], showdown: [] },
+    history: [],
+    selected: null,
+    pick: { loadoutId: null, weaponId: null, team: 1 },
+    livePick: { loadoutId: null, weaponId: null },
+    hudTimer: null,
+    endsAt: 0,
+  };
+
+  const MOCK = {
+    playerId: 1,
+    playerName: 'Diesel',
+    loadouts: [
+      { id: 'duelist', label: 'Duelist', description: 'Pistols', weapons: [
+        { id: 'pistol', label: 'Pistol', weapon: 'WEAPON_PISTOL' },
+        { id: 'appistol', label: 'AP Pistol', weapon: 'WEAPON_APPISTOL' },
+      ]},
+      { id: 'raider', label: 'Raider', description: 'SMGs', weapons: [
+        { id: 'smg', label: 'SMG', weapon: 'WEAPON_SMG' },
+      ]},
+      { id: 'assault', label: 'Assault', description: 'Rifles', weapons: [
+        { id: 'carbinerifle', label: 'Carbine Rifle', weapon: 'WEAPON_CARBINERIFLE' },
+      ]},
+    ],
+    lobbies: [
+      { id: 'construction_ffa', name: 'Construction FFA', description: 'Every floor is a fight. First to 30.', mode: 'ffa', mapName: 'Construction', mapImage: 'assets/map_construction.svg', playerCount: 6, maxPlayers: 16, killsToWin: 30, state: 'active', scores: { 1: 0, 2: 0 }, players: [
+        { id: 1, name: 'Diesel', kills: 8, deaths: 2, team: 0 },
+        { id: 2, name: 'Nova', kills: 6, deaths: 4, team: 0 },
+      ], loadouts: null, kill_rewards: { health: 25 } },
+      { id: 'dust_tdm', name: 'Dust TDM', description: 'Two sides, one strip of sand.', mode: 'tdm', mapName: 'Dust', mapImage: 'assets/map_docks.svg', playerCount: 8, maxPlayers: 16, maxPlayersPerTeam: 8, killsToWin: 50, state: 'active', scores: { 1: 22, 2: 18 }, players: [
+        { id: 1, name: 'Diesel', kills: 7, deaths: 3, team: 1, alive: true },
+        { id: 3, name: 'Rook', kills: 5, deaths: 5, team: 2, alive: true },
+      ], kill_rewards: { health: 20 }, win_rewards: { money: 500 } },
+      { id: 'rooftops_showdown', name: 'Rooftops Showdown', description: 'One life. Ranked.', mode: 'showdown', mapName: 'Rooftops', mapImage: 'assets/map_rooftops.svg', playerCount: 6, maxPlayers: 10, maxPlayersPerTeam: 5, roundsToWin: 5, round: 3, state: 'active', scores: { 1: 2, 2: 1 }, players: [
+        { id: 1, name: 'Diesel', kills: 4, deaths: 1, team: 1, alive: true, title: 'Apex' },
+        { id: 4, name: 'Vex', kills: 2, deaths: 2, team: 1, alive: false },
+        { id: 5, name: 'Ash', kills: 3, deaths: 1, team: 2, alive: true },
+      ], win_rewards: { money: 1200 } },
+    ],
+    stats: {
+      ffa: { kills: 120, deaths: 88, wins: 14, matches: 31, elo: 1000 },
+      tdm: { kills: 90, deaths: 70, wins: 11, matches: 22, elo: 1000 },
+      showdown: { kills: 40, deaths: 28, wins: 9, matches: 16, elo: 1180 },
     },
-    // ffa quick play
-    ffa: { modeId: null, weaponId: null },
-    loadoutClass: 'pistols',
+    leaderboard: {
+      ffa: [
+        { rank: 1, name: 'Diesel', title: 'Champion', kills: 120, kd: 1.36, elo: 1000 },
+        { rank: 2, name: 'Nova', title: 'Warlord', kills: 101, kd: 1.21, elo: 1000 },
+        { rank: 3, name: 'Rook', title: 'Executioner', kills: 88, kd: 1.05, elo: 1000 },
+      ],
+      tdm: [],
+      showdown: [
+        { rank: 1, name: 'Diesel', title: 'Apex', kills: 40, kd: 1.42, elo: 1180 },
+      ],
+    },
+    history: [
+      { lobby_name: 'Rooftops Showdown', mode: 'showdown', won: 1, kills: 6, deaths: 2, scoreline: '5-3', elo_change: 18 },
+      { lobby_name: 'Dust TDM', mode: 'tdm', won: 0, kills: 9, deaths: 8, scoreline: '41-50', elo_change: 0 },
+    ],
   };
 
   async function nui(event, data = {}) {
+    if (!IN_GAME) {
+      if (event === 'listLobbies') return state.lobbies;
+      if (event === 'getLobby') return state.lobbies.find((l) => l.id === data.lobbyId) || state.selected;
+      if (event === 'getLeaderboard') return state.leaderboard[data.mode] || [];
+      if (event === 'getMyStats') return state.stats;
+      if (event === 'getHistory') return state.history;
+      return { ok: true };
+    }
     const resp = await fetch(`https://${resourceName}/${event}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json; charset=UTF-8' },
@@ -43,555 +90,415 @@
     try { return await resp.json(); } catch { return null; }
   }
 
-  function show(el, on = true) {
-    if (!el) return;
-    el.classList.toggle('hidden', !on);
-  }
-
-  function setTab(tab) {
-    state.tab = tab;
-    document.querySelectorAll('.nav-tab').forEach((btn) => {
-      btn.classList.toggle('active', btn.dataset.tab === tab);
-    });
-    document.querySelectorAll('.page').forEach((page) => {
-      page.classList.toggle('active', page.id === `page-${tab}`);
-    });
-    if (tab === 'leaderboard') renderLeaderboard();
-    if (tab === 'stats') renderMyStats();
-    if (tab === 'lobbies') refreshLobbies();
-    if (tab === 'loadout') renderLoadout();
-    if (tab === 'ffa') renderFfa();
-  }
+  const $ = (id) => document.getElementById(id);
+  const show = (el, on = true) => { if (el) el.classList.toggle('hidden', !on); };
 
   function initials(name) {
-    if (!name) return 'A';
-    const parts = String(name).trim().split(/\s+/);
+    const parts = String(name || 'A').trim().split(/\s+/);
     return ((parts[0]?.[0] || 'A') + (parts[1]?.[0] || '')).toUpperCase();
+  }
+
+  function modeLabel(mode) {
+    return mode === 'tdm' ? 'TDM' : mode === 'showdown' ? 'SHOWDOWN' : 'FFA';
+  }
+
+  function setPage(page) {
+    state.page = page;
+    document.querySelectorAll('.rail-btn').forEach((b) => b.classList.toggle('active', b.dataset.page === page));
+    document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === `page-${page}`));
+    const titles = {
+      arenas: ['Choose a fight', 'Every lobby is its own world. Pick a side, pick a loadout, drop in.'],
+      leaderboard: ['Ranks', 'Titles follow the top ten. Showdown runs on ELO.'],
+      history: ['Match history', 'Scoreline, roster, and what it did to your rating.'],
+      stats: ['Your record', 'Kills, deaths, wins and playtime — per mode.'],
+    };
+    $('pageTitle').textContent = titles[page][0];
+    $('pageSub').textContent = titles[page][1];
+    $('modeFilters').style.display = page === 'arenas' ? '' : 'none';
+    if (page === 'leaderboard') renderBoard();
+    if (page === 'history') renderHistory();
+    if (page === 'stats') renderStats();
+    if (page === 'arenas') renderLobbies();
+  }
+
+  function renderLobbies() {
+    const grid = $('lobbyGrid');
+    const empty = $('lobbyEmpty');
+    grid.innerHTML = '';
+    const list = (state.lobbies || []).filter((l) => state.modeFilter === 'all' || l.mode === state.modeFilter);
+    show(empty, list.length === 0);
+    list.forEach((lobby) => {
+      const card = document.createElement('button');
+      card.className = 'lobby-card';
+      const live = lobby.state === 'active' || lobby.state === 'countdown';
+      card.innerHTML = `
+        <div class="thumb" style="background-image:url('${lobby.mapImage || ''}')">
+          <span class="mode-pill ${lobby.mode}">${modeLabel(lobby.mode)}</span>
+        </div>
+        <div class="body">
+          <h3>${lobby.name}</h3>
+          <p>${lobby.description || lobby.mapName || ''}</p>
+          <div class="meta">
+            <span>${lobby.playerCount || 0}/${lobby.maxPlayers || 0}</span>
+            <span class="${live ? 'dot-live' : ''}">${live ? '● LIVE' : (lobby.state || 'idle').toUpperCase()}</span>
+          </div>
+        </div>`;
+      card.addEventListener('click', () => openDrawer(lobby));
+      grid.appendChild(card);
+    });
+  }
+
+  function openDrawer(lobby) {
+    state.selected = lobby;
+    const loadouts = lobby.loadouts && lobby.loadouts.length ? lobby.loadouts : state.loadouts;
+    state.pick.loadoutId = loadouts[0]?.id;
+    state.pick.weaponId = loadouts[0]?.weapons?.[0]?.id;
+    state.pick.team = 1;
+
+    $('drawerName').textContent = lobby.name;
+    $('drawerDesc').textContent = lobby.description || '';
+    $('drawerImage').src = lobby.mapImage || '';
+    const pill = $('drawerMode');
+    pill.textContent = modeLabel(lobby.mode);
+    pill.className = `mode-pill ${lobby.mode}`;
+    $('drawerMeta').innerHTML = `
+      <span>${lobby.mapName || ''}</span>
+      <span>${lobby.playerCount || 0} / ${lobby.maxPlayers || 0} fighters</span>
+      <span>${lobby.mode === 'showdown' ? `First to ${lobby.roundsToWin} rounds` : `First to ${lobby.killsToWin} kills`}</span>`;
+
+    const team = $('teamPick');
+    show(team, lobby.mode === 'tdm' || lobby.mode === 'showdown');
+    team.querySelectorAll('.team-btn').forEach((b) => {
+      b.classList.toggle('selected', Number(b.dataset.team) === state.pick.team);
+    });
+
+    renderLoadoutPicker('drawerLoadouts', 'drawerWeapons', loadouts, state.pick);
+    renderLiveBoard(lobby);
+    const kr = lobby.kill_rewards || {};
+    const wr = lobby.win_rewards || {};
+    const bits = [];
+    if (kr.health) bits.push(`+${kr.health} HP / kill`);
+    if (kr.armor) bits.push(`+${kr.armor} armour / kill`);
+    if (wr.money) bits.push(`$${wr.money} to winners`);
+    $('drawerRewards').textContent = bits.join(' · ') || 'No extra payouts';
+    show($('drawer'), true);
+  }
+
+  function renderLoadoutPicker(listId, wepId, loadouts, pick) {
+    const list = $(listId);
+    const weps = $(wepId);
+    list.innerHTML = '';
+    weps.innerHTML = '';
+    (loadouts || []).forEach((l) => {
+      const btn = document.createElement('button');
+      btn.className = `chip ${pick.loadoutId === l.id ? 'selected' : ''}`;
+      btn.textContent = l.label;
+      btn.addEventListener('click', () => {
+        pick.loadoutId = l.id;
+        pick.weaponId = l.weapons?.[0]?.id;
+        renderLoadoutPicker(listId, wepId, loadouts, pick);
+      });
+      list.appendChild(btn);
+    });
+    const current = (loadouts || []).find((l) => l.id === pick.loadoutId);
+    (current?.weapons || []).forEach((w) => {
+      const btn = document.createElement('button');
+      btn.className = `chip ${pick.weaponId === w.id ? 'selected' : ''}`;
+      btn.textContent = w.label;
+      btn.addEventListener('click', () => {
+        pick.weaponId = w.id;
+        renderLoadoutPicker(listId, wepId, loadouts, pick);
+      });
+      weps.appendChild(btn);
+    });
+  }
+
+  function renderLiveBoard(lobby) {
+    const box = $('drawerBoard');
+    const players = lobby.players || [];
+    if (!players.length) {
+      box.innerHTML = '<div class="live-row"><span>Waiting for fighters</span></div>';
+      return;
+    }
+    box.innerHTML = players.slice(0, 10).map((p) => `
+      <div class="live-row">
+        <span>${p.team === 1 ? 'A' : p.team === 2 ? 'B' : '#'} ${p.name}${p.title ? ` · ${p.title}` : ''}</span>
+        <span>${p.kills || 0}/${p.deaths || 0}</span>
+      </div>`).join('');
+  }
+
+  function renderBoard() {
+    const rows = state.leaderboard[state.boardMode] || [];
+    const top = $('top3');
+    top.innerHTML = '';
+    rows.slice(0, 3).forEach((p, i) => {
+      const el = document.createElement('div');
+      el.className = 'top-card';
+      el.innerHTML = `
+        <div class="avatar-lg">${initials(p.name)}</div>
+        <div class="title-chip">${p.title || ''}</div>
+        <h3>${p.name}</h3>
+        <small>${state.boardMode === 'showdown' ? `ELO ${p.elo}` : `${p.kills} kills`}</small>`;
+      top.appendChild(el);
+      if (i > 2) return;
+    });
+    $('boardRows').innerHTML = rows.map((p) => `
+      <div class="board-row">
+        <span><span class="rank-badge ${p.rank === 1 ? 'gold' : p.rank === 2 ? 'silver' : p.rank === 3 ? 'bronze' : ''}">${p.rank}</span></span>
+        <span>${p.name}</span>
+        <span>${p.title || '—'}</span>
+        <span>${p.kills}</span>
+        <span>${p.kd}</span>
+        <span>${p.elo}</span>
+      </div>`).join('');
+  }
+
+  function renderHistory() {
+    const list = $('historyList');
+    const empty = $('historyEmpty');
+    const rows = state.history || [];
+    show(empty, rows.length === 0);
+    list.innerHTML = rows.map((h) => `
+      <div class="history-row ${h.won ? 'win' : 'loss'}">
+        <div>
+          <strong>${h.lobby_name || h.lobbyName || h.mode}</strong>
+          <div style="color:var(--muted);font-size:0.8rem">${(h.mode || '').toUpperCase()} · ${h.scoreline || ''} · ${h.kills}/${h.deaths}</div>
+        </div>
+        <div>${h.won ? 'WIN' : 'LOSS'} ${h.elo_change || h.eloChange ? `(${(h.elo_change || h.eloChange) > 0 ? '+' : ''}${h.elo_change || h.eloChange})` : ''}</div>
+      </div>`).join('');
+  }
+
+  function renderStats() {
+    const grid = $('statsGrid');
+    grid.innerHTML = '';
+    ['ffa', 'tdm', 'showdown'].forEach((mode) => {
+      const s = state.stats[mode] || {};
+      const kd = s.deaths ? (s.kills / s.deaths).toFixed(2) : (s.kills || 0);
+      [
+        [mode.toUpperCase() + ' kills', s.kills || 0],
+        [mode.toUpperCase() + ' deaths', s.deaths || 0],
+        [mode.toUpperCase() + ' wins', s.wins || 0],
+        [mode.toUpperCase() + ' K/D', kd],
+        [mode.toUpperCase() + ' ELO', s.elo || 1000],
+      ].forEach(([label, val]) => {
+        const el = document.createElement('div');
+        el.className = 'stat-card';
+        el.innerHTML = `<span>${label}</span><strong>${val}</strong>`;
+        grid.appendChild(el);
+      });
+    });
   }
 
   function openUI(data) {
     state.open = true;
-    state.modes = data.modes || [];
-    state.maps = data.maps || [];
-    state.weaponsByCat = data.weapons || {};
-    state.choiceCategories = data.choiceCategories || ['pistols', 'smgs', 'rifles'];
-    state.playerId = data.playerId;
     state.playerName = data.playerName || 'Player';
+    state.playerId = data.playerId;
+    state.loadouts = data.loadouts || [];
+    state.lobbies = data.lobbies || [];
     state.stats = data.stats || {};
-    state.leaderboard = data.leaderboard || [];
-    state.lobby = null;
-
-    document.getElementById('profileName').textContent = state.playerName;
-    document.getElementById('avatarCircle').textContent = initials(state.playerName);
-    document.getElementById('statElo').textContent = state.stats.elo ?? 1000;
-    document.getElementById('statCoins').textContent = state.stats.wins ?? 0;
-
-    show(app, true);
-    buildCreateModal();
-    if (data.queue) {
-      // stay on lobbies
-    }
-    setTab('lobbies');
-    refreshLobbies();
+    state.leaderboard = data.leaderboard || state.leaderboard;
+    state.history = data.history || [];
+    $('profileName').textContent = state.playerName;
+    $('avatarCircle').textContent = initials(state.playerName);
+    const sd = state.stats.showdown || {};
+    $('profileTitle').textContent = sd.elo ? `ELO ${sd.elo}` : 'Unranked';
+    show($('app'), true);
+    setPage('arenas');
   }
 
   function closeUI() {
     state.open = false;
-    show(app, false);
-    show(document.getElementById('createModal'), false);
+    show($('app'), false);
+    show($('drawer'), false);
+    show($('loadoutModal'), false);
+    nui('close');
   }
 
-  /* ---------- Lobbies list ---------- */
-  async function refreshLobbies() {
-    const list = await nui('listLobbies') || [];
-    const wrap = document.getElementById('lobbyList');
-    const empty = document.getElementById('lobbyEmpty');
-    wrap.innerHTML = '';
-    if (!list.length) {
-      show(empty, true);
-      return;
-    }
-    show(empty, false);
-    list.forEach((lobby) => {
-      const row = document.createElement('div');
-      row.className = 'lobby-card';
-      row.innerHTML = `
-        <div>
-          <strong>${lobby.modeLabel}</strong>
-          <small>${lobby.mapLabel} · ${lobby.players.length}/${lobby.maxPlayers}${lobby.private ? ' · PRIVATE' : ''}</small>
-        </div>
-        <button class="btn-accent">Join</button>
-      `;
-      row.querySelector('button').addEventListener('click', async () => {
-        // Use first weapon of mode if none selected from loadout
-        let weaponId = state.create.weaponId || state.ffa.weaponId;
-        if (!weaponId) {
-          const classId = state.loadoutClass || 'pistols';
-          const cat = state.weaponsByCat[classId];
-          weaponId = cat?.weapons?.[0]?.id;
-        }
-        if (!weaponId) return;
-        const res = await nui('joinLobby', { matchId: lobby.id, weaponId });
-        if (res?.ok) showRoom(res.lobby);
-      });
-      wrap.appendChild(row);
-    });
-  }
-
-  /* ---------- Create modal ---------- */
-  function buildCreateModal() {
-    const pvp = document.getElementById('pvpSizes');
-    const tdm = document.getElementById('tdmSizes');
-    pvp.innerHTML = '';
-    tdm.innerHTML = '';
-    for (let i = 1; i <= 5; i++) {
-      pvp.appendChild(sizeBtn(i, 'pvp'));
-      tdm.appendChild(sizeBtn(i, 'tdm'));
-    }
-
-    const classes = document.getElementById('weaponClasses');
-    classes.innerHTML = '';
-    [
-      { id: 'pistols', label: 'PISTOL' },
-      { id: 'smgs', label: 'SMG' },
-      { id: 'rifles', label: 'RIFLE' },
-    ].forEach((c) => {
-      const btn = document.createElement('button');
-      btn.className = 'select-opt' + (state.create.weaponClass === c.id ? ' selected' : '');
-      btn.textContent = c.label;
-      btn.addEventListener('click', () => {
-        state.create.weaponClass = c.id;
-        state.create.weaponId = null;
-        buildCreateModal();
-      });
-      classes.appendChild(btn);
-    });
-
-    const maps = document.getElementById('arenaMaps');
-    maps.innerHTML = '';
-    state.maps.forEach((m) => {
-      const btn = document.createElement('button');
-      btn.className = 'select-opt' + (state.create.mapId === m.id ? ' selected' : '');
-      btn.textContent = m.label;
-      btn.addEventListener('click', () => {
-        state.create.mapId = m.id;
-        buildCreateModal();
-      });
-      maps.appendChild(btn);
-    });
-    if (!state.create.mapId && state.maps[0]) state.create.mapId = state.maps[0].id;
-
-    const isTdm = state.create.style === 'tdm';
-    document.getElementById('roundsLabel').textContent = isTdm
-      ? 'Kills for Death Match'
-      : 'Rounds for PVP Match';
-    document.getElementById('roundsHint').textContent = isTdm
-      ? 'Choose between 1 and 40 kill target'
-      : 'Choose between 1 and 40 rounds';
-
-    // highlight size buttons
-    pvp.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('selected', state.create.style === 'pvp' && Number(b.dataset.size) === state.create.size);
-    });
-    tdm.querySelectorAll('button').forEach((b) => {
-      b.classList.toggle('selected', state.create.style === 'tdm' && Number(b.dataset.size) === state.create.size);
-    });
-    maps.querySelectorAll('button').forEach((b) => {
-      // already set via selected class above
-    });
-
-    renderCreateWeapons();
-  }
-
-  function sizeBtn(size, style) {
-    const btn = document.createElement('button');
-    btn.className = 'select-opt';
-    btn.dataset.size = size;
-    btn.textContent = `${size}v${size} ${style.toUpperCase()}`;
+  document.querySelectorAll('.rail-btn').forEach((btn) => {
+    btn.addEventListener('click', () => setPage(btn.dataset.page));
+  });
+  document.querySelectorAll('#modeFilters .mode-chip').forEach((btn) => {
     btn.addEventListener('click', () => {
-      state.create.size = size;
-      state.create.style = style;
-      buildCreateModal();
+      state.modeFilter = btn.dataset.mode;
+      document.querySelectorAll('#modeFilters .mode-chip').forEach((b) => b.classList.toggle('active', b === btn));
+      renderLobbies();
     });
-    return btn;
-  }
-
-  function renderCreateWeapons() {
-    const wrap = document.getElementById('createWeapons');
-    wrap.innerHTML = '';
-    const cat = state.weaponsByCat[state.create.weaponClass];
-    const list = cat?.weapons || [];
-    list.forEach((w) => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (state.create.weaponId === w.id ? ' selected' : '');
-      btn.textContent = w.label;
-      btn.addEventListener('click', () => {
-        state.create.weaponId = w.id;
-        renderCreateWeapons();
-      });
-      wrap.appendChild(btn);
-    });
-    if (!state.create.weaponId && list[0]) {
-      state.create.weaponId = list[0].id;
-      renderCreateWeapons();
-    }
-  }
-
-  /* ---------- Room ---------- */
-  function showRoom(lobby) {
-    state.lobby = lobby;
-    setTab('room');
-    // fake nav highlight - room isn't in nav
-    document.querySelectorAll('.nav-tab').forEach((b) => b.classList.remove('active'));
-
-    document.getElementById('roomMeta').textContent =
-      `${lobby.modeLabel} · ${lobby.mapLabel} · ${lobby.players.length}/${lobby.maxPlayers}` +
-      (lobby.private ? ' · PRIVATE' : '');
-
-    const teams = document.getElementById('teamLists');
-    teams.innerHTML = '';
-    const isTeam = lobby.modeType === 'tdm' || lobby.modeType === 'team';
-
-    if (isTeam) {
-      ['red', 'blue'].forEach((team) => {
-        const col = document.createElement('div');
-        col.className = `team-col ${team}`;
-        col.innerHTML = `<h4>${team.toUpperCase()}</h4>`;
-        lobby.players.filter((p) => p.team === team).forEach((p) => {
-          const row = document.createElement('div');
-          row.className = 'player-row';
-          row.innerHTML = `<span>${p.name}</span><span class="${p.ready ? 'ready' : 'waiting'}">${p.ready ? 'READY' : '...'}</span>`;
-          col.appendChild(row);
-        });
-        col.addEventListener('click', async () => {
-          await nui('setTeam', { team });
-          const refreshed = await nui('refreshLobby');
-          if (refreshed) showRoom(refreshed);
-        });
-        teams.appendChild(col);
-      });
-    } else {
-      const col = document.createElement('div');
-      col.className = 'team-col ffa';
-      col.innerHTML = '<h4>FIGHTERS</h4>';
-      lobby.players.forEach((p) => {
-        const row = document.createElement('div');
-        row.className = 'player-row';
-        row.innerHTML = `<span>${p.name}</span><span class="${p.ready ? 'ready' : 'waiting'}">${p.ready ? 'READY' : '...'}</span>`;
-        col.appendChild(row);
-      });
-      teams.appendChild(col);
-    }
-
-    const me = lobby.players.find((p) => p.id === state.playerId);
-    state.ready = !!(me && me.ready);
-    document.getElementById('btnReady').textContent = state.ready ? 'Unready' : 'Ready';
-    show(document.getElementById('btnStart'), lobby.private === true && lobby.host === state.playerId);
-  }
-
-  /* ---------- FFA ---------- */
-  function renderFfa() {
-    const grid = document.getElementById('ffaGrid');
-    grid.innerHTML = '';
-    const ffaModes = state.modes.filter((m) => m.type === 'ffa' || m.tab === 'ffa');
-    ffaModes.forEach((mode) => {
-      const btn = document.createElement('button');
-      btn.className = 'ffa-card' + (state.ffa.modeId === mode.id ? ' selected' : '');
-      btn.innerHTML = `<h3>${mode.label}</h3><p>${mode.description || ''}</p>`;
-      btn.addEventListener('click', () => {
-        state.ffa.modeId = mode.id;
-        state.ffa.weaponId = null;
-        renderFfa();
-        renderFfaWeapons(mode);
-      });
-      grid.appendChild(btn);
-    });
-  }
-
-  async function renderFfaWeapons(mode) {
-    const pick = document.getElementById('ffaWeaponPick');
-    const wrap = document.getElementById('ffaWeapons');
-    show(pick, true);
-    const weapons = await nui('getWeapons', { modeId: mode.id }) || [];
-    wrap.innerHTML = '';
-    weapons.forEach((w) => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (state.ffa.weaponId === w.id ? ' selected' : '');
-      btn.textContent = w.label;
-      btn.addEventListener('click', () => {
-        state.ffa.weaponId = w.id;
-        renderFfaWeapons(mode);
-      });
-      wrap.appendChild(btn);
-    });
-  }
-
-  /* ---------- Stats / Leaderboard / Loadout ---------- */
-  function renderMyStats() {
-    const s = state.stats || {};
-    const kd = s.deaths > 0 ? (s.kills / s.deaths).toFixed(2) : (s.kills || 0);
-    document.getElementById('myStatsCards').innerHTML = `
-      <div class="stat-card"><span>Kills</span><strong>${s.kills || 0}</strong></div>
-      <div class="stat-card"><span>Deaths</span><strong>${s.deaths || 0}</strong></div>
-      <div class="stat-card"><span>K/D</span><strong>${kd}</strong></div>
-      <div class="stat-card"><span>Wins</span><strong>${s.wins || 0}</strong></div>
-      <div class="stat-card"><span>Losses</span><strong>${s.losses || 0}</strong></div>
-      <div class="stat-card"><span>ELO</span><strong>${s.elo || 1000}</strong></div>
-    `;
-  }
-
-  async function renderLeaderboard() {
-    const list = await nui('getLeaderboard') || state.leaderboard || [];
-    state.leaderboard = list;
-    const top3 = document.getElementById('top3');
-    const rows = document.getElementById('boardRows');
-    top3.innerHTML = '';
-    rows.innerHTML = '';
-
-    const medals = ['🥇', '🥈', '🥉'];
-    const badge = ['gold', 'silver', 'bronze'];
-
-    for (let i = 0; i < Math.min(3, list.length); i++) {
-      const p = list[i];
-      const card = document.createElement('div');
-      card.className = 'top-card';
-      card.innerHTML = `
-        <div class="rank-trophy">${medals[i]}</div>
-        <div class="avatar-lg">${initials(p.name)}</div>
-        ${p.gang ? `<div class="gang">${p.gang}</div>` : '<div class="gang">ARENA</div>'}
-        <h3>${p.name}</h3>
-        <div class="elo">${p.elo || 1000} ELO</div>
-        <div class="pair">
-          <div><small>KILLS</small><b>${p.kills || 0}</b></div>
-          <div><small>DEATHS</small><b>${p.deaths || 0}</b></div>
-        </div>
-      `;
-      top3.appendChild(card);
-    }
-
-    list.forEach((p, idx) => {
-      const row = document.createElement('div');
-      row.className = 'board-row' + (idx === 0 ? ' rank1' : '');
-      const bclass = badge[idx] || '';
-      row.innerHTML = `
-        <span><span class="rank-badge ${bclass}">${p.rank || idx + 1}</span></span>
-        <span class="player-cell">
-          <span class="avatar-sm">${initials(p.name)}</span>
-          ${p.gang ? `<span class="gang-tag">${p.gang}</span>` : ''}
-          <span>${p.name}</span>
-        </span>
-        <span>${p.kills || 0}</span>
-        <span>${p.deaths || 0}</span>
-        <span>${p.kd ?? '0'}</span>
-      `;
-      rows.appendChild(row);
-    });
-  }
-
-  function renderLoadout() {
-    const classes = document.getElementById('loadoutClasses');
-    const weapons = document.getElementById('loadoutWeapons');
-    classes.innerHTML = '';
-    [
-      { id: 'pistols', label: 'PISTOL' },
-      { id: 'smgs', label: 'SMG' },
-      { id: 'rifles', label: 'RIFLE' },
-    ].forEach((c) => {
-      const btn = document.createElement('button');
-      btn.className = 'chip' + (state.loadoutClass === c.id ? ' selected' : '');
-      btn.textContent = c.label;
-      btn.addEventListener('click', () => {
-        state.loadoutClass = c.id;
-        renderLoadout();
-      });
-      classes.appendChild(btn);
-    });
-
-    weapons.innerHTML = '';
-    const list = state.weaponsByCat[state.loadoutClass]?.weapons || [];
-    list.forEach((w) => {
-      const card = document.createElement('button');
-      card.className = 'weapon-card' + (state.create.weaponId === w.id ? ' selected' : '');
-      card.innerHTML = `<h3>${w.label}</h3><p>${w.ammo || 0} ammo</p>`;
-      card.addEventListener('click', () => {
-        state.create.weaponId = w.id;
-        state.create.weaponClass = state.loadoutClass;
-        renderLoadout();
-      });
-      weapons.appendChild(card);
-    });
-  }
-
-  /* ---------- HUD helpers ---------- */
-  function formatTime(total) {
-    total = Math.max(0, Math.floor(total));
-    const m = Math.floor(total / 60);
-    const s = total % 60;
-    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-  }
-
-  function startTimer(endsAt, serverNow) {
-    if (state.timerInterval) clearInterval(state.timerInterval);
-    if (!endsAt) return;
-    const localNow = Math.floor(Date.now() / 1000);
-    state.serverOffset = (serverNow || localNow) - localNow;
-    const tick = () => {
-      const now = Math.floor(Date.now() / 1000) + state.serverOffset;
-      document.getElementById('hudTimer').textContent = formatTime(endsAt - now);
-    };
-    tick();
-    state.timerInterval = setInterval(tick, 500);
-  }
-
-  function updateHud(data = {}) {
-    if (data.modeLabel) document.getElementById('hudMode').textContent = data.modeLabel;
-    if (data.mapLabel) document.getElementById('hudMap').textContent = data.mapLabel;
-    const score = document.getElementById('hudScore');
-    if (data.scores && data.scores.red != null) {
-      score.innerHTML = `<span class="red">RED ${data.scores.red}</span><span class="blue">BLUE ${data.scores.blue}</span>`;
-    }
-    if (data.players && data.players.every((p) => p.team === 'ffa')) {
-      const top = [...data.players].sort((a, b) => (b.kills || 0) - (a.kills || 0)).slice(0, 5);
-      score.innerHTML = top.map((p) => `<span>${p.name} ${p.kills || 0}</span>`).join(' ');
-    }
-    if (data.endsAt) startTimer(data.endsAt, data.serverNow);
-  }
-
-  function pushKillfeed(entry) {
-    const feed = document.getElementById('killfeed');
-    const item = document.createElement('div');
-    item.className = 'kill-item';
-    item.textContent = entry.killer ? `${entry.killer} ✖ ${entry.victim}` : `${entry.victim} died`;
-    feed.prepend(item);
-    setTimeout(() => item.remove(), 4000);
-  }
-
-  /* ---------- Events ---------- */
-  document.getElementById('btnClose').addEventListener('click', () => nui('close'));
-  document.getElementById('btnOpenCreate').addEventListener('click', () => {
-    buildCreateModal();
-    show(document.getElementById('createModal'), true);
   });
-  document.getElementById('btnCloseCreate').addEventListener('click', () => show(document.getElementById('createModal'), false));
-  document.getElementById('btnCancelCreate').addEventListener('click', () => show(document.getElementById('createModal'), false));
-
-  document.getElementById('roundsInput').addEventListener('change', (e) => {
-    state.create.rounds = Math.max(1, Math.min(40, Number(e.target.value) || 5));
+  document.querySelectorAll('#boardModes .mode-chip').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      state.boardMode = btn.dataset.board;
+      document.querySelectorAll('#boardModes .mode-chip').forEach((b) => b.classList.toggle('active', b === btn));
+      const list = await nui('getLeaderboard', { mode: state.boardMode });
+      if (list) state.leaderboard[state.boardMode] = list;
+      renderBoard();
+    });
   });
-  document.getElementById('privateCheck').addEventListener('change', (e) => {
-    state.create.private = !!e.target.checked;
+  $('btnClose').addEventListener('click', closeUI);
+  $('btnCloseDrawer').addEventListener('click', () => show($('drawer'), false));
+  $('teamPick').addEventListener('click', (e) => {
+    const btn = e.target.closest('.team-btn');
+    if (!btn) return;
+    state.pick.team = Number(btn.dataset.team);
+    $('teamPick').querySelectorAll('.team-btn').forEach((b) => b.classList.toggle('selected', b === btn));
   });
-
-  document.getElementById('btnConfirmCreate').addEventListener('click', async () => {
-    state.create.rounds = Math.max(1, Math.min(40, Number(document.getElementById('roundsInput').value) || 5));
-    if (!state.create.mapId || !state.create.weaponId) return;
-    const res = await nui('createLobby', {
-      size: state.create.size,
-      style: state.create.style,
-      weaponClass: state.create.weaponClass,
-      mapId: state.create.mapId,
-      rounds: state.create.rounds,
-      private: state.create.private,
-      weaponId: state.create.weaponId,
+  $('btnJoin').addEventListener('click', async () => {
+    if (!state.selected) return;
+    const res = await nui('joinLobby', {
+      lobbyId: state.selected.id,
+      loadoutId: state.pick.loadoutId,
+      weaponId: state.pick.weaponId,
+      team: state.pick.team,
     });
     if (res?.ok) {
-      show(document.getElementById('createModal'), false);
-      showRoom(res.lobby);
+      show($('drawer'), false);
+      closeUI();
     }
   });
+  $('btnCancelLoadout').addEventListener('click', () => {
+    show($('loadoutModal'), false);
+    nui('close');
+  });
+  $('btnApplyLoadout').addEventListener('click', async () => {
+    await nui('changeLoadout', state.livePick);
+    show($('loadoutModal'), false);
+  });
 
-  document.getElementById('btnFfaQueue').addEventListener('click', async () => {
-    if (!state.ffa.modeId || !state.ffa.weaponId) return;
-    const res = await nui('joinQueue', {
-      modeId: state.ffa.modeId,
-      weaponId: state.ffa.weaponId,
-      mapId: null,
-    });
-    if (res?.ok && (res.data?.type === 'lobby' || res.data?.type === 'matched')) {
-      showRoom(res.data.lobby);
+  function renderHud(data) {
+    if (!data) return;
+    const plate = $('scorePlate');
+    const me = data.me || {};
+    if (data.mode === 'tdm' || data.mode === 'showdown') {
+      plate.innerHTML = `
+        <div class="mode">${modeLabel(data.mode)}${data.round ? ` · ROUND ${data.round}` : ''}</div>
+        <div class="nums"><span class="t1">${data.scores?.[1] || 0}</span> — <span class="t2">${data.scores?.[2] || 0}</span></div>
+        <div class="sub">${me.kills || 0} / ${me.deaths || 0} · ${data.mapName || ''}</div>`;
+    } else {
+      const sorted = [...(data.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0));
+      const place = Math.max(1, sorted.findIndex((p) => p.id === me.id) + 1 || 1);
+      const lead = sorted[0]?.kills || 0;
+      plate.innerHTML = `
+        <div class="mode">FREE FOR ALL</div>
+        <div class="nums">${me.kills || 0} <span style="color:var(--muted);font-size:1.1rem">kills</span></div>
+        <div class="sub">#${place} · lead ${lead} / ${data.killsToWin || 30} · ${me.deaths || 0} deaths</div>`;
     }
-  });
 
-  document.getElementById('btnReady').addEventListener('click', async () => {
-    const res = await nui('setReady', {
-      ready: !state.ready,
-      weaponId: state.create.weaponId || state.ffa.weaponId,
-    });
-    if (res?.ok && res.lobby) showRoom(res.lobby);
-  });
-  document.getElementById('btnStart').addEventListener('click', async () => { await nui('startMatch'); });
-  document.getElementById('btnLeaveLobby').addEventListener('click', async () => {
-    await nui('leave');
-    state.lobby = null;
-    setTab('lobbies');
-  });
-
-  document.querySelectorAll('.nav-tab').forEach((btn) => {
-    btn.addEventListener('click', () => setTab(btn.dataset.tab));
-  });
+    const panel = $('teamPanel');
+    if (data.teamPanel) {
+      show(panel, true);
+      const mine = (data.players || []).filter((p) => p.team === data.team);
+      panel.innerHTML = `<h4>YOUR SIDE</h4>` + mine.map((p) => `
+        <div class="tp-row ${p.alive === false ? 'down' : ''}">
+          <span>${p.name}${data.titles && p.title ? ` · ${p.title}` : ''}</span>
+          <span>${p.alive === false ? '✕' : '●'}</span>
+        </div>`).join('');
+    } else {
+      show(panel, false);
+    }
+  }
 
   window.addEventListener('message', (event) => {
-    const msg = event.data;
-    if (!msg || !msg.action) return;
-
-    switch (msg.action) {
-      case 'open': openUI(msg.data || {}); break;
-      case 'close': closeUI(); break;
-      case 'lobbyUpdate': if (msg.data) showRoom(msg.data); break;
-      case 'queueMatched': if (msg.data) showRoom(msg.data); break;
-      case 'matchHud':
-        show(document.getElementById('matchHud'), !!msg.visible);
-        if (msg.visible && msg.data) updateHud(msg.data);
-        if (!msg.visible && state.timerInterval) {
-          clearInterval(state.timerInterval);
-          state.timerInterval = null;
-        }
-        break;
-      case 'timer': startTimer(msg.endsAt, msg.serverNow); break;
-      case 'killfeed':
-        pushKillfeed(msg.data || {});
-        if (msg.data) updateHud(msg.data);
-        break;
-      case 'countdown': {
-        const el = document.getElementById('countdown');
-        const num = document.getElementById('countdownNum');
-        if (!msg.seconds) { show(el, false); break; }
-        show(el, true);
-        let left = msg.seconds;
-        num.textContent = left;
-        const iv = setInterval(() => {
-          left -= 1;
-          if (left <= 0) { clearInterval(iv); show(el, false); return; }
-          num.textContent = left;
-        }, 1000);
-        break;
-      }
-      case 'deathOverlay':
-        show(document.getElementById('deathOverlay'), !!msg.visible);
-        break;
-      case 'matchResult': {
-        const wrap = document.getElementById('matchResult');
-        if (!msg.data) { show(wrap, false); break; }
-        const title = document.getElementById('resultTitle');
-        const sub = document.getElementById('resultSub');
-        title.textContent = msg.data.outcome === 'win' ? 'VICTORY' : msg.data.outcome === 'loss' ? 'DEFEAT' : 'DRAW';
-        sub.textContent = msg.data.result?.winnerName
-          || (msg.data.result?.winnerTeam ? `${msg.data.result.winnerTeam.toUpperCase()} wins` : '');
-        show(wrap, true);
-        setTimeout(() => show(wrap, false), 3500);
-        break;
-      }
-      default: break;
+    const msg = event.data || {};
+    if (msg.action === 'open') openUI(msg.data || {});
+    if (msg.action === 'close') {
+      state.open = false;
+      show($('app'), false);
+      show($('drawer'), false);
+      show($('loadoutModal'), false);
+    }
+    if (msg.action === 'refreshLobbies') {
+      nui('listLobbies').then((list) => {
+        if (list) { state.lobbies = list; if (state.page === 'arenas') renderLobbies(); }
+      });
+    }
+    if (msg.action === 'lobbyUpdate' && msg.data) {
+      state.lobbies = state.lobbies.map((l) => l.id === msg.data.id ? msg.data : l);
+      if (state.selected?.id === msg.data.id) openDrawer(msg.data);
+    }
+    if (msg.action === 'openLoadout') {
+      const loadouts = msg.data?.loadouts || state.loadouts;
+      state.livePick.loadoutId = loadouts[0]?.id;
+      state.livePick.weaponId = loadouts[0]?.weapons?.[0]?.id;
+      renderLoadoutPicker('liveLoadouts', 'liveWeapons', loadouts, state.livePick);
+      show($('loadoutModal'), true);
+    }
+    if (msg.action === 'matchHud') {
+      show($('matchHud'), !!msg.visible);
+      if (msg.visible && msg.data) renderHud(msg.data);
+    }
+    if (msg.action === 'killfeed' && msg.data) {
+      const feed = $('killfeed');
+      const row = document.createElement('div');
+      row.className = 'kill-item';
+      row.innerHTML = `<strong>${msg.data.killer || 'World'}</strong><span class="wep">${(msg.data.category || '').toUpperCase()}</span>${msg.data.victim}`;
+      feed.prepend(row);
+      setTimeout(() => row.remove(), 4200);
+      if (feed.children.length > 6) feed.lastChild.remove();
+    }
+    if (msg.action === 'hitmarker') {
+      const el = $('hitmarker');
+      el.className = `hitmarker ${msg.kind || 'hit'}`;
+      $('hitDmg').textContent = msg.damage ? msg.damage : '';
+      show(el, true);
+      clearTimeout(el._t);
+      el._t = setTimeout(() => show(el, false), 280);
+    }
+    if (msg.action === 'killstreak') {
+      $('streakLabel').textContent = msg.label || '';
+      $('streakName').textContent = '';
+      const el = $('streak');
+      show(el, true);
+      clearTimeout(el._t);
+      el._t = setTimeout(() => show(el, false), 1600);
+    }
+    if (msg.action === 'countdown') {
+      if (!msg.seconds) { show($('countdown'), false); return; }
+      $('countdownRound').textContent = msg.round ? `ROUND ${msg.round}` : '';
+      show($('countdown'), true);
+      let n = msg.seconds;
+      $('countdownNum').textContent = n;
+      clearInterval(window._cd);
+      window._cd = setInterval(() => {
+        n -= 1;
+        if (n <= 0) { clearInterval(window._cd); show($('countdown'), false); return; }
+        $('countdownNum').textContent = n;
+      }, 1000);
+    }
+    if (msg.action === 'bounds') {
+      show($('bounds'), !!msg.visible);
+      if (msg.visible) $('boundsNum').textContent = msg.seconds;
+    }
+    if (msg.action === 'deathOverlay') show($('deathOverlay'), !!msg.visible);
+    if (msg.action === 'spectate') {
+      show($('spectateBar'), !!msg.visible);
+      if (msg.name) $('spectateName').textContent = msg.name;
+      $('spectateHint').textContent = msg.hint || '';
+    }
+    if (msg.action === 'matchResult') {
+      if (!msg.data) { show($('matchResult'), false); return; }
+      const d = msg.data;
+      $('resultTitle').textContent = d.outcome === 'win' ? 'VICTORY' : d.outcome === 'loss' ? 'DEFEAT' : 'DRAW';
+      $('resultSub').textContent = d.result?.scoreline ? `Score ${d.result.scoreline}` : '';
+      $('resultElo').textContent = d.eloChange ? `${d.eloChange > 0 ? '+' : ''}${d.eloChange} ELO` : '';
+      show($('matchResult'), true);
+      setTimeout(() => show($('matchResult'), false), 6500);
     }
   });
 
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && state.open) {
-      if (!document.getElementById('createModal').classList.contains('hidden')) {
-        show(document.getElementById('createModal'), false);
-      } else {
-        nui('close');
-      }
+    if (e.key === 'Escape' && (state.open || !$('loadoutModal').classList.contains('hidden'))) {
+      closeUI();
     }
   });
+
+  if (!IN_GAME) {
+    MOCK.lobbies.forEach((l) => { l.loadouts = MOCK.loadouts; });
+    openUI(MOCK);
+    show($('matchHud'), true);
+    renderHud({
+      mode: 'showdown', round: 3, scores: { 1: 2, 2: 1 }, mapName: 'Rooftops',
+      killsToWin: 5, teamPanel: true, team: 1, titles: true,
+      me: { id: 1, kills: 4, deaths: 1 },
+      players: MOCK.lobbies[2].players,
+    });
+  }
 })();

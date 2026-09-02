@@ -4,25 +4,42 @@ lua54 'yes'
 
 name 'cursor_arena'
 author 'DJ FiveM'
-description 'Configurable PVP arena with FFA, TDM, and ranked team modes'
-version '1.0.0'
+description 'PvP arenas — FFA, TDM and ranked Showdown. Qbox / ox_lib / ox_inventory / ox_target / wasabi.'
+version '2.0.0'
 
 shared_scripts {
     '@ox_lib/init.lua',
     'config/config.lua',
-    'config/maps.lua',
-    'config/modes.lua',
     'config/weapons.lua',
+    'config/maps.lua',
+    'config/lobbies.lua',
     'shared/*.lua',
     'locales/*.lua',
 }
 
 client_scripts {
-    'client/*.lua',
+    'client/00_state.lua',
+    'client/open_cl.lua',
+    'client/ambulance.lua',
+    'client/combat.lua',
+    'client/spectate.lua',
+    'client/arena.lua',
+    'client/ui.lua',
+    'client/main.lua',
 }
 
 server_scripts {
-    'server/*.lua',
+    '@oxmysql/lib/MySQL.lua',
+    'config/discord.lua',
+    'server/open_sv.lua',
+    'server/framework.lua',
+    'server/inventory.lua',
+    'server/ambulance.lua',
+    'server/voice.lua',
+    'server/discord.lua',
+    'server/stats.lua',
+    'server/match.lua',
+    'server/main.lua',
 }
 
 ui_page 'web/index.html'
@@ -36,7 +53,6 @@ files {
 
 dependencies {
     'ox_lib',
-    'ox_inventory',
 }
 
 provides {
