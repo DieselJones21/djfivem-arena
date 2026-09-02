@@ -1,0 +1,13 @@
+{
+  "name": "cursor_arena (FiveM Qbox/ox PvP)",
+  "install": "./.cursor/install.sh",
+  "terminals": [
+    {
+      "name": "arena-nui",
+      "command": "python3 -m http.server 4590 --bind 0.0.0.0 --directory cursor_arena/web"
+    }
+  ],
+  "ports": [
+    { "name": "arena-nui", "port": 4590 }
+  ]
+}
