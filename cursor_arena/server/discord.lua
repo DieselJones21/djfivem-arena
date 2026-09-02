@@ -30,9 +30,9 @@ function Arena.Discord.MatchEnded(mode, result)
     if result.winnerSrc then
         winner = result.winnerName or ('ID ' .. result.winnerSrc)
     elseif result.winner == 1 then
-        winner = 'Alpha'
+        winner = 'Orange'
     elseif result.winner == 2 then
-        winner = 'Bravo'
+        winner = 'Blue'
     end
 
     local color = mode == 'ffa' and 16721408 or (mode == 'tdm' and 3900159 or 11038711)

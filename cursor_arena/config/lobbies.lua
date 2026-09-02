@@ -27,7 +27,7 @@ local function tdmLobby(mapId)
     return {
         id = 'tdm_' .. mapId,
         name = 'TDM',
-        description = 'Alpha vs Bravo. Shared score.',
+        description = 'Orange vs Blue. Shared score.',
         map = mapId,
         maxPlayersPerTeam = 5,
         killsToWin = 50,

@@ -7,7 +7,7 @@
 Config.Maps = {
     {
         id = 'arena_1',
-        name = 'Arena 1',
+        name = 'Park',
         description = 'FFA and TDM.',
         image = 'assets/map_construction.svg',
         center = vec3(4016.88, 1311.93, 679.64),
@@ -32,7 +32,7 @@ Config.Maps = {
     },
     {
         id = 'arena_2',
-        name = 'Arena 2',
+        name = 'Wreck',
         description = 'FFA and TDM.',
         image = 'assets/map_warehouse.svg',
         center = vec3(5366.9, -1106.72, 357.59),
@@ -57,7 +57,7 @@ Config.Maps = {
     },
     {
         id = 'pvp_1',
-        name = 'PVP 1',
+        name = 'Stables',
         description = '1v1–4v4.',
         image = 'assets/map_construction.svg',
         center = vec3(-3267.18, 1685.87, 1010.78),
@@ -67,7 +67,7 @@ Config.Maps = {
     },
     {
         id = 'pvp_2',
-        name = 'PVP 2',
+        name = 'Stores',
         description = '1v1–4v4.',
         image = 'assets/map_warehouse.svg',
         center = vec3(-3981.09, 2781.07, 513.31),
@@ -77,7 +77,7 @@ Config.Maps = {
     },
     {
         id = 'pvp_3',
-        name = 'PVP 3',
+        name = 'PVP Map',
         description = '1v1–4v4.',
         image = 'assets/map_docks.svg',
         center = vec3(-2823.38, 1906.54, 1011.82),
@@ -87,7 +87,7 @@ Config.Maps = {
     },
     {
         id = 'pvp_4',
-        name = 'PVP 4',
+        name = 'Rooftop',
         description = '1v1–4v4.',
         image = 'assets/map_ring.svg',
         center = vec3(-3410.66, 2780.62, 517.29),

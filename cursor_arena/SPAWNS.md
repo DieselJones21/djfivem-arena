@@ -7,6 +7,6 @@
 | Exit ped | `vec4(5477.07, -5828.0, 1049.95, 174.18)` |
 | Clothing ped | `vec4(5499.02, -5865.86, 1050.95, 68.63)` |
 
-Maps in `config/maps.lua`: arena_1, arena_2 (12 FFA + team rally), pvp_1–pvp_4 (one Alpha, one Bravo).
+Maps in `config/maps.lua`: Park, Wreck, Stables, Stores, PVP Map, Rooftop. Teams are Orange and Blue.
 
 Blue Wire spawn name: `WEAPON_BLUEWIRE`.

@@ -98,8 +98,10 @@ local function drawNameplates()
             if ped and ped ~= 0 and DoesEntityExist(ped) then
                 local coords = GetEntityCoords(ped)
                 if #(coords - myCoords) <= range then
+                    local r, g, b = 59, 158, 255
+                    if Arena.Client.team == 1 then r, g, b = 255, 138, 26 end
                     DrawMarker(2, coords.x, coords.y, coords.z + 1.15, 0, 0, 0, 0, 180.0, 0,
-                        0.18, 0.18, 0.18, 80, 200, 255, 180, false, true, 2, false, nil, nil, false)
+                        0.18, 0.18, 0.18, r, g, b, 180, false, true, 2, false, nil, nil, false)
                 end
             end
         end
