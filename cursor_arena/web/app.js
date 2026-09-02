@@ -11,6 +11,16 @@
     { id: 'tdm', label: 'TDM', blurb: '5v5 · first to 50' },
   ];
   const TABS = ['lobbies', 'loadout', 'shop', 'ranking', 'history'];
+  const MAP_THUMBS = {
+    pvp_1: 'assets/map_stables.jpg',
+    pvp_3: 'assets/map_pvp.jpg',
+    pvp_4: 'assets/map_rooftop.jpg',
+  };
+
+  function mapThumb(entry) {
+    if (!entry) return '';
+    return MAP_THUMBS[entry.mapId] || entry.mapImage || '';
+  }
 
   const state = {
     open: false,
@@ -59,13 +69,14 @@
     lobbies: [
       { id: 'ffa_arena_1', name: 'FFA', mode: 'ffa', mapId: 'arena_1', mapName: 'Park', mapImage: 'assets/map_construction.svg', playerCount: 6, maxPlayers: 12, killsToWin: 30, state: 'active', sizeLabel: 'FFA', players: [{ id: 1, name: 'Diesel', kills: 8, deaths: 2, team: 0, weapon: 'g17' }] },
       { id: 'ffa_arena_2', name: 'FFA', mode: 'ffa', mapId: 'arena_2', mapName: 'Wreck', mapImage: 'assets/map_warehouse.svg', playerCount: 2, maxPlayers: 12, killsToWin: 30, state: 'waiting', sizeLabel: 'FFA', players: [{ id: 2, name: 'Nova', team: 0 }] },
-      { id: 'pvp_1v1_pvp_1', name: '1v1', mode: 'pvp', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_construction.svg', playerCount: 1, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'waiting', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', kills: 0, deaths: 0, team: 1, weapon: 'g17' }] },
+      { id: 'pvp_1v1_pvp_1', name: '1v1', mode: 'pvp', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_stables.jpg', playerCount: 1, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'waiting', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', kills: 0, deaths: 0, team: 1, weapon: 'g17' }] },
       { id: 'pvp_1v1_pvp_2', name: '1v1', mode: 'pvp', mapId: 'pvp_2', mapName: 'Stores', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'idle', sizeLabel: '1v1', players: [] },
-      { id: 'pvp_1v1_pvp_3', name: '1v1', mode: 'pvp', mapId: 'pvp_3', mapName: 'PVP Map', mapImage: 'assets/map_docks.svg', playerCount: 2, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'active', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', team: 1 }, { id: 2, name: 'Nova', team: 2 }] },
-      { id: 'pvp_2v2_pvp_1', name: '2v2', mode: 'pvp', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_construction.svg', playerCount: 3, maxPlayers: 4, maxPlayersPerTeam: 2, roundsToWin: 4, sizeLabel: '2v2', state: 'waiting', players: [{ id: 1, name: 'Diesel', team: 1 }, { id: 2, name: 'Rook', team: 1 }, { id: 3, name: 'Nova', team: 2 }] },
+      { id: 'pvp_1v1_pvp_3', name: '1v1', mode: 'pvp', mapId: 'pvp_3', mapName: 'PVP Map', mapImage: 'assets/map_pvp.jpg', playerCount: 2, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'active', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', team: 1 }, { id: 2, name: 'Nova', team: 2 }] },
+      { id: 'pvp_1v1_pvp_4', name: '1v1', mode: 'pvp', mapId: 'pvp_4', mapName: 'Rooftop', mapImage: 'assets/map_rooftop.jpg', playerCount: 0, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'idle', sizeLabel: '1v1', players: [] },
+      { id: 'pvp_2v2_pvp_1', name: '2v2', mode: 'pvp', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_stables.jpg', playerCount: 3, maxPlayers: 4, maxPlayersPerTeam: 2, roundsToWin: 4, sizeLabel: '2v2', state: 'waiting', players: [{ id: 1, name: 'Diesel', team: 1 }, { id: 2, name: 'Rook', team: 1 }, { id: 3, name: 'Nova', team: 2 }] },
       { id: 'pvp_2v2_pvp_2', name: '2v2', mode: 'pvp', mapId: 'pvp_2', mapName: 'Stores', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 4, maxPlayersPerTeam: 2, roundsToWin: 4, sizeLabel: '2v2', state: 'idle', players: [] },
-      { id: 'pvp_3v3_pvp_1', name: '3v3', mode: 'pvp', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_construction.svg', playerCount: 0, maxPlayers: 6, maxPlayersPerTeam: 3, roundsToWin: 4, sizeLabel: '3v3', state: 'idle', players: [] },
-      { id: 'pvp_4v4_pvp_2', name: '4v4', mode: 'pvp', mapId: 'pvp_2', mapName: 'Stores', mapImage: 'assets/map_warehouse.svg', playerCount: 4, maxPlayers: 8, maxPlayersPerTeam: 4, roundsToWin: 4, sizeLabel: '4v4', state: 'waiting', players: [{ id: 4, name: 'Ash', team: 1 }] },
+      { id: 'pvp_3v3_pvp_1', name: '3v3', mode: 'pvp', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_stables.jpg', playerCount: 0, maxPlayers: 6, maxPlayersPerTeam: 3, roundsToWin: 4, sizeLabel: '3v3', state: 'idle', players: [] },
+      { id: 'pvp_4v4_pvp_4', name: '4v4', mode: 'pvp', mapId: 'pvp_4', mapName: 'Rooftop', mapImage: 'assets/map_rooftop.jpg', playerCount: 4, maxPlayers: 8, maxPlayersPerTeam: 4, roundsToWin: 4, sizeLabel: '4v4', state: 'waiting', players: [{ id: 4, name: 'Ash', team: 1 }] },
       { id: 'tdm_arena_1', name: 'TDM', mode: 'tdm', mapId: 'arena_1', mapName: 'Park', mapImage: 'assets/map_construction.svg', playerCount: 8, maxPlayers: 10, maxPlayersPerTeam: 5, killsToWin: 50, state: 'active', sizeLabel: 'TDM', scores: { 1: 22, 2: 18 }, players: [{ id: 1, name: 'Diesel', kills: 7, deaths: 3, team: 1 }] },
       { id: 'tdm_arena_2', name: 'TDM', mode: 'tdm', mapId: 'arena_2', mapName: 'Wreck', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 10, maxPlayersPerTeam: 5, killsToWin: 50, state: 'idle', sizeLabel: 'TDM', players: [] },
     ],
@@ -142,10 +153,20 @@
     return list;
   }
 
+  function uniqueByMap(list) {
+    const seen = new Set();
+    return list.filter((l) => {
+      const key = l.mapId || l.id;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
   function mapsForMode(mode) {
-    if (mode === 'ffa') return state.lobbies.filter((l) => l.mode === 'ffa');
-    if (mode === 'tdm') return state.lobbies.filter((l) => l.mode === 'tdm');
-    return state.lobbies.filter((l) => l.mode === 'pvp' && l.sizeLabel === mode);
+    if (mode === 'ffa') return uniqueByMap(state.lobbies.filter((l) => l.mode === 'ffa'));
+    if (mode === 'tdm') return uniqueByMap(state.lobbies.filter((l) => l.mode === 'tdm'));
+    return uniqueByMap(state.lobbies.filter((l) => l.mode === 'pvp' && l.sizeLabel === mode));
   }
 
   function lobbyForPick() {
@@ -230,7 +251,7 @@
       btn.className = `map-tile ${state.mapId === m.mapId ? 'selected' : ''}`;
       btn.innerHTML = `
         <span class="card-tag">${state.mapId === m.mapId ? 'SELECTED' : 'MAP'}</span>
-        <div class="thumb" style="background-image:url('${m.mapImage || ''}')"></div>
+        <div class="thumb" style="background-image:url('${mapThumb(m)}')"></div>
         <div class="label">${esc(m.mapName || m.name)}</div>
         <span class="check">✓</span>`;
       btn.addEventListener('click', () => { state.mapId = m.mapId; renderLoadout(); });
@@ -259,22 +280,26 @@
       const busy = isLive(l) || ((l.playerCount || 0) >= (l.maxPlayers || 0) && l.maxPlayers);
       const wep = weaponLabel(l.players?.[0]?.weapon);
       const card = document.createElement('div');
+      const shot = mapThumb(l);
       card.className = 'lobby-card';
       card.innerHTML = `
-        <div class="lobby-top">
-          <div class="lobby-host">${esc(host)}<small>Host</small></div>
-          <div class="lobby-badges">
-            <span class="mode-pill">${esc(l.sizeLabel || l.mode)}</span>
-            <span class="status ${st.cls}">${st.label}</span>
+        <div class="lobby-shot ${shot ? '' : 'empty'}" style="${shot ? `background-image:url('${shot}')` : ''}"></div>
+        <div class="lobby-body">
+          <div class="lobby-top">
+            <div class="lobby-host">${esc(host)}<small>Host</small></div>
+            <div class="lobby-badges">
+              <span class="mode-pill">${esc(l.sizeLabel || l.mode)}</span>
+              <span class="status ${st.cls}">${st.label}</span>
+            </div>
           </div>
-        </div>
-        <div class="lobby-rows">
-          <div>Weapon <b>${esc(wep)}</b></div>
-          <div>Arena <b>${esc(l.mapName || '—')}</b></div>
-          <div>${l.killsToWin ? 'Kills' : 'Rounds'} <b>${l.killsToWin || l.roundsToWin || 0}</b></div>
-          <div>Players <b>${l.playerCount || 0} / ${l.maxPlayers || 0}</b></div>
-        </div>
-        <button class="lobby-join ${busy ? 'busy' : ''}" data-join="1">${busy ? (isLive(l) ? 'Match in progress' : 'Full') : (state.currentLobbyId === l.id ? 'Your room' : 'Join lobby')}</button>`;
+          <div class="lobby-rows">
+            <div>Weapon <b>${esc(wep)}</b></div>
+            <div>Arena <b>${esc(l.mapName || '—')}</b></div>
+            <div>${l.killsToWin ? 'Kills' : 'Rounds'} <b>${l.killsToWin || l.roundsToWin || 0}</b></div>
+            <div>Players <b>${l.playerCount || 0} / ${l.maxPlayers || 0}</b></div>
+          </div>
+          <button class="lobby-join ${busy ? 'busy' : ''}" data-join="1">${busy ? (isLive(l) ? 'Match in progress' : 'Full') : (state.currentLobbyId === l.id ? 'Your room' : 'Join lobby')}</button>
+        </div>`;
       card.addEventListener('click', (e) => {
         if (e.target.closest('[data-join]') && !busy && state.currentLobbyId !== l.id) {
           if (isTeam(l)) openSala(l);
@@ -342,6 +367,11 @@
     }
     $('salaName').textContent = `${lobby.sizeLabel || lobby.name}`;
     $('salaMeta').textContent = `${lobby.sizeLabel || lobby.mode} · ${lobby.mapName || ''} · ${(allWeapons().find((w) => w.id === state.pick.weaponId) || {}).label || 'Loadout'}`;
+    const salaShot = mapThumb(lobby);
+    if ($('salaMap')) {
+      $('salaMap').classList.toggle('empty', !salaShot);
+      $('salaMap').style.backgroundImage = salaShot ? `url('${salaShot}')` : 'none';
+    }
     const teamMode = isTeam(lobby);
     show($('salaFfa'), !teamMode);
     document.querySelector('.sala-vs').classList.toggle('hidden', !teamMode);
