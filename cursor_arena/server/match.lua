@@ -520,13 +520,18 @@ function Arena.TryStart(lobbyId, delayed)
     end
 
     if Arena.Utils.IsElimination(lobby.mode) and not delayed then
-        lobby.state = 'waiting'
-        syncLobby(lobby)
-        local id = lobby.id
-        SetTimeout((Config.ShowdownStartDelay or 10) * 1000, function()
-            Arena.TryStart(id, true)
-        end)
-        return true
+        -- 1v1 that's already full can start now. Only wait when the lobby
+        -- still has empty slots (2v2–4v4 filling up).
+        local full = countPlayers(lobby) >= maxPlayers(lobby)
+        if not full then
+            lobby.state = 'waiting'
+            syncLobby(lobby)
+            local id = lobby.id
+            SetTimeout((Config.ShowdownStartDelay or 10) * 1000, function()
+                Arena.TryStart(id, true)
+            end)
+            return true
+        end
     end
 
     lobby.state = 'countdown'
@@ -763,6 +768,7 @@ function Arena.JoinLobby(src, lobbyId, opts)
     if not okLoadout then return false, 'invalid_loadout' end
     if not weaponId then weaponId = loadout.weapons[1] and loadout.weapons[1].id end
     if not Config.GetLoadoutWeapon(loadoutId, weaponId) then return false, 'invalid_loadout' end
+    if not Arena.Shop.Owns(src, weaponId) then return false, 'shop_locked' end
 
     local team = 0
     if Arena.Utils.IsTeamMode(lobby.mode) then
@@ -827,6 +833,7 @@ function Arena.ChangeLoadout(src, loadoutId, weaponId)
     if not ok then return false, 'invalid_loadout' end
     local weapon = Config.GetLoadoutWeapon(loadoutId, weaponId)
     if not weapon then return false, 'invalid_loadout' end
+    if not Arena.Shop.Owns(src, weaponId) then return false, 'shop_locked' end
 
     p.loadoutId = loadoutId
     p.weaponId = weaponId

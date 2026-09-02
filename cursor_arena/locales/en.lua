@@ -49,4 +49,7 @@ Locales.en = {
     announcement = '%s fighters are in the arenas right now.',
     no_appearance = 'illenium-appearance is not running.',
     not_found = 'That lobby is gone.',
+    shop_locked = 'Buy that gun in the Arena shop first.',
+    need_coins = 'Not enough donator coins.',
+    shop_bought = 'Gun unlocked for the arena.',
 }

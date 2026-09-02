@@ -98,6 +98,10 @@ AddEventHandler('wasabi_ambulance:onPlayerDeath', function()
     end
 end)
 
+exports('IsInHub', function()
+    return Arena.Client.inHub == true
+end)
+
 exports('IsInArena', function()
     return Arena.Client.inArena == true
 end)

@@ -11,104 +11,80 @@
 </head>
 <body>
   <div id="app" class="hidden">
-    <div class="frame">
-      <aside class="sidebar">
-        <div class="side-brand">
-          <img class="brand-logo" src="assets/envy-logo.png" alt="Envy Roleplay" />
-          <span class="side-kicker">ENVY ARENA</span>
-        </div>
-        <nav class="side-nav" id="navTabs">
-          <button class="nav-tab active" data-tab="join">
-            <span class="nav-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 11h6V5H4v6zm0 8h6v-6H4v6zm8 0h8V5h-8v14z"/></svg>
-            </span>
-            Join
-          </button>
-          <button class="nav-tab" data-tab="rooms">
-            <span class="nav-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M4 6h16v2H4zm0 5h16v2H4zm0 5h10v2H4z"/></svg>
-            </span>
-            Rooms
-          </button>
-          <button class="nav-tab" data-tab="ranking">
-            <span class="nav-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M7 21V9h3v12H7zm7 0V3h3v18h-3zm-14 0v-6h3v6H0z" transform="translate(4 0)"/></svg>
-            </span>
-            Ranking
-          </button>
-          <button class="nav-tab" data-tab="history">
-            <span class="nav-ico" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7V3l4 3-4 3V7a5 5 0 1 0 5 5h2a7 7 0 1 1-7-7V3z"/></svg>
-            </span>
-            History
-          </button>
-        </nav>
-        <button class="side-cta js-close" id="btnClose">Close lobby</button>
-      </aside>
-
-      <div class="stage">
-        <header class="topbar">
-          <div class="top-tabs">
-            <span class="top-tab active">ARENA</span>
-            <span class="top-tab muted">PVP LOBBY</span>
+    <div class="tablet">
+      <div class="tablet-cam" aria-hidden="true"></div>
+      <div class="tablet-screen">
+        <header class="nav">
+          <div class="nav-brand">
+            <img src="assets/envy-logo.png" alt="Envy Roleplay" />
+            <strong>ARENA</strong>
           </div>
-          <div class="top-right">
-            <div class="elo-chip">
+          <nav class="nav-tabs" id="navTabs">
+            <button class="nav-tab active" data-tab="lobbies">Lobbies</button>
+            <button class="nav-tab" data-tab="loadout">Loadout</button>
+            <button class="nav-tab" data-tab="shop">Shop</button>
+            <button class="nav-tab" data-tab="ranking">Ranking</button>
+            <button class="nav-tab" data-tab="history">History</button>
+          </nav>
+          <div class="nav-right">
+            <div class="coin-chip" title="Donator coins">
               <span class="diamond"></span>
+              <strong id="hdrCoins">0</strong>
+            </div>
+            <div class="elo-chip">
               <strong id="hdrElo">1000</strong>
               <small>ELO</small>
             </div>
             <div class="user-pill">
+              <span class="avatar" id="hdrAv">EN</span>
               <div class="user-copy">
                 <strong id="hdrName">Player</strong>
-                <small>Fighter</small>
+                <small>Online</small>
               </div>
-              <span class="avatar" id="hdrAv">EN</span>
             </div>
             <button class="icon-exit js-close" id="btnCloseHeader" aria-label="Close">✕</button>
           </div>
         </header>
 
         <main class="content">
-          <section class="page active" id="page-join">
-            <div class="hero-row">
-              <div class="hero-banner">
-                <img class="hero-mark" src="assets/envy-logo.png" alt="" />
-                <div class="hero-copy">
-                  <h1>ENVY ARENA</h1>
-                  <p>Neon nights. Private buckets. Unlimited ammo — your inventory stays on you.</p>
-                  <span class="hero-pill">Shop maps below →</span>
-                </div>
+          <section class="page active" id="page-lobbies">
+            <div class="page-head">
+              <div>
+                <h1>Public lobbies</h1>
+                <p>Browse open rooms. Names are Discord display names when linked.</p>
               </div>
-              <div class="status-card">
-                <h2>Envy Status</h2>
-                <div class="status-who">
-                  <span class="avatar lg" id="statusAv">EN</span>
-                  <div>
-                    <strong id="statusName">Player</strong>
-                    <small>Ready to drop</small>
-                  </div>
-                </div>
-                <div class="status-stats">
-                  <div><span>Ranked</span><b id="statusElo">1000</b></div>
-                  <div><span>Modes</span><b>FFA · TDM · 1–4v4</b></div>
-                </div>
-                <div class="status-bars" aria-hidden="true">
-                  <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
-                </div>
+              <button class="btn-cta" id="btnQuickJoin">+ Quick join</button>
+            </div>
+            <div class="toolbar">
+              <div class="chip-row" id="lobbyFilters">
+                <button class="chip active" data-filter="all">All</button>
+                <button class="chip" data-filter="ffa">FFA</button>
+                <button class="chip" data-filter="1v1">1v1</button>
+                <button class="chip" data-filter="2v2">2v2</button>
+                <button class="chip" data-filter="3v3">3v3</button>
+                <button class="chip" data-filter="4v4">4v4</button>
+                <button class="chip" data-filter="tdm">TDM</button>
+              </div>
+              <input class="search" id="roomSearch" type="search" placeholder="Search map or host..." />
+            </div>
+            <div class="lobby-grid" id="roomGrid"></div>
+            <div class="empty-state hidden" id="roomsEmpty">No rooms match that filter.</div>
+          </section>
+
+          <section class="page" id="page-loadout">
+            <div class="page-head">
+              <div>
+                <h1>Loadout</h1>
+                <p>Pick a mode, map, team, and gun, then drop in.</p>
               </div>
             </div>
-
-            <div class="join-grid">
-              <div class="join-col">
-                <div class="sec-head">
-                  <div>
-                    <h2 class="sec-label">Game mode</h2>
-                    <p class="sec-help">Pick a playlist, then a map.</p>
-                  </div>
-                </div>
-                <div class="mode-grid" id="modeGrid"></div>
-
+            <div class="chip-row" id="modeGrid"></div>
+            <div class="load-grid">
+              <div>
+                <h2 class="sec-label">Map</h2>
+                <div class="map-pick" id="mapPick"></div>
+              </div>
+              <div>
                 <div class="join-row">
                   <div>
                     <h2 class="sec-label" id="ruleLabel">ROUNDS</h2>
@@ -122,52 +98,37 @@
                     </div>
                   </div>
                 </div>
-
                 <h2 class="sec-label">Weapon</h2>
-                <div class="weapon-split">
-                  <div class="weapon-list" id="weaponList"></div>
-                  <div class="weapon-preview">
-                    <span class="card-tag cyan">LOADOUT</span>
-                    <div class="wep-art" id="wepArt"></div>
-                    <strong id="wepName">Pistol</strong>
-                    <small id="wepCat">DUELIST</small>
-                  </div>
-                </div>
-              </div>
-
-              <div class="join-col maps-col">
-                <div class="sec-head">
-                  <h2 class="sec-label">Select map</h2>
-                </div>
-                <div class="map-pick" id="mapPick"></div>
+                <div class="weapon-list" id="weaponList"></div>
               </div>
             </div>
             <div class="join-foot">
-              <p class="join-note">Unlimited ammo in-match. Inventory stays on you — it just cannot open.</p>
+              <p class="join-note">Arena-only ammo. Inventory stays on you.</p>
               <button class="btn-cta" id="btnJoinArena">Join arena</button>
             </div>
           </section>
 
-          <section class="page" id="page-rooms">
+          <section class="page" id="page-shop">
             <div class="page-head">
-              <div class="sec-title">
-                <div>
-                  <h2 class="sec-label">Featured rooms</h2>
-                  <p class="sec-help">Live buckets and open lobbies.</p>
-                </div>
-                <span class="count-pill" id="roomCount">0</span>
+              <div>
+                <h1>Arena shop</h1>
+                <p>Buy extra guns with the same coins as the Envy Donator Store. Arena use only.</p>
               </div>
-              <input class="search" id="roomSearch" type="search" placeholder="Search rooms..." />
+              <div class="coin-chip lg">
+                <span class="diamond"></span>
+                <strong id="shopCoins">0</strong>
+                <small id="shopCoinLabel">Coins</small>
+              </div>
             </div>
-            <div class="room-grid" id="roomGrid"></div>
-            <div class="empty-state hidden" id="roomsEmpty">No rooms match that filter.</div>
+            <div class="shop-grid" id="shopGrid"></div>
+            <div class="empty-state hidden" id="shopEmpty">No shop guns configured.</div>
           </section>
 
           <section class="page" id="page-ranking">
             <div class="page-head">
               <div>
-                <h2 class="sec-label">Leaderboard</h2>
-                <p class="sec-help">Season standings across playlists.</p>
+                <h1>Ranking</h1>
+                <p>Season standings. Names use Discord when available.</p>
               </div>
               <div class="chip-row">
                 <div id="boardModes">
@@ -194,8 +155,8 @@
           <section class="page" id="page-history">
             <div class="page-head">
               <div>
-                <h2 class="sec-label">Match history</h2>
-                <p class="sec-help">Your last drops in this lobby.</p>
+                <h1>History</h1>
+                <p>Your last drops.</p>
               </div>
             </div>
             <div class="history-list" id="historyList"></div>
@@ -203,6 +164,7 @@
           </section>
         </main>
       </div>
+      <div class="home-bar" aria-hidden="true"></div>
     </div>
   </div>
 
@@ -210,8 +172,10 @@
     <div class="sala">
       <button class="icon-exit drawer-x" id="btnCloseSala">✕</button>
       <header class="sala-head">
+        <span class="card-tag cyan" id="salaTag">ROOM</span>
         <h2 id="salaName">Room</h2>
-        <p id="salaMeta">1v1 · Construction</p>
+        <p id="salaMeta">1v1 · Stables</p>
+        <div class="sala-map" id="salaMap"></div>
       </header>
       <div class="sala-vs">
         <div class="team-col t1">
@@ -226,7 +190,7 @@
       </div>
       <div class="sala-ffa hidden" id="salaFfa"></div>
       <div class="sala-foot">
-        <button class="btn-ghost" id="btnLeaveSala">← LEAVE</button>
+        <button class="btn-ghost" id="btnLeaveSala">← BACK</button>
         <button class="btn-ghost" id="btnSwapTeam">⇄ CHANGE TEAM</button>
         <button class="btn-cta" id="btnConfirmJoin">Join</button>
       </div>
@@ -235,7 +199,9 @@
 
   <div class="loadout-modal hidden" id="loadoutModal">
     <div class="loadout-card">
+      <span class="card-tag cyan">IN MATCH</span>
       <h2>Change loadout</h2>
+      <p class="sec-help">Equips on your next life in elimination, or immediately in FFA / TDM.</p>
       <div class="chip-row" id="liveLoadouts"></div>
       <div class="chip-row" id="liveWeapons"></div>
       <div class="sala-foot">
@@ -257,6 +223,16 @@
   <div id="streak" class="streak hidden">
     <small id="streakName"></small>
     <strong id="streakLabel">DOUBLE KILL</strong>
+  </div>
+  <div id="waiting" class="waiting hidden">
+    <img class="result-logo" src="assets/envy-logo.png" alt="" />
+    <small>ENVY ARENA</small>
+    <strong id="waitingTitle">WAITING</strong>
+    <p id="waitingSub">Need an opponent to start</p>
+  </div>
+  <div id="roundBanner" class="round-banner hidden">
+    <small id="roundBannerSub"></small>
+    <strong id="roundBannerTitle">ROUND 2</strong>
   </div>
   <div id="countdown" class="countdown hidden">
     <small id="countdownRound"></small>

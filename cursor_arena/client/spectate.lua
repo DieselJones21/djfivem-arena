@@ -46,8 +46,11 @@ end
 function Arena.Spectate.Cycle(dir)
     local list = teammates()
     if #list == 0 then
-        Arena.Spectate.Stop()
-        SendNUIMessage({ action = 'spectate', visible = true, name = 'Waiting for round...' })
+        if specTarget then
+            NetworkSetInSpectatorMode(false, PlayerPedId())
+            specTarget = nil
+        end
+        SendNUIMessage({ action = 'spectate', visible = true, name = 'Waiting for round...', hint = L('spectate_hint') })
         return
     end
     specIndex = specIndex + (dir or 0)

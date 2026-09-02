@@ -2,6 +2,21 @@
     Editable hooks — survive your own updates. Return false to block a join/leave.
 ]]
 
+-- Discord display name override. Return a string to skip the built-in Discord lookup.
+function GetArenaDisplayName(playerId) -- luacheck: ignore
+    return nil
+end
+
+-- Same coins as the Envy Donator Store. Return a number from your resource.
+function GetDonatorBalance(playerId) -- luacheck: ignore
+    return nil
+end
+
+-- Charge arena shop purchases. Return true if the coins were taken.
+function RemoveDonatorCurrency(playerId, amount) -- luacheck: ignore
+    return nil
+end
+
 function CanPlayerJoinLobby(playerId, lobbyId) -- luacheck: ignore
     return true
 end

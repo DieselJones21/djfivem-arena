@@ -12,6 +12,7 @@ local function applySpawn(spawn)
     SetEntityHeading(ped, spawn.w or 0.0)
     ClearPedTasksImmediately(ped)
     SetEntityHealth(ped, GetEntityMaxHealth(ped))
+    SetPedArmour(ped, 0)
 end
 
 local function freeze(on)
@@ -52,14 +53,14 @@ local function drawBoundaries()
     if not points or #points < 2 then
         if show and map.center and map.radius then
             DrawMarker(1, map.center.x, map.center.y, map.center.z - 1.0, 0, 0, 0, 0, 0, 0,
-                map.radius * 2, map.radius * 2, 1.2, 140, 80, 255, 80, false, false, 2, false, nil, nil, false)
+                map.radius * 2, map.radius * 2, 1.2, 0, 242, 255, 70, false, false, 2, false, nil, nil, false)
         end
         return
     end
     if not show then return end
     local outside = not Arena.Utils.InsideMap(GetEntityCoords(PlayerPedId()), map)
-    local r, g, b = 140, 70, 255
-    if outside then r, g, b = 255, 40, 40 end
+    local r, g, b = 0, 242, 255
+    if outside then r, g, b = 255, 80, 90 end
     local z = map.boundaries.minZ or (map.center and map.center.z) or 0.0
     local h = ((map.boundaries.maxZ or (z + 8.0)) - z)
     for i = 1, #points do
@@ -128,13 +129,17 @@ local function hudPayload()
         players = lobby.players,
         me = me,
         team = Arena.Client.team,
-        teamPanel = Config.TeamPanel.enabled and Arena.Utils.IsElimination(lobby.mode),
-        titles = Config.TeamPanel.titles,
+        waiting = lobby.state == 'waiting' or lobby.state == 'idle',
+        state = lobby.state,
+        sizeLabel = lobby.sizeLabel,
+        teamPanel = Config.TeamPanel and Config.TeamPanel.enabled and Arena.Utils.IsTeamMode(lobby.mode),
+        titles = Config.TeamPanel and Config.TeamPanel.titles,
     }
 end
 
 RegisterNetEvent('cursor_arena:client:enterArena', function(data)
-    Arena.Client.CloseUI(true)
+    Arena.Client.CloseUI()
+    if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
     lib.hideTextUI()
     Arena.Client.inArena = true
     Arena.Client.lobby = data.lobby
@@ -164,7 +169,9 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
         end)
     end
 
+    SendNUIMessage({ action = 'close' })
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
+    SetNuiFocus(false, false)
     if PlayerJoinedLobby then PlayerJoinedLobby() end
 end)
 
@@ -177,7 +184,9 @@ end)
 
 RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
     CreateThread(function()
+        Arena.Client.CloseUI()
         freeze(true)
+        SendNUIMessage({ action = 'close' })
         SendNUIMessage({ action = 'countdown', seconds = seconds or 5, round = round })
         local ends = GetGameTimer() + ((seconds or 5) * 1000)
         while GetGameTimer() < ends do
@@ -208,8 +217,11 @@ RegisterNetEvent('cursor_arena:client:lobbySync', function(lobby)
     Arena.Client.lobby = lobby
     if Arena.Client.inArena then
         SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
+        return
     end
-    SendNUIMessage({ action = 'lobbyUpdate', data = lobby })
+    if Arena.Client.uiOpen then
+        SendNUIMessage({ action = 'lobbyUpdate', data = lobby })
+    end
 end)
 
 RegisterNetEvent('cursor_arena:client:timer', function(endsAt, limit)
@@ -303,6 +315,8 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     SendNUIMessage({ action = 'matchHud', visible = false })
     SendNUIMessage({ action = 'deathOverlay', visible = false })
     SendNUIMessage({ action = 'countdown', seconds = 0 })
+    SendNUIMessage({ action = 'roundBanner', visible = false })
+    SendNUIMessage({ action = 'bounds', visible = false })
     SendNUIMessage({ action = 'matchResult', data = nil })
 
     if Arena.Client.HolsterArenaWeapon then
