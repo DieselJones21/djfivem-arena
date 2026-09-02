@@ -398,7 +398,10 @@
 
   window.addEventListener('message', (event) => {
     const msg = event.data || {};
-    if (msg.action === 'open') openUI(msg.data || {});
+    if (msg.action === 'open') {
+      show($('matchHud'), false);
+      openUI(msg.data || {});
+    }
     if (msg.action === 'close') {
       state.open = false;
       show($('app'), false);

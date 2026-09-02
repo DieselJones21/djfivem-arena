@@ -54,6 +54,8 @@ RegisterNUICallback('joinLobby', function(data, cb)
     local result = lib.callback.await('cursor_arena:joinLobby', false, data)
     if result and result.ok then
         Arena.Client.CloseUI()
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
     end
     cb(result or { ok = false })
 end)
@@ -72,6 +74,8 @@ RegisterNUICallback('changeLoadout', function(data, cb)
     if result and result.ok then
         Arena.Client.loadoutOpen = false
         SetNuiFocus(false, false)
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
     end
     cb(result or { ok = false })
 end)
