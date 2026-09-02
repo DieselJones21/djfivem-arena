@@ -58,7 +58,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .nav-brand { display: flex; align-items: center; gap: 10px; }
 .brand-logo {
-  height: 46px; width: auto; display: block;
+  height: 58px; width: auto; display: block;
   filter: drop-shadow(0 0 10px rgba(0, 234, 245, 0.45));
 }
 .brand-copy { display: flex; flex-direction: column; line-height: 1.1; }
