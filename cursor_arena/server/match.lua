@@ -1,8 +1,8 @@
 Arena = Arena or {}
-Arena.Lobbies = {}
-Arena.PlayerLobby = {}
-Arena.PlayerHub = {}
-Arena.LeaveAt = {}
+Arena.Lobbies = Arena.Lobbies or {}
+Arena.PlayerLobby = Arena.PlayerLobby or {}
+Arena.PlayerHub = Arena.PlayerHub or {}
+Arena.LeaveAt = Arena.LeaveAt or {}
 
 local matchSeq = 0
 local nextBucket = Config.StartingBucket or 100
@@ -86,8 +86,9 @@ local function playerPayload(lobby)
 end
 
 function Arena.PublicLobby(lobby, viewer)
-    local map = lobby.map
-    local cfg = lobby.cfg
+    if not lobby then return end
+    local map = lobby.map or {}
+    local cfg = lobby.cfg or {}
     local revealCode = lobby.private and (
         viewer == true
         or (viewer and (viewer == lobby.owner or lobby.players[viewer]))
@@ -98,7 +99,7 @@ function Arena.PublicLobby(lobby, viewer)
         description = cfg.description,
         mode = lobby.mode,
         mapId = map.id,
-        mapName = map.name,
+        mapName = map.name or cfg.name,
         mapImage = map.image,
         maxPlayers = maxPlayers(lobby),
         maxPlayersPerTeam = cfg.maxPlayersPerTeam,
@@ -149,9 +150,10 @@ function Arena.ListLobbies(src)
 end
 
 function Arena.GetPlayerLobby(src)
+    if not Arena.PlayerLobby then Arena.PlayerLobby = {} end
     local id = Arena.PlayerLobby[src]
     if not id then return end
-    return Arena.Lobbies[id]
+    return Arena.Lobbies and Arena.Lobbies[id]
 end
 
 local dirtyPending = false
@@ -189,7 +191,14 @@ function Arena.MaxPlayers(lobby)
 end
 
 function Arena.ResetDecks(lobby)
-    resetDecks(lobby)
+    if not lobby then return end
+    local map = lobby.map
+    if not map then return end
+    lobby.decks = {
+        ffa = Arena.Utils.CreateSpawnDeck(map.spawns),
+        team1 = Arena.Utils.CreateSpawnDeck(map.team1_spawns),
+        team2 = Arena.Utils.CreateSpawnDeck(map.team2_spawns),
+    }
 end
 
 function Arena.AllocBucket()
@@ -1085,7 +1094,10 @@ function Arena.InitLobbies()
 end
 
 CreateThread(function()
-    Arena.InitLobbies()
+    local ok, err = pcall(Arena.InitLobbies)
+    if not ok then
+        print(('[cursor_arena] InitLobbies failed: %s'):format(err))
+    end
 end)
 
 if Config.AfkKick and Config.AfkKick.enabled then
@@ -1117,8 +1129,8 @@ end
 
 AddEventHandler('playerDropped', function()
     local src = source
-    Arena.PlayerHub[src] = nil
-    if Arena.PlayerLobby[src] then
+    if Arena.PlayerHub then Arena.PlayerHub[src] = nil end
+    if Arena.PlayerLobby and Arena.PlayerLobby[src] then
         if PlayerLeftServer then PlayerLeftServer(src) end
         Arena.LeaveLobby(src, true, true)
     end

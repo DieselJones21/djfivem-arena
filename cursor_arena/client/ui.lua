@@ -11,8 +11,13 @@ function Arena.Client.OpenUI()
         return
     end
 
-    local bootstrap = lib.callback.await('cursor_arena:getBootstrap', false)
-    if not bootstrap then return end
+    local ok, bootstrap = pcall(function()
+        return lib.callback.await('cursor_arena:getBootstrap', false)
+    end)
+    if not ok or not bootstrap then
+        lib.notify({ type = 'error', description = L('cannot_join') })
+        return
+    end
 
     if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
     Arena.Client.uiOpen = true
