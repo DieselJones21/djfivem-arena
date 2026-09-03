@@ -29,7 +29,7 @@ end
 
 local function ownerCount(src)
     local n = 0
-    for _, lobby in pairs(Arena.Lobbies) do
+    for _, lobby in pairs(Arena.Lobbies or {}) do
         if lobby.private and lobby.owner == src then
             n = n + 1
         end
@@ -165,7 +165,7 @@ function Arena.CreatePrivate(src, opts)
     if not Arena.PlayerHub[src] then
         return false, 'must_be_in_hub'
     end
-    if Arena.PlayerLobby[src] then
+    if Arena.PlayerLobby and Arena.PlayerLobby[src] then
         return false, 'already_in_match'
     end
     if ownerCount(src) >= (cfg().maxPerPlayer or 1) then
@@ -243,7 +243,7 @@ end
 AddEventHandler('playerDropped', function()
     local src = source
     Arena.PrivateAdmit[src] = nil
-    for id, lobby in pairs(Arena.Lobbies) do
+    for id, lobby in pairs(Arena.Lobbies or {}) do
         if lobby.private and lobby.owner == src and Arena.CountPlayers(lobby) == 0 then
             Arena.DestroyPrivate(id)
         end

@@ -5,7 +5,7 @@ lua54 'yes'
 name 'cursor_arena'
 author 'DJ FiveM'
 description 'PvP arenas — FFA, 1v1–4v4, TDM. Qbox / ox / interact / illenium-appearance.'
-version '2.5.0'
+version '2.5.1'
 
 shared_scripts {
     '@ox_lib/init.lua',
@@ -31,6 +31,7 @@ client_scripts {
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'config/discord.lua',
+    'server/00_state.lua',
     'server/open_sv.lua',
     'server/framework.lua',
     'server/names.lua',
