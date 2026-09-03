@@ -41,6 +41,7 @@ server_scripts {
     'server/voice.lua',
     'server/discord.lua',
     'server/stats.lua',
+    'server/bets.lua',
     'server/match.lua',
     'server/main.lua',
 }

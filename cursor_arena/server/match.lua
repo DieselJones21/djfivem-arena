@@ -115,6 +115,9 @@ function Arena.PublicLobby(lobby)
         joinDuringMatch = cfg.joinDuringMatch ~= false,
         sizeLabel = cfg.sizeLabel or cfg.name,
         teamSize = cfg.maxPlayersPerTeam,
+        watchers = Arena.Watch and Arena.Watch.Count(lobby.id) or 0,
+        bets = Arena.Bets and Arena.Bets.List(lobby.id) or {},
+        betting = Config.Betting,
     }
 end
 
@@ -372,34 +375,47 @@ local function endMatch(lobby, result)
         })
     end
 
+    if Arena.Watchers and Arena.Watchers[lobby.id] then
+        for wsrc in pairs(Arena.Watchers[lobby.id]) do
+            TriggerClientEvent('cursor_arena:client:matchEnded', wsrc, {
+                outcome = result.draw and 'draw' or 'win',
+                result = result,
+                scores = Arena.Utils.Scoreboard(lobby.scores),
+                players = roster,
+            })
+        end
+    end
+
     Arena.Stats.RecordHistory(history)
     Arena.Discord.MatchEnded(lobby.mode, result)
     if MatchEnded then
         MatchEnded(matchUid, lobby.mode, result)
     end
 
-    local delay = Arena.Utils.IsElimination(lobby.mode) and (Config.ShowdownStartDelay or 10) or 8
+    if Arena.Bets and Arena.Bets.Settle then
+        Arena.Bets.Settle(lobby, result)
+    end
+
+    local delay = Config.PostMatchReturn or 8
     local id = lobby.id
     SetTimeout(delay * 1000, function()
         local l = Arena.Lobbies[id]
         if not l then return end
-        for _, p in pairs(l.players) do
-            p.kills = 0
-            p.deaths = 0
-            p.streak = 0
-            p.alive = true
-            p.spectating = false
+        if Arena.Watch and Arena.Watch.Clear then
+            Arena.Watch.Clear(id)
+        end
+        local srcs = {}
+        for src in pairs(l.players) do
+            srcs[#srcs + 1] = src
+        end
+        for i = 1, #srcs do
+            Arena.LeaveLobby(srcs[i], true, false)
         end
         l.scores = { [1] = 0, [2] = 0 }
         l.round = 1
         l.matchResult = nil
-        if shouldStart(l) then
-            l.state = 'waiting'
-            Arena.TryStart(l.id)
-        else
-            l.state = 'idle'
-            syncLobby(l)
-        end
+        l.state = 'idle'
+        syncLobby(l)
     end)
 end
 
@@ -466,7 +482,10 @@ function Arena.NextRound(lobbyId, winnerTeam)
     if winnerTeam and winnerTeam ~= 0 then
         lobby.scores[winnerTeam] = (lobby.scores[winnerTeam] or 0) + 1
     end
-    local need = lobby.cfg.roundsToWin or 5
+    local need = lobby.cfg.roundsToWin
+    if not need then
+        need = (lobby.cfg.maxPlayersPerTeam or 1) == 1 and 5 or 4
+    end
     if (lobby.scores[1] or 0) >= need then
         endMatch(lobby, { reason = 'rounds', winner = 1 })
         return
@@ -552,7 +571,13 @@ function Arena.TryStart(lobbyId, delayed)
         p.spectating = false
         local spawn = dealSpawn(lobby, p.team)
         p.spawn = spawn
-        TriggerClientEvent('cursor_arena:client:preStart', src, { spawn = spawn })
+        local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
+        local slot = Arena.Inventory.GiveLoadout(src, weapon)
+        TriggerClientEvent('cursor_arena:client:preStart', src, {
+            spawn = spawn,
+            weapon = weapon and weapon.weapon,
+            slot = slot,
+        })
     end
 
     broadcast(lobby, 'cursor_arena:client:countdown', Config.CountdownSeconds, 1)

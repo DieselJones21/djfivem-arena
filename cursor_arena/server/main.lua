@@ -110,6 +110,35 @@ lib.callback.register('cursor_arena:buyShop', function(source, data)
     return extra
 end)
 
+lib.callback.register('cursor_arena:watchLobby', function(source, lobbyId)
+    local ok, result = Arena.Watch.Join(source, lobbyId)
+    if not ok then
+        return { ok = false, message = L(result or 'cannot_join') }
+    end
+    return { ok = true, lobby = result }
+end)
+
+lib.callback.register('cursor_arena:placeBet', function(source, data)
+    data = data or {}
+    local ok, err = Arena.Bets.Place(source, data.lobbyId, data)
+    if not ok then
+        return { ok = false, message = L(err or 'bet_invalid') }
+    end
+    return { ok = true, bets = Arena.Bets.List(data.lobbyId) }
+end)
+
+lib.callback.register('cursor_arena:betItems', function(source)
+    return Arena.Bets.ListItems(source)
+end)
+
+lib.callback.register('cursor_arena:myMoney', function(source)
+    return { cash = Arena.Framework.GetMoney(source), max = (Config.Betting and Config.Betting.maxCash) or 100000 }
+end)
+
+RegisterNetEvent('cursor_arena:server:watchLeave', function()
+    Arena.Watch.Leave(source, false)
+end)
+
 RegisterNetEvent('cursor_arena:server:playerDied', function(killerServerId, weaponHash)
     Arena.OnPlayerDeath(source, killerServerId, weaponHash)
 end)

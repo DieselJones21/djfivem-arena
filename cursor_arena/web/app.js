@@ -119,6 +119,13 @@
         }
         return { ok: true, coins: state.coins, shop: state.shop, loadouts: state.loadouts };
       }
+      if (event === 'watchLobby') return { ok: true };
+      if (event === 'placeBet') return { ok: true, bets: [] };
+      if (event === 'betItems') return [
+        { name: 'WEAPON_G17', label: 'G17', count: 1, kind: 'gun' },
+        { name: 'vehiclekey', label: 'Sultan RS key', count: 1, kind: 'car' },
+      ];
+      if (event === 'myMoney') return { cash: 25000, max: 100000 };
       return { ok: true };
     }
     const resp = await fetch(`https://${resourceName}/${event}`, {
@@ -298,9 +305,16 @@
             <div>${l.killsToWin ? 'Kills' : 'Rounds'} <b>${l.killsToWin || l.roundsToWin || 0}</b></div>
             <div>Players <b>${l.playerCount || 0} / ${l.maxPlayers || 0}</b></div>
           </div>
-          <button class="lobby-join ${busy ? 'busy' : ''}" data-join="1">${busy ? (isLive(l) ? 'Match in progress' : 'Full') : (state.currentLobbyId === l.id ? 'Your room' : 'Join lobby')}</button>
+          <div class="lobby-actions">
+            <button class="lobby-join ${busy ? 'busy' : ''}" data-join="1">${busy ? (isLive(l) ? 'Match in progress' : 'Full') : (state.currentLobbyId === l.id ? 'Your room' : 'Join lobby')}</button>
+            <button class="btn-ghost lobby-watch" data-watch="1">Watch / Bet</button>
+          </div>
         </div>`;
       card.addEventListener('click', (e) => {
+        if (e.target.closest('[data-watch]')) {
+          openWatch(l);
+          return;
+        }
         if (e.target.closest('[data-join]') && !busy && state.currentLobbyId !== l.id) {
           if (isTeam(l)) openSala(l);
           else joinSelected(l);
@@ -402,6 +416,32 @@
         : '<div class="slot empty">Waiting for fighters</div>';
     }
     show($('sala'), true);
+  }
+
+  async function openWatch(lobby) {
+    if (!lobby) return;
+    state.selected = lobby;
+    show($('sala'), false);
+    $('watchName').textContent = `${lobby.sizeLabel || lobby.name} · ${lobby.mapName || ''}`;
+    const fighters = lobby.players || [];
+    $('watchFighters').innerHTML = fighters.length
+      ? fighters.map((p) => `<button class="watch-pick" data-pick="${p.id}"><span>${esc(p.name)}</span><small>${p.team === 1 ? 'ORANGE' : p.team === 2 ? 'BLUE' : 'FFA'}</small></button>`).join('')
+      : '<p class="sec-help">No fighters in this room yet.</p>';
+    $('watchFighters').querySelectorAll('.watch-pick').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        $('watchFighters').querySelectorAll('.watch-pick').forEach((b) => b.classList.toggle('selected', b === btn));
+        state.betPick = Number(btn.dataset.pick);
+      });
+    });
+    const money = await nui('myMoney') || { cash: 0, max: 100000 };
+    $('betCash').max = money.max || 100000;
+    $('betCash').placeholder = `Cash · max $${(money.max || 100000).toLocaleString()}`;
+    $('betCashHint').textContent = `Wallet $${Number(money.cash || 0).toLocaleString()} · max $100,000`;
+    const items = await nui('betItems') || [];
+    $('betItems').innerHTML = items.length
+      ? items.map((it) => `<label class="bet-item"><input type="checkbox" data-item="${esc(it.name)}" data-count="1" /><span>${esc(it.label)}</span><small>${esc(it.kind || 'item')}</small></label>`).join('')
+      : '<p class="sec-help">No guns or keys in your pockets to stake.</p>';
+    show($('watch'), true);
   }
 
   function renderBoard() {
@@ -539,6 +579,7 @@
     state.selected = null;
     show($('app'), false);
     show($('sala'), false);
+    show($('watch'), false);
     show($('loadoutModal'), false);
   }
 
@@ -573,6 +614,25 @@
   });
   document.querySelectorAll('.js-close').forEach((btn) => btn.addEventListener('click', closeUI));
   $('btnCloseSala').addEventListener('click', () => show($('sala'), false));
+  $('btnCloseWatch').addEventListener('click', () => show($('watch'), false));
+  $('btnWatchLive').addEventListener('click', async () => {
+    if (!state.selected) return;
+    const res = await nui('watchLobby', { lobbyId: state.selected.id });
+    if (res?.ok) hideUI();
+  });
+  $('btnPlaceBet').addEventListener('click', async () => {
+    if (!state.selected || !state.betPick) return;
+    const cash = Math.min(100000, Math.max(0, Number($('betCash').value) || 0));
+    const items = [...$('betItems').querySelectorAll('input:checked')].map((el) => ({
+      name: el.dataset.item,
+      count: 1,
+    }));
+    const res = await nui('placeBet', { lobbyId: state.selected.id, pickSrc: state.betPick, cash, items });
+    if (res?.ok) {
+      $('betCash').value = '';
+      $('betItems').querySelectorAll('input').forEach((el) => { el.checked = false; });
+    }
+  });
   $('btnQuickJoin').addEventListener('click', () => setTab('loadout'));
   $('btnLeaveSala').addEventListener('click', async () => {
     if (state.currentLobbyId && state.selected?.id === state.currentLobbyId) {
@@ -647,13 +707,16 @@
     const mapBit = data.mapName ? `<div class="hud-map">${(data.sizeLabel || data.mode || '').toUpperCase()} · ${(data.mapName || '').toUpperCase()}</div>` : '';
     if (data.mode === 'tdm' || data.mode === 'pvp' || data.mode === 'showdown') {
       state.hudEndsAt = data.endsAt || state.hudEndsAt;
-      const roundLabel = data.roundsToWin ? `${data.round || 1}/${data.roundsToWin}` : `${data.round || 1}`;
       const sc = readScores(data.scores);
+      const firstTo = data.roundsToWin || data.killsToWin;
+      const roundLabel = firstTo ? `FIRST TO ${firstTo}` : `R${data.round || 1}`;
+      const subRound = data.roundsToWin ? `ROUND ${data.round || 1}` : '';
       $('scorePlate').innerHTML = `
         <div class="hud-side t1 ${myTeam === 1 ? 'mine' : ''}"><span class="hud-tag t1">${myTeam === 1 ? 'YOU · ORANGE' : 'ORANGE'}</span><span class="hud-score">${sc.orange}</span></div>
         <div class="hud-timer">
           <span class="hud-round">${roundLabel}</span>
           <div class="hud-ring">${fmtTime(state.hudEndsAt)}</div>
+          ${subRound ? `<small class="hud-subround">${subRound}</small>` : ''}
         </div>
         <div class="hud-side t2 ${myTeam === 2 ? 'mine' : ''}"><span class="hud-score">${sc.blue}</span><span class="hud-tag t2">${myTeam === 2 ? 'YOU · BLUE' : 'BLUE'}</span></div>
         ${mapBit}`;
@@ -721,8 +784,8 @@
     if (msg.action === 'killfeed' && msg.data) {
       const feed = $('killfeed');
       const row = document.createElement('div');
-      row.className = 'kill-item';
-      row.innerHTML = `<strong>${esc(msg.data.killer || 'World')}</strong><span class="wep">${esc((msg.data.category || '').toUpperCase())}</span>${esc(msg.data.victim)}`;
+      row.className = `kill-item ${msg.data.headshot ? 'head' : ''}`;
+      row.innerHTML = `<span class="k-name">${esc(msg.data.killer || 'World')}</span><span class="k-x">×</span><span class="k-wep">${esc(msg.data.category || 'GUN')}</span><span class="k-name down">${esc(msg.data.victim)}</span>`;
       feed.prepend(row);
       setTimeout(() => row.remove(), 4200);
     }
@@ -761,7 +824,8 @@
       if (msg.visible === false) { show($('roundBanner'), false); return; }
       show($('waiting'), false);
       $('roundBannerTitle').textContent = msg.round ? `ROUND ${msg.round}` : 'ROUND';
-      $('roundBannerSub').textContent = msg.winnerTeam === 1 ? 'ORANGE TOOK IT' : msg.winnerTeam === 2 ? 'BLUE TOOK IT' : '';
+      $('roundBannerSub').textContent = msg.winnerTeam === 1 ? 'ORANGE TAKES THE ROUND' : msg.winnerTeam === 2 ? 'BLUE TAKES THE ROUND' : 'DRAW';
+      $('roundBanner').className = `round-banner ${msg.winnerTeam === 1 ? 't1' : msg.winnerTeam === 2 ? 't2' : ''}`;
       show($('roundBanner'), true);
       clearTimeout($('roundBanner')._t);
       $('roundBanner')._t = setTimeout(() => show($('roundBanner'), false), 2200);
@@ -792,6 +856,10 @@
     }
     if (salaIsOpen()) {
       show($('sala'), false);
+      return;
+    }
+    if ($('watch') && !$('watch').classList.contains('hidden')) {
+      show($('watch'), false);
       return;
     }
     if (state.open) closeUI();

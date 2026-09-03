@@ -229,6 +229,15 @@ Config.Rewards = {
     account = 'cash', -- qbox/qb cash|bank  ·  esx money|bank
 }
 
+Config.PostMatchReturn = 8
+
+Config.Betting = {
+    enabled = true,
+    maxCash = 100000,
+    minCash = 100,
+    allowItems = true,
+}
+
 --[[
     Arena shop coins — same wallet as the Envy Donator Store.
     Prefer the hooks in server/open_sv.lua.

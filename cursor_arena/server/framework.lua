@@ -69,6 +69,47 @@ function Arena.Framework.GetIdentifier(src)
     return tostring(src)
 end
 
+function Arena.Framework.GetMoney(src, account)
+    local player = Arena.Framework.GetPlayer(src)
+    if not player then return 0 end
+    local fw = Arena.Framework.name
+    account = account or (Config.Rewards and Config.Rewards.account) or 'cash'
+    if fw == 'esx' then
+        if account == 'bank' then
+            local acc = player.getAccount and player.getAccount('bank')
+            return acc and acc.money or 0
+        end
+        return player.getMoney and player.getMoney() or 0
+    elseif fw == 'qb' or fw == 'qbx' then
+        local money = player.PlayerData and player.PlayerData.money
+        local atype = account == 'bank' and 'bank' or 'cash'
+        return money and money[atype] or 0
+    end
+    return 0
+end
+
+function Arena.Framework.RemoveMoney(src, amount, account)
+    if not amount or amount <= 0 then return false end
+    if Arena.Framework.GetMoney(src, account) < amount then return false end
+    local player = Arena.Framework.GetPlayer(src)
+    if not player then return false end
+    local fw = Arena.Framework.name
+    account = account or (Config.Rewards and Config.Rewards.account) or 'cash'
+    if fw == 'esx' then
+        if account == 'bank' then
+            player.removeAccountMoney('bank', amount)
+        else
+            player.removeMoney(amount)
+        end
+        return true
+    elseif fw == 'qb' or fw == 'qbx' then
+        local atype = account == 'bank' and 'bank' or 'cash'
+        player.Functions.RemoveMoney(atype, amount, 'arena-bet')
+        return true
+    end
+    return false
+end
+
 function Arena.Framework.AddMoney(src, amount, account)
     if not amount or amount <= 0 then return end
     local player = Arena.Framework.GetPlayer(src)

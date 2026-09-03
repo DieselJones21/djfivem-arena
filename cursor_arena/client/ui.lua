@@ -2,7 +2,7 @@ Arena = Arena or {}
 
 function Arena.Client.OpenUI()
     if Arena.Client.uiOpen then return end
-    if Arena.Client.inArena then
+    if Arena.Client.inArena or Arena.Client.watching then
         lib.notify({ type = 'error', description = L('already_in_match') })
         return
     end
@@ -109,6 +109,34 @@ end)
 
 RegisterNUICallback('getHistory', function(_, cb)
     cb(lib.callback.await('cursor_arena:getHistory', false) or {})
+end)
+
+RegisterNUICallback('watchLobby', function(data, cb)
+    local result = lib.callback.await('cursor_arena:watchLobby', false, data and data.lobbyId)
+    cb(result or { ok = false })
+    if result and result.ok then
+        Arena.Client.CloseUI()
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
+    end
+end)
+
+RegisterNUICallback('placeBet', function(data, cb)
+    local result = lib.callback.await('cursor_arena:placeBet', false, data)
+    cb(result or { ok = false })
+    if result and result.ok then
+        lib.notify({ type = 'success', description = L('bet_placed') })
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
+    end
+end)
+
+RegisterNUICallback('betItems', function(_, cb)
+    cb(lib.callback.await('cursor_arena:betItems', false) or {})
+end)
+
+RegisterNUICallback('myMoney', function(_, cb)
+    cb(lib.callback.await('cursor_arena:myMoney', false) or { cash = 0, max = 100000 })
 end)
 
 RegisterNUICallback('buyShop', function(data, cb)

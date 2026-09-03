@@ -35,6 +35,7 @@ local function applyCombatLock()
     end
     LocalPlayer.state:set('invBusy', false, true)
     LocalPlayer.state:set('canUseWeapons', true, true)
+    DisablePlayerFiring(PlayerId(), false)
 end
 
 local function freeze(on)
@@ -44,6 +45,10 @@ local function freeze(on)
     SetPlayerInvincible(PlayerId(), on)
     SetEntityInvincible(ped, on)
     if not on then
+        DisablePlayerFiring(PlayerId(), false)
+        EnableControlAction(0, 24, true)
+        EnableControlAction(0, 25, true)
+        EnableControlAction(0, 140, true)
         applyCombatLock()
     end
 end
@@ -192,8 +197,8 @@ RegisterNetEvent('cursor_arena:client:enterArena', function(data)
         Arena.Client.weaponName = data.weapon
         Arena.Client.weaponSlot = data.slot or Arena.Client.weaponSlot
         CreateThread(function()
-            Wait(350)
-            if Arena.Client.weaponName then
+            Wait(500)
+            if Arena.Client.weaponName and not Arena.Client.frozen then
                 Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
             end
         end)
@@ -216,6 +221,10 @@ RegisterNetEvent('cursor_arena:client:preStart', function(data)
         applySpawn(data.spawn)
         boundsImmuneUntil = GetGameTimer() + ((Config.Boundaries.immunityTime or 3) * 1000)
     end
+    if data and data.weapon then
+        Arena.Client.weaponName = data.weapon
+        Arena.Client.weaponSlot = data.slot or Arena.Client.weaponSlot
+    end
 end)
 
 local countdownGen = 0
@@ -230,7 +239,9 @@ RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
         SendNUIMessage({ action = 'countdown', seconds = seconds or 5, round = round })
         local ends = GetGameTimer() + ((seconds or 5) * 1000)
         while GetGameTimer() < ends do
-            if gen ~= countdownGen then return end
+            if gen ~= countdownGen then
+                return
+            end
             if not Arena.Client.inArena then
                 freeze(false)
                 return
@@ -243,6 +254,7 @@ RegisterNetEvent('cursor_arena:client:countdown', function(seconds, round)
         end
         if gen ~= countdownGen then return end
         freeze(false)
+        DisablePlayerFiring(PlayerId(), false)
         applyCombatLock()
         SendNUIMessage({ action = 'countdown', seconds = 0 })
         if Arena.Client.weaponName then
@@ -255,8 +267,11 @@ end)
 RegisterNetEvent('cursor_arena:client:matchActive', function(lobby)
     Arena.Client.lobby = lobby
     deathReported = false
-    if not Arena.Client.frozen then
-        applyCombatLock()
+    freeze(false)
+    DisablePlayerFiring(PlayerId(), false)
+    applyCombatLock()
+    if Arena.Client.weaponName then
+        Arena.Client.EquipWeapon(Arena.Client.weaponName, 9999, Arena.Client.weaponSlot)
     end
     SendNUIMessage({ action = 'matchHud', visible = true, data = hudPayload() })
 end)
@@ -393,6 +408,9 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
 
     if data and data.toHub then
         Arena.Client.ReturnToHub()
+        if data.silent then
+            lib.notify({ type = 'inform', description = L('returned_hub') })
+        end
     elseif data and data.returnCoords then
         local coords = data.returnCoords
         DoScreenFadeOut(250)
@@ -532,6 +550,18 @@ CreateThread(function()
             Wait(8000)
         else
             Wait(4000)
+        end
+    end
+end)
+
+CreateThread(function()
+    while true do
+        if Arena.Client.inArena and not Arena.Client.spectating then
+            RestorePlayerStamina(PlayerId(), 1.0)
+            ResetPlayerStamina(PlayerId())
+            Wait(0)
+        else
+            Wait(400)
         end
     end
 end)
