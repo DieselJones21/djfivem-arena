@@ -1,8 +1,8 @@
 Arena = Arena or {}
-Arena.Lobbies = {}
-Arena.PlayerLobby = {}
-Arena.PlayerHub = {}
-Arena.LeaveAt = {}
+Arena.Lobbies = Arena.Lobbies or {}
+Arena.PlayerLobby = Arena.PlayerLobby or {}
+Arena.PlayerHub = Arena.PlayerHub or {}
+Arena.LeaveAt = Arena.LeaveAt or {}
 
 local matchSeq = 0
 local nextBucket = Config.StartingBucket or 100
@@ -130,7 +130,7 @@ end
 
 function Arena.ListLobbies(src)
     local list = {}
-    for _, lobby in pairs(Arena.Lobbies) do
+    for _, lobby in pairs(Arena.Lobbies or {}) do
         if lobby.private then
             if src and (lobby.owner == src or lobby.players[src]) then
                 list[#list + 1] = Arena.PublicLobby(lobby, src)
@@ -149,9 +149,10 @@ function Arena.ListLobbies(src)
 end
 
 function Arena.GetPlayerLobby(src)
+    if not Arena.PlayerLobby then Arena.PlayerLobby = {} end
     local id = Arena.PlayerLobby[src]
     if not id then return end
-    return Arena.Lobbies[id]
+    return Arena.Lobbies and Arena.Lobbies[id]
 end
 
 local dirtyPending = false
@@ -850,7 +851,7 @@ end
 function Arena.JoinLobby(src, lobbyId, opts)
     opts = opts or {}
     if Arena.PlayerLobby[src] then return false, 'already_in_match' end
-    if not Arena.PlayerHub[src] then return false, 'must_be_in_hub' end
+    if not Arena.EnsurePlayerHub(src) then return false, 'must_be_in_hub' end
     if Arena.LeaveAt[src] and os.time() < Arena.LeaveAt[src] then
         return false, 'already_in_match'
     end
@@ -1106,7 +1107,10 @@ function Arena.InitLobbies()
 end
 
 CreateThread(function()
-    Arena.InitLobbies()
+    local ok, err = pcall(Arena.InitLobbies)
+    if not ok then
+        print(('[cursor_arena] InitLobbies failed: %s'):format(err))
+    end
 end)
 
 if Config.AfkKick and Config.AfkKick.enabled then
@@ -1138,8 +1142,8 @@ end
 
 AddEventHandler('playerDropped', function()
     local src = source
-    Arena.PlayerHub[src] = nil
-    if Arena.PlayerLobby[src] then
+    if Arena.PlayerHub then Arena.PlayerHub[src] = nil end
+    if Arena.PlayerLobby and Arena.PlayerLobby[src] then
         if PlayerLeftServer then PlayerLeftServer(src) end
         Arena.LeaveLobby(src, true, true)
     end

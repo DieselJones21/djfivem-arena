@@ -1,29 +1,33 @@
 Arena = Arena or {}
 
 local function bootstrap(src)
-    local lobby = Arena.GetPlayerLobby(src)
-    local stats = Arena.Stats.GetAllModes(src)
+    Arena.PlayerLobby = Arena.PlayerLobby or {}
+    Arena.PlayerHub = Arena.PlayerHub or {}
+    Arena.Lobbies = Arena.Lobbies or {}
+
+    local lobby = Arena.GetPlayerLobby and Arena.GetPlayerLobby(src)
+    local stats = Arena.Stats and Arena.Stats.GetAllModes and Arena.Stats.GetAllModes(src) or {}
     return {
         playerId = src,
-        playerName = Arena.Framework.GetName(src),
-        framework = Arena.Framework.name,
-        loadouts = Arena.Shop.SerializeLoadouts(src),
-        shop = Arena.Shop.Catalog(src),
-        coins = Arena.Donator.GetBalance(src),
-        coinLabel = Arena.Donator.Label(),
-        maps = Arena.Utils.SerializeMaps(),
-        lobbies = Arena.ListLobbies(src),
+        playerName = Arena.Framework and Arena.Framework.GetName and Arena.Framework.GetName(src) or GetPlayerName(src),
+        framework = Arena.Framework and Arena.Framework.name or 'standalone',
+        loadouts = Arena.Shop and Arena.Shop.SerializeLoadouts and Arena.Shop.SerializeLoadouts(src) or {},
+        shop = Arena.Shop and Arena.Shop.Catalog and Arena.Shop.Catalog(src) or {},
+        coins = Arena.Donator and Arena.Donator.GetBalance and Arena.Donator.GetBalance(src) or 0,
+        coinLabel = Arena.Donator and Arena.Donator.Label and Arena.Donator.Label() or 'Coins',
+        maps = Arena.Utils and Arena.Utils.SerializeMaps and Arena.Utils.SerializeMaps() or {},
+        lobbies = Arena.ListLobbies and Arena.ListLobbies(src) or {},
         private = Config.PrivateLobbies,
         stats = stats,
         leaderboard = {
-            ffa = Arena.Stats.GetLeaderboard('ffa', 25),
-            tdm = Arena.Stats.GetLeaderboard('tdm', 25),
-            pvp = Arena.Stats.GetLeaderboard('pvp', 25),
-            showdown = Arena.Stats.GetLeaderboard('showdown', 25),
+            ffa = Arena.Stats and Arena.Stats.GetLeaderboard and Arena.Stats.GetLeaderboard('ffa', 25) or {},
+            tdm = Arena.Stats and Arena.Stats.GetLeaderboard and Arena.Stats.GetLeaderboard('tdm', 25) or {},
+            pvp = Arena.Stats and Arena.Stats.GetLeaderboard and Arena.Stats.GetLeaderboard('pvp', 25) or {},
+            showdown = Arena.Stats and Arena.Stats.GetLeaderboard and Arena.Stats.GetLeaderboard('showdown', 25) or {},
         },
-        history = Arena.Stats.GetHistory(src, 20),
-        inHub = Arena.PlayerHub[src] == true,
-        current = lobby and Arena.PublicLobby(lobby, src) or nil,
+        history = Arena.Stats and Arena.Stats.GetHistory and Arena.Stats.GetHistory(src, 20) or {},
+        inHub = Arena.EnsurePlayerHub(src),
+        current = lobby and Arena.PublicLobby and Arena.PublicLobby(lobby, src) or nil,
         titles = Config.LeaderboardTitles,
         sounds = Config.Sounds,
         killstreakStyle = Config.KillstreakStyle,
@@ -31,11 +35,38 @@ local function bootstrap(src)
 end
 
 lib.callback.register('cursor_arena:getBootstrap', function(source)
-    return bootstrap(source)
+    local ok, result = pcall(bootstrap, source)
+    if ok then return result end
+    print(('[cursor_arena] getBootstrap failed: %s'):format(result))
+    return {
+        playerId = source,
+        playerName = GetPlayerName(source) or 'Player',
+        framework = 'standalone',
+        loadouts = {},
+        shop = {},
+        coins = 0,
+        coinLabel = 'Coins',
+        maps = Arena.Utils and Arena.Utils.SerializeMaps and Arena.Utils.SerializeMaps() or {},
+        lobbies = {},
+        private = Config.PrivateLobbies,
+        stats = {},
+        leaderboard = { ffa = {}, tdm = {}, pvp = {}, showdown = {} },
+        history = {},
+        inHub = true,
+        current = nil,
+        titles = Config.LeaderboardTitles,
+        sounds = Config.Sounds,
+        killstreakStyle = Config.KillstreakStyle,
+    }
 end)
 
 lib.callback.register('cursor_arena:listLobbies', function(source)
-    return Arena.ListLobbies(source)
+    local ok, list = pcall(function()
+        return Arena.ListLobbies(source)
+    end)
+    if ok then return list or {} end
+    print(('[cursor_arena] listLobbies failed: %s'):format(list))
+    return {}
 end)
 
 lib.callback.register('cursor_arena:getLobby', function(source, lobbyId)
@@ -197,6 +228,7 @@ RegisterNetEvent('cursor_arena:server:activity', function()
 end)
 
 RegisterNetEvent('cursor_arena:server:setHub', function(state)
+    Arena.PlayerHub = Arena.PlayerHub or {}
     Arena.PlayerHub[source] = state == true or nil
 end)
 
@@ -222,9 +254,9 @@ if not leaveCmd or leaveCmd.enable ~= false then
     lib.addCommand('leavearena', {
         help = 'Leave match, or exit the spawn lobby to the city',
     }, function(source)
-        if Arena.PlayerLobby[source] then
+        if Arena.PlayerLobby and Arena.PlayerLobby[source] then
             Arena.LeaveLobby(source, false, true)
-        elseif Arena.PlayerHub[source] then
+        elseif Arena.PlayerHub and Arena.PlayerHub[source] then
             TriggerClientEvent('cursor_arena:client:exitHub', source)
         end
     end)
@@ -241,7 +273,7 @@ if Config.Announcements and Config.Announcements.enabled then
         while true do
             Wait(Config.Announcements.interval or 300000)
             local n = 0
-            for src in pairs(Arena.PlayerLobby) do
+            for src in pairs(Arena.PlayerLobby or {}) do
                 if src then n = n + 1 end
             end
             if n > 0 then
@@ -255,11 +287,11 @@ if Config.Announcements and Config.Announcements.enabled then
 end
 
 exports('IsPlayerInArena', function(src)
-    return Arena.PlayerLobby[src] ~= nil
+    return Arena.PlayerLobby and Arena.PlayerLobby[src] ~= nil
 end)
 
 exports('IsInArena', function(src)
-    return Arena.PlayerLobby[src] ~= nil
+    return Arena.PlayerLobby and Arena.PlayerLobby[src] ~= nil
 end)
 
 exports('GetPlayerArena', function(src)
@@ -276,7 +308,7 @@ end)
 
 exports('GetArenaPlayers', function()
     local list = {}
-    for src in pairs(Arena.PlayerLobby) do
+    for src in pairs(Arena.PlayerLobby or {}) do
         list[#list + 1] = src
     end
     return list
@@ -287,7 +319,7 @@ exports('RemovePlayerFromArena', function(src)
 end)
 
 exports('IsInHub', function(src)
-    return Arena.PlayerHub[src] == true
+    return Arena.EnsurePlayerHub and Arena.EnsurePlayerHub(src) or (Arena.PlayerHub and Arena.PlayerHub[src] == true)
 end)
 
 exports('LeaveArena', function(src)

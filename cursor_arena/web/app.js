@@ -673,27 +673,33 @@
   }
 
   function openUI(data) {
-    state.open = true;
-    state.playerId = data.playerId || null;
-    state.currentLobbyId = data.current && data.current.id ? data.current.id : state.currentLobbyId;
-    state.playerName = data.playerName || 'Player';
-    state.loadouts = data.loadouts || [];
-    state.lobbies = data.lobbies || [];
-    state.shop = data.shop || [];
-    state.coins = data.coins || 0;
-    state.coinLabel = data.coinLabel || 'Coins';
-    state.stats = data.stats || {};
-    state.leaderboard = Object.assign(state.leaderboard, data.leaderboard || {});
-    state.history = data.history || [];
-    state.maps = data.maps || state.maps || [];
-    if (data.private && data.private.firstTo) {
-      Object.assign(FIRST_TO, data.private.firstTo);
+    try {
+      data = data || {};
+      state.open = true;
+      state.playerId = data.playerId || null;
+      state.currentLobbyId = data.current && data.current.id ? data.current.id : state.currentLobbyId;
+      state.playerName = data.playerName || 'Player';
+      state.loadouts = data.loadouts || [];
+      state.lobbies = data.lobbies || [];
+      state.shop = data.shop || [];
+      state.coins = data.coins || 0;
+      state.coinLabel = data.coinLabel || 'Coins';
+      state.stats = data.stats || {};
+      state.leaderboard = Object.assign(state.leaderboard, data.leaderboard || {});
+      state.history = data.history || [];
+      state.maps = data.maps || state.maps || [];
+      if (data.private && data.private.firstTo) {
+        Object.assign(FIRST_TO, data.private.firstTo);
+      }
+      const maps = mapsForMode(state.mode);
+      if (maps[0] && !maps.find((m) => m.mapId === state.mapId)) state.mapId = maps[0].mapId;
+      fillPlayerChrome();
+      show($('app'), true);
+      setTab(state.tab || 'lobbies');
+    } catch (err) {
+      console.error('[cursor_arena] openUI', err);
+      show($('app'), true);
     }
-    const maps = mapsForMode(state.mode);
-    if (maps[0] && !maps.find((m) => m.mapId === state.mapId)) state.mapId = maps[0].mapId;
-    fillPlayerChrome();
-    show($('app'), true);
-    setTab(state.tab || 'lobbies');
   }
 
   function hideMatchChrome() {
@@ -1012,7 +1018,7 @@
       $('streak')._t = setTimeout(() => show($('streak'), false), 1600);
     }
     if (msg.action === 'countdown') {
-      hideUI();
+      if (msg.seconds) hideUI();
       show($('waiting'), false);
       if (!msg.seconds) { show($('countdown'), false); return; }
       $('countdownRound').textContent = msg.round ? `ROUND ${msg.round}` : '';

@@ -1,23 +1,133 @@
 Arena = Arena or {}
 
+local lastToggle = 0
+
+local function emptyBootstrap()
+    return {
+        playerId = GetPlayerServerId(PlayerId()),
+        playerName = GetPlayerName(PlayerId()) or 'Player',
+        loadouts = {},
+        shop = {},
+        coins = 0,
+        coinLabel = 'Coins',
+        maps = {},
+        lobbies = {},
+        stats = {},
+        leaderboard = { ffa = {}, tdm = {}, pvp = {}, showdown = {} },
+        history = {},
+        inHub = true,
+    }
+end
+
+function Arena.Client.IsInSpawnLobby()
+    local hub = Config.SpawnLobby
+    if not hub or not hub.center then
+        return Arena.Client.inHub == true
+    end
+    local c = GetEntityCoords(PlayerPedId())
+    -- 2D so a mismatched interior Z cannot keep G dead.
+    local dx = c.x - hub.center.x
+    local dy = c.y - hub.center.y
+    local r = (hub.radius or 150.0) + 8.0
+    return (dx * dx + dy * dy) <= (r * r)
+end
+
+function Arena.Client.EnsureHubState()
+    if not Arena.Client.IsInSpawnLobby() then
+        return Arena.Client.inHub == true
+    end
+    -- Physically in the spawn MLO. Clear leftover match flags so G works.
+    if Arena.Client.inArena or Arena.Client.winnerScene or Arena.Client.watching or Arena.Client.frozen then
+        Arena.Client.inArena = false
+        Arena.Client.winnerScene = false
+        Arena.Client.watching = false
+        Arena.Client.down = false
+        Arena.Client.frozen = false
+        Arena.Client.spectating = false
+        FreezeEntityPosition(PlayerPedId(), false)
+        SetPlayerInvincible(PlayerId(), false)
+        if not Arena.Client.uiOpen then
+            SendNUIMessage({ action = 'matchHud', visible = false })
+            SendNUIMessage({ action = 'matchResult', data = nil })
+            SendNUIMessage({ action = 'deathOverlay', visible = false })
+            SendNUIMessage({ action = 'countdown', seconds = 0 })
+        end
+        if Arena.Spectate and Arena.Spectate.Stop then
+            Arena.Spectate.Stop()
+        end
+    end
+    if not Arena.Client.inHub then
+        Arena.Client.inHub = true
+        LocalPlayer.state:set('arenaHub', true, true)
+        TriggerServerEvent('cursor_arena:server:setHub', true)
+    end
+    return true
+end
+
 function Arena.Client.OpenUI()
-    if Arena.Client.uiOpen then return end
-    if Arena.Client.inArena or Arena.Client.watching then
+    Arena.Client.EnsureHubState()
+    if Arena.Client.watching and not Arena.Client.IsInSpawnLobby() then
         lib.notify({ type = 'error', description = L('already_in_match') })
         return
     end
-    if not Arena.Client.inHub then
+    if Arena.Client.inArena and not Arena.Client.IsInSpawnLobby() then
+        lib.notify({ type = 'error', description = L('already_in_match') })
+        return
+    end
+    if not Arena.Client.inHub and not Arena.Client.IsInSpawnLobby() then
         lib.notify({ type = 'error', description = L('must_be_in_hub') })
         return
     end
 
-    local bootstrap = lib.callback.await('cursor_arena:getBootstrap', false)
-    if not bootstrap then return end
-
+    -- Never wait on the server before showing the tablet. A hung
+    -- getBootstrap used to swallow G with no notify.
     if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
+    lib.hideTextUI()
+    FreezeEntityPosition(PlayerPedId(), false)
+    Arena.Client.frozen = false
     Arena.Client.uiOpen = true
+    SetNuiFocusKeepInput(false)
     SetNuiFocus(true, true)
-    SendNUIMessage({ action = 'open', data = bootstrap })
+    SendNUIMessage({ action = 'open', data = Arena.Client.lastBootstrap or emptyBootstrap() })
+
+    CreateThread(function()
+        local ok, bootstrap = pcall(function()
+            return lib.callback.await('cursor_arena:getBootstrap', false)
+        end)
+        if not Arena.Client.uiOpen then return end
+        if not ok then
+            print('[cursor_arena] getBootstrap error', bootstrap)
+            return
+        end
+        if type(bootstrap) == 'table' then
+            Arena.Client.lastBootstrap = bootstrap
+            SendNUIMessage({ action = 'open', data = bootstrap })
+        end
+    end)
+end
+
+-- Game-side G only opens. Closing from the same key's release (ox_lib
+-- onPressed + control JustReleased) is why the tablet flashed and vanished.
+-- Escape / the ✕ button close it.
+function Arena.Client.ToggleMenu()
+    local now = GetGameTimer()
+    if now - lastToggle < 400 then return end
+    lastToggle = now
+    Arena.Client.EnsureHubState()
+    if not Arena.Client.inHub and not Arena.Client.IsInSpawnLobby() then
+        lib.notify({ type = 'error', description = L('must_be_in_hub') })
+        return
+    end
+    if Arena.Client.uiOpen then
+        -- NUI has exclusive keyboard while focused. If the game still got G,
+        -- focus was lost — re-assert the tablet instead of closing it.
+        local focused = false
+        pcall(function() focused = IsNuiFocused() end)
+        if focused then return end
+        Arena.Client.OpenUI()
+        return
+    end
+    Arena.Client.OpenUI()
 end
 
 function Arena.Client.CloseUI()
@@ -26,6 +136,7 @@ function Arena.Client.CloseUI()
     -- Message first, then drop focus. Dropping focus before the callback
     -- returns is a common way to leave NUI overlays stuck on screen.
     SendNUIMessage({ action = 'close' })
+    SetNuiFocusKeepInput(false)
     SetNuiFocus(false, false)
 end
 
@@ -45,6 +156,18 @@ function Arena.Client.OpenLoadout()
     })
 end
 
+local function nuiAwait(name, payload, fallback)
+    local ok, result = pcall(function()
+        if payload == nil then
+            return lib.callback.await(name, false)
+        end
+        return lib.callback.await(name, false, payload)
+    end)
+    if ok then return result end
+    print('[cursor_arena] callback', name, result)
+    return fallback
+end
+
 RegisterNUICallback('close', function(_, cb)
     local wasOpen = Arena.Client.uiOpen
     Arena.Client.CloseUI()
@@ -55,15 +178,15 @@ RegisterNUICallback('close', function(_, cb)
 end)
 
 RegisterNUICallback('listLobbies', function(_, cb)
-    cb(lib.callback.await('cursor_arena:listLobbies', false) or {})
+    cb(nuiAwait('cursor_arena:listLobbies', nil, {}) or {})
 end)
 
 RegisterNUICallback('getLobby', function(data, cb)
-    cb(lib.callback.await('cursor_arena:getLobby', false, data and data.lobbyId))
+    cb(nuiAwait('cursor_arena:getLobby', data and data.lobbyId, nil))
 end)
 
 RegisterNUICallback('joinLobby', function(data, cb)
-    local result = lib.callback.await('cursor_arena:joinLobby', false, data)
+    local result = nuiAwait('cursor_arena:joinLobby', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -75,7 +198,7 @@ RegisterNUICallback('joinLobby', function(data, cb)
 end)
 
 RegisterNUICallback('leaveLobby', function(_, cb)
-    local result = lib.callback.await('cursor_arena:leaveLobby', false) or { ok = true }
+    local result = nuiAwait('cursor_arena:leaveLobby', nil, { ok = true }) or { ok = true }
     cb(result)
     Arena.Client.CloseUI()
     if Arena.Client.inHub and not Arena.Client.inArena and Arena.Client.ShowHubHint then
@@ -84,11 +207,11 @@ RegisterNUICallback('leaveLobby', function(_, cb)
 end)
 
 RegisterNUICallback('setTeam', function(data, cb)
-    cb(lib.callback.await('cursor_arena:setTeam', false, data and data.team) or { ok = false })
+    cb(nuiAwait('cursor_arena:setTeam', data and data.team, { ok = false }) or { ok = false })
 end)
 
 RegisterNUICallback('changeLoadout', function(data, cb)
-    local result = lib.callback.await('cursor_arena:changeLoadout', false, data)
+    local result = nuiAwait('cursor_arena:changeLoadout', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.loadoutOpen = false
@@ -100,19 +223,19 @@ RegisterNUICallback('changeLoadout', function(data, cb)
 end)
 
 RegisterNUICallback('getLeaderboard', function(data, cb)
-    cb(lib.callback.await('cursor_arena:getLeaderboard', false, data and data.mode) or {})
+    cb(nuiAwait('cursor_arena:getLeaderboard', data and data.mode, {}) or {})
 end)
 
 RegisterNUICallback('getMyStats', function(_, cb)
-    cb(lib.callback.await('cursor_arena:getMyStats', false) or {})
+    cb(nuiAwait('cursor_arena:getMyStats', nil, {}) or {})
 end)
 
 RegisterNUICallback('getHistory', function(_, cb)
-    cb(lib.callback.await('cursor_arena:getHistory', false) or {})
+    cb(nuiAwait('cursor_arena:getHistory', nil, {}) or {})
 end)
 
 RegisterNUICallback('watchLobby', function(data, cb)
-    local result = lib.callback.await('cursor_arena:watchLobby', false, data and data.lobbyId)
+    local result = nuiAwait('cursor_arena:watchLobby', data and data.lobbyId, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -122,7 +245,7 @@ RegisterNUICallback('watchLobby', function(data, cb)
 end)
 
 RegisterNUICallback('placeBet', function(data, cb)
-    local result = lib.callback.await('cursor_arena:placeBet', false, data)
+    local result = nuiAwait('cursor_arena:placeBet', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         lib.notify({ type = 'success', description = L('bet_placed') })
@@ -132,15 +255,15 @@ RegisterNUICallback('placeBet', function(data, cb)
 end)
 
 RegisterNUICallback('betItems', function(_, cb)
-    cb(lib.callback.await('cursor_arena:betItems', false) or {})
+    cb(nuiAwait('cursor_arena:betItems', nil, {}) or {})
 end)
 
 RegisterNUICallback('myMoney', function(_, cb)
-    cb(lib.callback.await('cursor_arena:myMoney', false) or { cash = 0, max = 100000 })
+    cb(nuiAwait('cursor_arena:myMoney', nil, { cash = 0, max = 100000 }) or { cash = 0, max = 100000 })
 end)
 
 RegisterNUICallback('createPrivate', function(data, cb)
-    local result = lib.callback.await('cursor_arena:createPrivate', false, data)
+    local result = nuiAwait('cursor_arena:createPrivate', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -152,7 +275,7 @@ RegisterNUICallback('createPrivate', function(data, cb)
 end)
 
 RegisterNUICallback('joinByCode', function(data, cb)
-    local result = lib.callback.await('cursor_arena:joinByCode', false, data)
+    local result = nuiAwait('cursor_arena:joinByCode', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -164,7 +287,7 @@ RegisterNUICallback('joinByCode', function(data, cb)
 end)
 
 RegisterNUICallback('watchByCode', function(data, cb)
-    local result = lib.callback.await('cursor_arena:watchByCode', false, data)
+    local result = nuiAwait('cursor_arena:watchByCode', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -174,7 +297,7 @@ RegisterNUICallback('watchByCode', function(data, cb)
 end)
 
 RegisterNUICallback('buyShop', function(data, cb)
-    local result = lib.callback.await('cursor_arena:buyShop', false, data)
+    local result = nuiAwait('cursor_arena:buyShop', data, { ok = false })
     cb(result or { ok = false })
     if result and result.message and not result.ok then
         lib.notify({ type = 'error', description = result.message })
