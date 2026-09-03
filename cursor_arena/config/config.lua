@@ -229,7 +229,7 @@ Config.Rewards = {
     account = 'cash', -- qbox/qb cash|bank  ·  esx money|bank
 }
 
-Config.PostMatchReturn = 8
+Config.PostMatchReturn = 10 -- winner scene, then hub
 
 Config.Betting = {
     enabled = true,
