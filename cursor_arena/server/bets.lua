@@ -29,7 +29,7 @@ function Arena.Watch.IsWatching(src)
 end
 
 function Arena.Watch.Join(src, lobbyId)
-    if not Arena.PlayerHub[src] then return false, 'must_be_in_hub' end
+    if not Arena.EnsurePlayerHub(src) then return false, 'must_be_in_hub' end
     if Arena.PlayerLobby[src] then return false, 'already_in_match' end
     local lobby = Arena.Lobbies[lobbyId]
     if not lobby then return false, 'not_found' end
@@ -175,7 +175,7 @@ function Arena.Bets.Place(src, lobbyId, data)
     local betCfg = cfg()
     if betCfg.enabled == false then return false, 'bet_invalid' end
     if Arena.PlayerLobby[src] then return false, 'already_in_match' end
-    if not Arena.PlayerHub[src] and not Arena.Watching[src] then return false, 'must_be_in_hub' end
+    if not Arena.EnsurePlayerHub(src) and not Arena.Watching[src] then return false, 'must_be_in_hub' end
     local lobby = Arena.Lobbies[lobbyId]
     if not lobby then return false, 'not_found' end
     if lobby.state ~= 'waiting' and lobby.state ~= 'countdown' and lobby.state ~= 'active' then

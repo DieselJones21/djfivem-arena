@@ -90,14 +90,14 @@ function Arena.Client.HideHubHint()
 end
 
 function Arena.Client.EnterHub(silent)
-    if Arena.Client.inArena then
-        lib.notify({ type = 'error', description = L('already_in_match') })
-        return
-    end
-    if Arena.Client.inHub then
+    if Arena.Client.EnsureHubState and Arena.Client.EnsureHubState() then
         if not silent then
             lib.notify({ type = 'inform', description = L('already_in_hub') })
         end
+        return
+    end
+    if Arena.Client.inArena and not (Arena.Client.IsInSpawnLobby and Arena.Client.IsInSpawnLobby()) then
+        lib.notify({ type = 'error', description = L('already_in_match') })
         return
     end
 
@@ -141,6 +141,12 @@ function Arena.Client.ExitHub(silent)
 end
 
 function Arena.Client.ReturnToHub()
+    Arena.Client.inArena = false
+    Arena.Client.winnerScene = false
+    Arena.Client.watching = false
+    Arena.Client.down = false
+    Arena.Client.frozen = false
+    FreezeEntityPosition(PlayerPedId(), false)
     local spawn = pickHubSpawn()
     teleportTo(spawn)
     Arena.Client.inHub = true
@@ -254,24 +260,52 @@ CreateThread(function()
     end
 end)
 
-lib.addKeybind({
-    name = 'cursor_arena_menu',
-    description = 'Open Arena menu (spawn lobby only)',
-    defaultKey = Config.MenuKey or 'G',
-    onPressed = function()
-        if Arena.Client.inArena then return end
-        if not Arena.Client.inHub then
-            lib.notify({ type = 'error', description = L('must_be_in_hub') })
-            return
-        end
+-- Native +command fires on press only. The minus command must exist or FiveM
+-- treats the mapping as a tap that can also fire on release.
+RegisterCommand('+cursor_arena_open', function()
+    Arena.Client.ToggleMenu()
+end, false)
+RegisterCommand('-cursor_arena_open', function() end, false)
+RegisterKeyMapping('+cursor_arena_open', 'Open Arena menu (spawn lobby)', 'keyboard', Config.MenuKey or 'G')
+
+pcall(function()
+    lib.addKeybind({
+        name = 'cursor_arena_menu',
+        description = 'Open Arena menu (spawn lobby only)',
+        defaultKey = Config.MenuKey or 'G',
+        onPressed = function()
+            Arena.Client.ToggleMenu()
+        end,
+    })
+end)
+
+-- Last-resort G if keybinds never register. Press only, and never while the
+-- tablet already has NUI focus (release used to close it on the same tap).
+CreateThread(function()
+    while true do
         if Arena.Client.uiOpen then
-            Arena.Client.CloseUI()
-            Arena.Client.ShowHubHint()
+            DisableControlAction(0, 47, true) -- G / detonator
+            Wait(0)
+        elseif Arena.Client.IsInSpawnLobby and Arena.Client.IsInSpawnLobby() then
+            DisableControlAction(0, 47, true)
+            if IsDisabledControlJustPressed(0, 47) or IsControlJustPressed(0, 47) then
+                Arena.Client.ToggleMenu()
+            end
+            Wait(0)
         else
-            Arena.Client.OpenUI()
+            Wait(400)
         end
-    end,
-})
+    end
+end)
+
+CreateThread(function()
+    while true do
+        Wait(1000)
+        if Arena.Client.EnsureHubState then
+            Arena.Client.EnsureHubState()
+        end
+    end
+end)
 
 local function bind(cmd)
     if not cmd or cmd.enable == false then return end
@@ -305,11 +339,12 @@ for i = 1, #Config.Commands do
 end
 
 RegisterNetEvent('cursor_arena:client:openUI', function()
-    if Arena.Client.inArena then
+    Arena.Client.EnsureHubState()
+    if Arena.Client.inArena and not Arena.Client.IsInSpawnLobby() then
         lib.notify({ type = 'error', description = L('already_in_match') })
         return
     end
-    if Arena.Client.inHub then
+    if Arena.Client.inHub or Arena.Client.IsInSpawnLobby() then
         Arena.Client.OpenUI()
     else
         Arena.Client.EnterHub()
