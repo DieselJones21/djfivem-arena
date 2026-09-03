@@ -36,6 +36,14 @@ function Arena.Watch.Join(src, lobbyId)
     if lobby.state ~= 'active' and lobby.state ~= 'countdown' and lobby.state ~= 'waiting' then
         return false, 'not_found'
     end
+    if lobby.private then
+        local admit = Arena.PrivateAdmit and Arena.PrivateAdmit[src]
+        local allowed = src == lobby.owner
+            or (admit and admit.id == lobbyId and os.time() <= (admit.until or 0))
+        if not allowed then
+            return false, 'bad_code'
+        end
+    end
 
     Arena.Watch.Leave(src, true)
     watchers(lobbyId)[src] = true
@@ -46,8 +54,8 @@ function Arena.Watch.Join(src, lobbyId)
         ply.state:set('arena_spectator', true, true)
         ply.state:set('invBusy', false, true)
     end
-    TriggerClientEvent('cursor_arena:client:watchStart', src, Arena.PublicLobby(lobby))
-    return true, Arena.PublicLobby(lobby)
+    TriggerClientEvent('cursor_arena:client:watchStart', src, Arena.PublicLobby(lobby, src))
+    return true, Arena.PublicLobby(lobby, src)
 end
 
 function Arena.Watch.Leave(src, silent)

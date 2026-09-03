@@ -12,7 +12,8 @@ local function bootstrap(src)
         coins = Arena.Donator.GetBalance(src),
         coinLabel = Arena.Donator.Label(),
         maps = Arena.Utils.SerializeMaps(),
-        lobbies = Arena.ListLobbies(),
+        lobbies = Arena.ListLobbies(src),
+        private = Config.PrivateLobbies,
         stats = stats,
         leaderboard = {
             ffa = Arena.Stats.GetLeaderboard('ffa', 25),
@@ -22,7 +23,7 @@ local function bootstrap(src)
         },
         history = Arena.Stats.GetHistory(src, 20),
         inHub = Arena.PlayerHub[src] == true,
-        current = lobby and Arena.PublicLobby(lobby) or nil,
+        current = lobby and Arena.PublicLobby(lobby, src) or nil,
         titles = Config.LeaderboardTitles,
         sounds = Config.Sounds,
         killstreakStyle = Config.KillstreakStyle,
@@ -33,14 +34,48 @@ lib.callback.register('cursor_arena:getBootstrap', function(source)
     return bootstrap(source)
 end)
 
-lib.callback.register('cursor_arena:listLobbies', function()
-    return Arena.ListLobbies()
+lib.callback.register('cursor_arena:listLobbies', function(source)
+    return Arena.ListLobbies(source)
 end)
 
-lib.callback.register('cursor_arena:getLobby', function(_, lobbyId)
+lib.callback.register('cursor_arena:getLobby', function(source, lobbyId)
     local lobby = Arena.Lobbies[lobbyId]
     if not lobby then return end
-    return Arena.PublicLobby(lobby)
+    if lobby.private and source ~= lobby.owner and not lobby.players[source] then
+        return
+    end
+    return Arena.PublicLobby(lobby, source)
+end)
+
+lib.callback.register('cursor_arena:createPrivate', function(source, data)
+    data = data or {}
+    local ok, result = Arena.CreatePrivate(source, data)
+    if not ok then
+        return { ok = false, error = result, message = L(result or 'cannot_join') }
+    end
+    return { ok = true, lobby = result }
+end)
+
+lib.callback.register('cursor_arena:joinByCode', function(source, data)
+    data = data or {}
+    local ok, result = Arena.JoinByCode(source, data.code, {
+        team = data.team,
+        loadoutId = data.loadoutId,
+        weaponId = data.weaponId,
+    })
+    if not ok then
+        return { ok = false, error = result, message = L(result or 'bad_code') }
+    end
+    return { ok = true, lobby = result }
+end)
+
+lib.callback.register('cursor_arena:watchByCode', function(source, data)
+    data = data or {}
+    local ok, result = Arena.WatchByCode(source, data and data.code)
+    if not ok then
+        return { ok = false, message = L(result or 'bad_code') }
+    end
+    return { ok = true, lobby = result }
 end)
 
 lib.callback.register('cursor_arena:joinLobby', function(source, data)
@@ -139,8 +174,19 @@ RegisterNetEvent('cursor_arena:server:watchLeave', function()
     Arena.Watch.Leave(source, false)
 end)
 
-RegisterNetEvent('cursor_arena:server:playerDied', function(killerServerId, weaponHash)
-    Arena.OnPlayerDeath(source, killerServerId, weaponHash)
+RegisterNetEvent('cursor_arena:server:playerDied', function(killerServerId, weaponHash, headshot)
+    Arena.OnPlayerDeath(source, killerServerId, weaponHash, headshot == true)
+end)
+
+RegisterNetEvent('cursor_arena:server:headshot', function(victimSrc)
+    local src = source
+    victimSrc = tonumber(victimSrc)
+    if not victimSrc then return end
+    local lobby = Arena.GetPlayerLobby(src)
+    if not lobby or lobby.state ~= 'active' then return end
+    if src == victimSrc then return end
+    if not lobby.players[victimSrc] then return end
+    TriggerClientEvent('cursor_arena:client:forceHeadshot', victimSrc)
 end)
 
 RegisterNetEvent('cursor_arena:server:activity', function()

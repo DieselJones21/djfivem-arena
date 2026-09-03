@@ -239,6 +239,28 @@ Config.Betting = {
 }
 
 --[[
+    Paintball combat. Headshots from any arena gun are lethal.
+    Keep combat locks off the per-tick loop — flipping invincibility
+    every frame is what makes shots fail to register.
+]]
+Config.Combat = {
+    headshotInstant = true,
+    headBones = { 31086, 39317, 12844, 65068 },
+    ragdoll = false,
+}
+
+Config.PrivateLobbies = {
+    enabled = true,
+    maxPerPlayer = 1,
+    codeLength = 5,
+    firstTo = {
+        ffa = { 10, 15, 20, 25, 30 },
+        tdm = { 20, 30, 40, 50 },
+        pvp = { 3, 4, 5, 7, 9 },
+    },
+}
+
+--[[
     Arena shop coins — same wallet as the Envy Donator Store.
     Prefer the hooks in server/open_sv.lua.
     Or set resource + export names, or an ox_inventory item.

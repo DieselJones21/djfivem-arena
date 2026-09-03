@@ -21,6 +21,7 @@
           </div>
           <nav class="nav-tabs" id="navTabs">
             <button class="nav-tab active" data-tab="lobbies">Lobbies</button>
+            <button class="nav-tab" data-tab="private">Private</button>
             <button class="nav-tab" data-tab="loadout">Loadout</button>
             <button class="nav-tab" data-tab="shop">Shop</button>
             <button class="nav-tab" data-tab="ranking">Ranking</button>
@@ -50,25 +51,97 @@
           <section class="page active" id="page-lobbies">
             <div class="page-head">
               <div>
-                <h1>Public lobbies</h1>
-                <p>Browse open rooms. Names are Discord display names when linked.</p>
+                <h1>Lobbies</h1>
+                <p>Public rooms plus any private match you host.</p>
               </div>
-              <button class="btn-cta" id="btnQuickJoin">+ Quick join</button>
+              <div class="head-actions">
+                <button class="btn-ghost" id="btnGoPrivate">Create private</button>
+                <button class="btn-cta" id="btnQuickJoin">Quick join</button>
+              </div>
+            </div>
+            <div class="code-strip">
+              <div>
+                <h2 class="sec-label">Have a code?</h2>
+                <p class="sec-help">Drop into a private room without browsing.</p>
+              </div>
+              <div class="code-row">
+                <input class="search code-input" id="lobbyCode" type="text" maxlength="8" placeholder="CODE" autocomplete="off" />
+                <button class="btn-ghost" id="btnWatchCode">Watch</button>
+                <button class="btn-cta" id="btnJoinCode">Join</button>
+              </div>
             </div>
             <div class="toolbar">
               <div class="chip-row" id="lobbyFilters">
                 <button class="chip active" data-filter="all">All</button>
+                <button class="chip" data-filter="live">Live</button>
                 <button class="chip" data-filter="ffa">FFA</button>
                 <button class="chip" data-filter="1v1">1v1</button>
                 <button class="chip" data-filter="2v2">2v2</button>
                 <button class="chip" data-filter="3v3">3v3</button>
                 <button class="chip" data-filter="4v4">4v4</button>
                 <button class="chip" data-filter="tdm">TDM</button>
+                <button class="chip" data-filter="private">Private</button>
               </div>
               <input class="search" id="roomSearch" type="search" placeholder="Search map or host..." />
             </div>
-            <div class="lobby-grid" id="roomGrid"></div>
+            <div class="lobby-list" id="roomGrid"></div>
             <div class="empty-state hidden" id="roomsEmpty">No rooms match that filter.</div>
+          </section>
+
+          <section class="page" id="page-private">
+            <div class="page-head">
+              <div>
+                <h1>Private room</h1>
+                <p>Host a custom match. Share the code — only people with it can join or watch.</p>
+              </div>
+            </div>
+            <div class="priv-layout">
+              <div class="priv-card">
+                <h2 class="sec-label">Mode</h2>
+                <div class="chip-row" id="privModes"></div>
+                <h2 class="sec-label">Map</h2>
+                <div class="map-pick compact" id="privMaps"></div>
+                <h2 class="sec-label" id="privGoalLabel">First to</h2>
+                <div class="chip-row" id="privFirstTo"></div>
+                <div class="join-row priv-meta">
+                  <div>
+                    <div id="privTeamBox">
+                      <h2 class="sec-label">Team</h2>
+                      <div class="vis-row" id="privTeamWrap">
+                        <button class="vis-btn orange selected" data-team="1">ORANGE</button>
+                        <button class="vis-btn blue" data-team="2">BLUE</button>
+                      </div>
+                    </div>
+                    <p class="sec-help" id="privTeamHint">1v1 assigns sides automatically.</p>
+                  </div>
+                  <div>
+                    <h2 class="sec-label">Weapon</h2>
+                    <div class="weapon-list short" id="privWeapons"></div>
+                  </div>
+                </div>
+                <div class="join-foot">
+                  <p class="join-note" id="privSummary">1v1 · Stables · first to 5</p>
+                  <button class="btn-cta" id="btnCreatePrivate">Create and join</button>
+                </div>
+              </div>
+              <aside class="priv-side">
+                <div class="priv-tip">
+                  <span class="card-tag cyan">INVITE</span>
+                  <h3>How it works</h3>
+                  <ol>
+                    <li>Pick mode, map, and first-to.</li>
+                    <li>You get a 5-letter code on the waiting screen.</li>
+                    <li>Friends enter the code on Lobbies to join or watch.</li>
+                  </ol>
+                </div>
+                <div class="priv-tip dim">
+                  <h3>Modes</h3>
+                  <p><b>FFA</b> — 12 max, instant respawn.</p>
+                  <p><b>TDM</b> — 5v5 Orange vs Blue.</p>
+                  <p><b>1v1–4v4</b> — one life a round, first to the target.</p>
+                </div>
+              </aside>
+            </div>
           </section>
 
           <section class="page" id="page-loadout">
@@ -235,7 +308,7 @@
   </div>
 
   <div id="matchHud" class="match-hud hidden">
-    <div class="hud-bar" id="scorePlate"></div>
+    <div class="hud-wrap" id="scorePlate"></div>
     <div class="team-panel hidden" id="teamPanel"></div>
     <div class="killfeed" id="killfeed"></div>
   </div>
