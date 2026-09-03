@@ -1044,14 +1044,40 @@
       $('spectateHint').textContent = msg.hint || '';
     }
     if (msg.action === 'matchResult') {
-      if (!msg.data) { show($('matchResult'), false); return; }
+      if (!msg.data) {
+        show($('matchResult'), false);
+        clearInterval(window._resultCd);
+        return;
+      }
       const el = $('matchResult');
-      el.className = `match-result ${msg.data.outcome || ''}`;
+      const res = msg.data.result || {};
+      const winnerTeam = Number(res.winner || 0);
+      el.className = `match-result ${msg.data.outcome || ''} ${winnerTeam === 1 ? 't1' : winnerTeam === 2 ? 't2' : ''}`;
       $('resultTitle').textContent = msg.data.outcome === 'win' ? 'VICTORY' : msg.data.outcome === 'loss' ? 'DEFEAT' : 'DRAW';
-      $('resultSub').textContent = msg.data.result?.scoreline ? `Score ${msg.data.result.scoreline}` : '';
+      if ($('resultWinner')) {
+        $('resultWinner').textContent = res.winnerLabel || (res.winnerName || '');
+      }
+      $('resultSub').textContent = res.scoreline ? `Score ${res.scoreline}` : '';
       $('resultElo').textContent = msg.data.eloChange ? `${msg.data.eloChange > 0 ? '+' : ''}${msg.data.eloChange} ELO` : '';
+      const board = $('resultBoard');
+      if (board) {
+        const rows = res.players || msg.data.players || [];
+        board.innerHTML = rows.slice(0, 8).map((p) => `
+          <div class="result-row ${p.won ? 'won' : ''} ${p.team === 1 ? 't1' : p.team === 2 ? 't2' : ''}">
+            <span>${esc(p.name)}</span>
+            <span>${p.kills || 0} / ${p.deaths || 0}</span>
+            <span>${p.won ? 'WIN' : ''}</span>
+          </div>`).join('');
+      }
+      let n = Math.max(1, Number(msg.data.sceneSeconds) || 10);
+      if ($('resultCount')) $('resultCount').textContent = String(n);
       show(el, true);
-      setTimeout(() => show(el, false), 6500);
+      clearInterval(window._resultCd);
+      window._resultCd = setInterval(() => {
+        n -= 1;
+        if ($('resultCount')) $('resultCount').textContent = String(Math.max(0, n));
+        if (n <= 0) clearInterval(window._resultCd);
+      }, 1000);
     }
   });
 
@@ -1085,6 +1111,26 @@
     MOCK.lobbies.forEach((l) => { l.loadouts = MOCK.loadouts; });
     const params = new URLSearchParams(location.search);
     const view = params.get('view');
+    if (view === 'result') {
+      window.postMessage({
+        action: 'matchResult',
+        data: {
+          outcome: params.get('outcome') || 'win',
+          eloChange: 18,
+          sceneSeconds: 10,
+          result: {
+            winner: 1,
+            winnerLabel: 'ORANGE WINS',
+            scoreline: '5-3',
+            players: [
+              { name: 'Diesel', kills: 6, deaths: 2, won: true, team: 1 },
+              { name: 'Nova', kills: 3, deaths: 5, won: false, team: 2 },
+            ],
+          },
+        },
+      }, '*');
+      return;
+    }
     if (view === 'hud' || view === 'waiting') {
       state.playerId = 1;
       const side = params.get('side') === 'blue' ? 2 : 1;

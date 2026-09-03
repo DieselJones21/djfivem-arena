@@ -408,8 +408,34 @@ RegisterNetEvent('cursor_arena:client:downed', function(players)
 end)
 
 RegisterNetEvent('cursor_arena:client:matchEnded', function(payload)
-    SendNUIMessage({ action = 'matchResult', data = payload })
+    Arena.Client.winnerScene = true
+    Arena.Client.down = false
+    deathReported = true
+    if Arena.Client.lobby then
+        Arena.Client.lobby.state = 'ended'
+    end
     Arena.Spectate.Stop()
+    SendNUIMessage({ action = 'deathOverlay', visible = false })
+    SendNUIMessage({ action = 'spectate', visible = false })
+
+    if not Arena.Client.watching then
+        local ped = PlayerPedId()
+        local c = GetEntityCoords(ped)
+        local w = GetEntityHeading(ped)
+        if IsEntityDead(ped) or IsPedFatallyInjured(ped) or GetEntityHealth(ped) <= 100 then
+            NetworkResurrectLocalPlayer(c.x, c.y, c.z, w, true, false)
+            ped = PlayerPedId()
+        end
+        ClearPedBloodDamage(ped)
+        SetEntityHealth(ped, GetEntityMaxHealth(ped))
+        SetPedArmour(ped, 0)
+        ClearPedTasksImmediately(ped)
+        freeze(true)
+    end
+
+    payload = payload or {}
+    payload.sceneSeconds = payload.sceneSeconds or Config.PostMatchReturn or 10
+    SendNUIMessage({ action = 'matchResult', data = payload })
     local msg = L('draw')
     if payload.outcome == 'win' then msg = L('you_won')
     elseif payload.outcome == 'loss' then msg = L('you_lost') end
@@ -417,6 +443,7 @@ RegisterNetEvent('cursor_arena:client:matchEnded', function(payload)
         type = payload.outcome == 'win' and 'success' or 'inform',
         description = L('match_ended', msg),
     })
+    TriggerEvent('cursor_arena:client:sound', 'game_over')
 end)
 
 RegisterNetEvent('cursor_arena:client:loadoutApplied', function(data)
@@ -434,6 +461,7 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     Arena.Client.lobby = nil
     Arena.Client.map = nil
     Arena.Client.down = false
+    Arena.Client.winnerScene = false
     Arena.Client.ambulanceArena = false
     Arena.Spectate.Stop()
     freeze(false)
@@ -521,7 +549,7 @@ end
 -- there, and cancelling wasabi's death event would otherwise leave people crawling.
 CreateThread(function()
     while true do
-        if Arena.Client.inArena and not Arena.Client.down then
+        if Arena.Client.inArena and not Arena.Client.down and not Arena.Client.winnerScene then
             local ped = PlayerPedId()
             local down = Arena.Client.IsPedDown and Arena.Client.IsPedDown()
                 or IsEntityDead(ped) or IsPedFatallyInjured(ped) or GetEntityHealth(ped) <= 100

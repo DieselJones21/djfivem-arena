@@ -6,6 +6,7 @@ Arena.Client = {
     spectating = false,
     watching = false,
     down = false,
+    winnerScene = false,
     uiOpen = false,
     loadoutOpen = false,
     ambulanceArena = false,

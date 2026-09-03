@@ -332,6 +332,13 @@ local function endMatch(lobby, result)
     lobby.matchResult = result
     lobby.bellRang = false
 
+    for src, p in pairs(lobby.players) do
+        p.alive = true
+        p.spectating = false
+        setStateBags(src, lobby, p)
+        Arena.Ambulance.Revive(src)
+    end
+
     local roster = playerPayload(lobby)
     local duration = lobby.startedAt and (os.time() - lobby.startedAt) or 0
     local matchUid = lobby.matchUid or nextMatchUid()
@@ -435,6 +442,7 @@ local function endMatch(lobby, result)
             players = roster,
             eloChange = eloChange,
             duration = duration,
+            sceneSeconds = Config.PostMatchReturn or 10,
         })
     end
 
@@ -445,6 +453,7 @@ local function endMatch(lobby, result)
                 result = result,
                 scores = Arena.Utils.Scoreboard(lobby.scores),
                 players = roster,
+                sceneSeconds = Config.PostMatchReturn or 10,
             })
         end
     end
@@ -455,11 +464,23 @@ local function endMatch(lobby, result)
         MatchEnded(matchUid, lobby.mode, result)
     end
 
+    if result.draw then
+        result.winnerLabel = 'DRAW'
+    elseif result.winnerSrc and result.winnerName then
+        result.winnerLabel = result.winnerName
+    elseif result.winner == 1 then
+        result.winnerLabel = 'ORANGE WINS'
+    elseif result.winner == 2 then
+        result.winnerLabel = 'BLUE WINS'
+    else
+        result.winnerLabel = result.winnerName or 'MATCH OVER'
+    end
+
     if Arena.Bets and Arena.Bets.Settle then
         Arena.Bets.Settle(lobby, result)
     end
 
-    local delay = Config.PostMatchReturn or 8
+    local delay = Config.PostMatchReturn or 10
     local id = lobby.id
     SetTimeout(delay * 1000, function()
         local l = Arena.Lobbies[id]
