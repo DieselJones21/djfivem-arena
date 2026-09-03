@@ -85,9 +85,13 @@ local function playerPayload(lobby)
     return players
 end
 
-function Arena.PublicLobby(lobby)
+function Arena.PublicLobby(lobby, viewer)
     local map = lobby.map
     local cfg = lobby.cfg
+    local revealCode = lobby.private and (
+        viewer == true
+        or (viewer and (viewer == lobby.owner or lobby.players[viewer]))
+    )
     return {
         id = lobby.id,
         name = cfg.name,
@@ -118,15 +122,25 @@ function Arena.PublicLobby(lobby)
         watchers = Arena.Watch and Arena.Watch.Count(lobby.id) or 0,
         bets = Arena.Bets and Arena.Bets.List(lobby.id) or {},
         betting = Config.Betting,
+        private = lobby.private == true,
+        ownerId = lobby.owner,
+        code = revealCode and lobby.code or nil,
     }
 end
 
-function Arena.ListLobbies()
+function Arena.ListLobbies(src)
     local list = {}
     for _, lobby in pairs(Arena.Lobbies) do
-        list[#list + 1] = Arena.PublicLobby(lobby)
+        if lobby.private then
+            if src and (lobby.owner == src or lobby.players[src]) then
+                list[#list + 1] = Arena.PublicLobby(lobby, src)
+            end
+        else
+            list[#list + 1] = Arena.PublicLobby(lobby, src)
+        end
     end
     table.sort(list, function(a, b)
+        if a.private ~= b.private then return not a.private end
         if a.mode == b.mode then return a.name < b.name end
         local order = { ffa = 1, pvp = 2, tdm = 3, showdown = 4 }
         return (order[a.mode] or 9) < (order[b.mode] or 9)
@@ -140,10 +154,59 @@ function Arena.GetPlayerLobby(src)
     return Arena.Lobbies[id]
 end
 
+local dirtyPending = false
+
+local function markLobbiesDirty()
+    if dirtyPending then return end
+    dirtyPending = true
+    SetTimeout(700, function()
+        dirtyPending = false
+        TriggerClientEvent('cursor_arena:client:lobbiesDirty', -1)
+    end)
+end
+
 local function syncLobby(lobby)
-    local data = Arena.PublicLobby(lobby)
-    broadcast(lobby, 'cursor_arena:client:lobbySync', data)
-    TriggerClientEvent('cursor_arena:client:lobbiesDirty', -1)
+    for src in pairs(lobby.players) do
+        TriggerClientEvent('cursor_arena:client:lobbySync', src, Arena.PublicLobby(lobby, src))
+    end
+    markLobbiesDirty()
+end
+
+function Arena.SyncLobby(lobby)
+    syncLobby(lobby)
+end
+
+function Arena.MarkLobbiesDirty()
+    markLobbiesDirty()
+end
+
+function Arena.CountPlayers(lobby)
+    return countPlayers(lobby)
+end
+
+function Arena.MaxPlayers(lobby)
+    return maxPlayers(lobby)
+end
+
+function Arena.ResetDecks(lobby)
+    resetDecks(lobby)
+end
+
+function Arena.AllocBucket()
+    nextBucket = nextBucket + 1
+    return nextBucket
+end
+
+function Arena.AllocVoice()
+    voiceSeq = voiceSeq + 2
+    return voiceSeq
+end
+
+function Arena.LockBucket(bucket)
+    SetRoutingBucketPopulationEnabled(bucket, false)
+    pcall(function()
+        SetRoutingBucketEntityLockdownMode(bucket, 'strict')
+    end)
 end
 
 local function pickTeam(lobby, requested)
@@ -189,7 +252,7 @@ end
 
 local function enterWorld(src, lobby, p, spawn)
     SetPlayerRoutingBucket(src, lobby.bucket)
-    SetRoutingBucketPopulationEnabled(lobby.bucket, false)
+    Arena.LockBucket(lobby.bucket)
     Arena.Ambulance.SetArenaState(src, true)
     Arena.Inventory.StashPlayer(src)
     local weapon = select(1, Config.GetLoadoutWeapon(p.loadoutId, p.weaponId)) or Config.FindWeapon(p.weaponId)
@@ -207,7 +270,7 @@ local function enterWorld(src, lobby, p, spawn)
     end
 
     TriggerClientEvent('cursor_arena:client:enterArena', src, {
-        lobby = Arena.PublicLobby(lobby),
+        lobby = Arena.PublicLobby(lobby, src),
         team = p.team,
         spawn = spawn,
         weapon = weapon and weapon.weapon,
@@ -411,6 +474,7 @@ local function endMatch(lobby, result)
         for i = 1, #srcs do
             Arena.LeaveLobby(srcs[i], true, false)
         end
+        if l.private then return end
         l.scores = { [1] = 0, [2] = 0 }
         l.round = 1
         l.matchResult = nil
@@ -432,7 +496,7 @@ local function startRoundTimer(lobby)
     end
     lobby.endsAt = os.time() + limit
     local id, endsAt = lobby.id, lobby.endsAt
-    broadcast(lobby, 'cursor_arena:client:timer', endsAt, limit)
+    broadcast(lobby, 'cursor_arena:client:timer', endsAt, limit, limit)
 
     CreateThread(function()
         while Arena.Lobbies[id] and Arena.Lobbies[id].endsAt == endsAt do
@@ -524,7 +588,9 @@ function Arena.NextRound(lobbyId, winnerTeam)
         if not l or l.state ~= 'countdown' then return end
         l.state = 'active'
         startRoundTimer(l)
-        broadcast(l, 'cursor_arena:client:matchActive', Arena.PublicLobby(l))
+        for src in pairs(l.players) do
+            TriggerClientEvent('cursor_arena:client:matchActive', src, Arena.PublicLobby(l, src))
+        end
     end)
 end
 
@@ -594,7 +660,9 @@ function Arena.TryStart(lobbyId, delayed)
         end
         l.state = 'active'
         startRoundTimer(l)
-        broadcast(l, 'cursor_arena:client:matchActive', Arena.PublicLobby(l))
+        for src in pairs(l.players) do
+            TriggerClientEvent('cursor_arena:client:matchActive', src, Arena.PublicLobby(l, src))
+        end
         broadcast(l, 'cursor_arena:client:sound', 'round_start')
     end)
     return true
@@ -646,7 +714,7 @@ local function checkWin(lobby)
     return false
 end
 
-function Arena.OnPlayerDeath(victim, killer, weaponHash)
+function Arena.OnPlayerDeath(victim, killer, weaponHash, headshot)
     local lobby = Arena.GetPlayerLobby(victim)
     if not lobby or lobby.state ~= 'active' then return end
     local vp = lobby.players[victim]
@@ -709,7 +777,7 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
         killerId = killerSrc,
         weapon = weaponName,
         category = Arena.Utils.WeaponCategory(weaponName),
-        headshot = false,
+        headshot = headshot == true,
         scores = Arena.Utils.Scoreboard(lobby.scores),
         players = playerPayload(lobby),
         weaponHash = weaponHash,
@@ -737,7 +805,7 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash)
     end
 
     if checkWin(lobby) then return end
-    syncLobby(lobby)
+    markLobbiesDirty()
 
     SetTimeout((Config.RespawnTime or 3) * 1000, function()
         local l = Arena.Lobbies[lobby.id]
@@ -768,6 +836,16 @@ function Arena.JoinLobby(src, lobbyId, opts)
 
     local lobby = Arena.Lobbies[lobbyId]
     if not lobby then return false, 'not_found' end
+
+    if lobby.private then
+        local admit = Arena.PrivateAdmit and Arena.PrivateAdmit[src]
+        local allowed = src == lobby.owner
+            or (admit and admit.id == lobbyId and os.time() <= (admit.until or 0))
+            or opts.viaCode == true
+        if not allowed then
+            return false, 'bad_code'
+        end
+    end
 
     if CanPlayerJoinLobby and CanPlayerJoinLobby(src, lobbyId) == false then
         return false, 'cannot_join'
@@ -845,7 +923,7 @@ function Arena.JoinLobby(src, lobbyId, opts)
     end
 
     syncLobby(lobby)
-    return true, Arena.PublicLobby(lobby)
+    return true, Arena.PublicLobby(lobby, src)
 end
 
 function Arena.ChangeLoadout(src, loadoutId, weaponId)
@@ -957,6 +1035,12 @@ function Arena.LeaveLobby(src, silent, conceded)
                 return true
             end
         elseif countPlayers(lobby) == 0 then
+            if lobby.private then
+                if Arena.DestroyPrivate then
+                    Arena.DestroyPrivate(lobby.id)
+                    return true
+                end
+            end
             lobby.state = 'idle'
         end
         syncLobby(lobby)
@@ -991,7 +1075,7 @@ function Arena.InitLobbies()
                     decks = {},
                 }
                 resetDecks(lobby)
-                SetRoutingBucketPopulationEnabled(lobby.bucket, false)
+                Arena.LockBucket(lobby.bucket)
                 Arena.Lobbies[cfg.id] = lobby
             end
             offset = offset + 1

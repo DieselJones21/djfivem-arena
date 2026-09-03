@@ -63,4 +63,9 @@ Locales.en = {
     bet_broke = 'Not enough cash for that bet.',
     bet_max = 'Max cash bet is $100,000.',
     returned_hub = 'Match over. Back in the lobby.',
+    private_created = 'Private room ready. Code %s',
+    private_full = 'You already have a private room open.',
+    private_disabled = 'Private rooms are turned off.',
+    bad_code = 'That room code is not valid.',
+    headshot = 'HEADSHOT',
 }

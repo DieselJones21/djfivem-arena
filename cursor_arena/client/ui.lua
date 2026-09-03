@@ -139,6 +139,40 @@ RegisterNUICallback('myMoney', function(_, cb)
     cb(lib.callback.await('cursor_arena:myMoney', false) or { cash = 0, max = 100000 })
 end)
 
+RegisterNUICallback('createPrivate', function(data, cb)
+    local result = lib.callback.await('cursor_arena:createPrivate', false, data)
+    cb(result or { ok = false })
+    if result and result.ok then
+        Arena.Client.CloseUI()
+        if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
+        lib.hideTextUI()
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
+    end
+end)
+
+RegisterNUICallback('joinByCode', function(data, cb)
+    local result = lib.callback.await('cursor_arena:joinByCode', false, data)
+    cb(result or { ok = false })
+    if result and result.ok then
+        Arena.Client.CloseUI()
+        if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
+        lib.hideTextUI()
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
+    end
+end)
+
+RegisterNUICallback('watchByCode', function(data, cb)
+    local result = lib.callback.await('cursor_arena:watchByCode', false, data)
+    cb(result or { ok = false })
+    if result and result.ok then
+        Arena.Client.CloseUI()
+    elseif result and result.message then
+        lib.notify({ type = 'error', description = result.message })
+    end
+end)
+
 RegisterNUICallback('buyShop', function(data, cb)
     local result = lib.callback.await('cursor_arena:buyShop', false, data)
     cb(result or { ok = false })

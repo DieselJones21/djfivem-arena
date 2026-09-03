@@ -10,7 +10,12 @@
     { id: '4v4', label: '4v4', blurb: 'Squad · first to 4' },
     { id: 'tdm', label: 'TDM', blurb: '5v5 · first to 50' },
   ];
-  const TABS = ['lobbies', 'loadout', 'shop', 'ranking', 'history'];
+  const TABS = ['lobbies', 'private', 'loadout', 'shop', 'ranking', 'history'];
+  const FIRST_TO = {
+    ffa: [10, 15, 20, 25, 30],
+    tdm: [20, 30, 40, 50],
+    pvp: [3, 4, 5, 7, 9],
+  };
   const MAP_THUMBS = {
     pvp_1: 'assets/map_stables.jpg',
     pvp_3: 'assets/map_pvp.jpg',
@@ -46,6 +51,9 @@
     pick: { loadoutId: null, weaponId: null, team: 1 },
     livePick: { loadoutId: null, weaponId: null },
     hudEndsAt: 0,
+    hudLocalEnd: 0,
+    maps: [],
+    priv: { mode: '1v1', mapId: 'pvp_1', firstTo: 5, team: 1 },
   };
 
   const MOCK = {
@@ -79,6 +87,7 @@
       { id: 'pvp_4v4_pvp_4', name: '4v4', mode: 'pvp', mapId: 'pvp_4', mapName: 'Rooftop', mapImage: 'assets/map_rooftop.jpg', playerCount: 4, maxPlayers: 8, maxPlayersPerTeam: 4, roundsToWin: 4, sizeLabel: '4v4', state: 'waiting', players: [{ id: 4, name: 'Ash', team: 1 }] },
       { id: 'tdm_arena_1', name: 'TDM', mode: 'tdm', mapId: 'arena_1', mapName: 'Park', mapImage: 'assets/map_construction.svg', playerCount: 8, maxPlayers: 10, maxPlayersPerTeam: 5, killsToWin: 50, state: 'active', sizeLabel: 'TDM', scores: { 1: 22, 2: 18 }, players: [{ id: 1, name: 'Diesel', kills: 7, deaths: 3, team: 1 }] },
       { id: 'tdm_arena_2', name: 'TDM', mode: 'tdm', mapId: 'arena_2', mapName: 'Wreck', mapImage: 'assets/map_warehouse.svg', playerCount: 0, maxPlayers: 10, maxPlayersPerTeam: 5, killsToWin: 50, state: 'idle', sizeLabel: 'TDM', players: [] },
+      { id: 'priv_k7m2p', name: '1v1', mode: 'pvp', private: true, code: 'K7M2P', mapId: 'pvp_1', mapName: 'Stables', mapImage: 'assets/map_stables.jpg', playerCount: 1, maxPlayers: 2, maxPlayersPerTeam: 1, roundsToWin: 5, state: 'waiting', sizeLabel: '1v1', players: [{ id: 1, name: 'Diesel', team: 1 }] },
     ],
     stats: { ffa: { elo: 1000 }, pvp: { elo: 1120 } },
     leaderboard: {
@@ -97,6 +106,14 @@
     history: [
       { lobby_name: '1v1 Stables', mode: 'pvp', won: 1, kills: 6, deaths: 2, scoreline: '5-3', elo_change: 18 },
       { lobby_name: 'Park TDM', mode: 'tdm', won: 0, kills: 9, deaths: 8, scoreline: '41-50', elo_change: 0 },
+    ],
+    maps: [
+      { id: 'arena_1', name: 'Park', image: 'assets/map_construction.svg' },
+      { id: 'arena_2', name: 'Wreck', image: 'assets/map_warehouse.svg' },
+      { id: 'pvp_1', name: 'Stables', image: 'assets/map_stables.jpg' },
+      { id: 'pvp_2', name: 'Stores', image: 'assets/map_warehouse.svg' },
+      { id: 'pvp_3', name: 'PVP Map', image: 'assets/map_pvp.jpg' },
+      { id: 'pvp_4', name: 'Rooftop', image: 'assets/map_rooftop.jpg' },
     ],
   };
 
@@ -119,7 +136,11 @@
         }
         return { ok: true, coins: state.coins, shop: state.shop, loadouts: state.loadouts };
       }
-      if (event === 'watchLobby') return { ok: true };
+      if (event === 'watchLobby' || event === 'watchByCode') return { ok: true };
+      if (event === 'createPrivate') {
+        return { ok: true, lobby: { id: 'priv_demo', code: 'K7M2P', sizeLabel: state.priv.mode.toUpperCase(), mapName: 'Stables', mode: 'pvp', private: true } };
+      }
+      if (event === 'joinByCode') return { ok: true };
       if (event === 'placeBet') return { ok: true, bets: [] };
       if (event === 'betItems') return [
         { name: 'WEAPON_G17', label: 'G17', count: 1, kind: 'gun' },
@@ -187,6 +208,7 @@
     document.querySelectorAll('.nav-tab').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
     document.querySelectorAll('.page').forEach((p) => p.classList.toggle('active', p.id === `page-${tab}`));
     if (tab === 'lobbies') renderLobbies();
+    if (tab === 'private') renderPrivate();
     if (tab === 'loadout') renderLoadout();
     if (tab === 'shop') renderShop();
     if (tab === 'ranking') {
@@ -268,12 +290,117 @@
     if (joinCta) joinCta.disabled = !lobby || !state.pick.weaponId;
   }
 
+  function mapsForCreate(mode) {
+    const all = state.maps || [];
+    if (all.length) {
+      if (mode === 'ffa' || mode === 'tdm') return all.filter((m) => String(m.id).startsWith('arena_'));
+      return all.filter((m) => String(m.id).startsWith('pvp_'));
+    }
+    return mapsForMode(mode).map((l) => ({ id: l.mapId, name: l.mapName, image: l.mapImage }));
+  }
+
+  function privKind() {
+    const mode = state.priv.mode;
+    if (mode === 'ffa' || mode === 'tdm') return mode;
+    return 'pvp';
+  }
+
+  function renderPrivate() {
+    const modes = $('privModes');
+    if (!modes) return;
+    modes.innerHTML = '';
+    MODES.forEach((m) => {
+      const btn = document.createElement('button');
+      btn.className = `chip ${state.priv.mode === m.id ? 'active' : ''}`;
+      btn.textContent = m.label;
+      btn.addEventListener('click', () => {
+        state.priv.mode = m.id;
+        const maps = mapsForCreate(m.id);
+        if (maps[0] && !maps.find((x) => x.id === state.priv.mapId)) state.priv.mapId = maps[0].id;
+        const opts = FIRST_TO[privKind()] || FIRST_TO.pvp;
+        if (!opts.includes(state.priv.firstTo)) state.priv.firstTo = opts[Math.floor(opts.length / 2)];
+        renderPrivate();
+      });
+      modes.appendChild(btn);
+    });
+
+    const maps = mapsForCreate(state.priv.mode);
+    if (maps[0] && !maps.find((m) => m.id === state.priv.mapId)) state.priv.mapId = maps[0].id;
+    const pick = $('privMaps');
+    pick.innerHTML = '';
+    maps.forEach((m) => {
+      const btn = document.createElement('button');
+      btn.className = `map-tile ${state.priv.mapId === m.id ? 'selected' : ''}`;
+      const thumb = MAP_THUMBS[m.id] || m.image || '';
+      btn.innerHTML = `
+        <span class="card-tag">${state.priv.mapId === m.id ? 'SELECTED' : 'MAP'}</span>
+        <div class="thumb" style="background-image:url('${thumb}')"></div>
+        <div class="label">${esc(m.name)}</div>
+        <span class="check">✓</span>`;
+      btn.addEventListener('click', () => { state.priv.mapId = m.id; renderPrivate(); });
+      pick.appendChild(btn);
+    });
+
+    const kind = privKind();
+    const opts = FIRST_TO[kind] || FIRST_TO.pvp;
+    $('privGoalLabel').textContent = kind === 'pvp' ? 'First to (rounds)' : 'First to (kills)';
+    const row = $('privFirstTo');
+    row.innerHTML = '';
+    opts.forEach((n) => {
+      const btn = document.createElement('button');
+      btn.className = `chip ${state.priv.firstTo === n ? 'active' : ''}`;
+      btn.textContent = String(n);
+      btn.addEventListener('click', () => { state.priv.firstTo = n; renderPrivate(); });
+      row.appendChild(btn);
+    });
+
+    const solo = state.priv.mode === '1v1' || state.priv.mode === 'ffa';
+    show($('privTeamBox'), !solo);
+    $('privTeamHint').textContent = state.priv.mode === '1v1'
+      ? '1v1 assigns Orange and Blue automatically.'
+      : state.priv.mode === 'ffa'
+        ? 'Free-for-all — no teams.'
+        : 'Pick a side. Rooms stay Orange vs Blue.';
+    $('privTeamWrap').querySelectorAll('.vis-btn').forEach((b) => {
+      b.classList.toggle('selected', Number(b.dataset.team) === state.priv.team);
+    });
+
+    const weapons = allWeapons();
+    if (!state.pick.weaponId && weapons[0]) {
+      state.pick.weaponId = weapons[0].id;
+      state.pick.loadoutId = weapons[0].loadoutId;
+    }
+    const list = $('privWeapons');
+    list.innerHTML = '';
+    weapons.forEach((w) => {
+      const btn = document.createElement('button');
+      btn.className = `wep-row ${state.pick.weaponId === w.id ? 'selected' : ''}`;
+      btn.innerHTML = `<span>${esc(w.label)}</span><span class="dot"></span>`;
+      btn.addEventListener('click', () => {
+        state.pick.weaponId = w.id;
+        state.pick.loadoutId = w.loadoutId;
+        renderPrivate();
+      });
+      list.appendChild(btn);
+    });
+
+    const map = maps.find((m) => m.id === state.priv.mapId);
+    const goal = kind === 'pvp' ? `first to ${state.priv.firstTo}` : `first to ${state.priv.firstTo} kills`;
+    $('privSummary').textContent = `${state.priv.mode.toUpperCase()} · ${map?.name || 'Map'} · ${goal}`;
+  }
+
   function renderLobbies() {
     const q = (state.roomQuery || '').toLowerCase();
     const filter = state.lobbyFilter || 'all';
     const list = state.lobbies.filter((l) => {
       const size = String(l.sizeLabel || l.mode || '').toLowerCase();
-      if (filter !== 'all' && size !== filter && String(l.mode || '').toLowerCase() !== filter) return false;
+      if (filter === 'live') {
+        if (!isLive(l)) return false;
+      } else if (filter === 'private') {
+        if (!l.private) return false;
+      } else if (filter !== 'all' && size !== filter && String(l.mode || '').toLowerCase() !== filter) {
+        return false;
+      }
       const host = l.players?.[0]?.name || '';
       const hay = `${l.sizeLabel || ''} ${l.mapName || ''} ${l.name || ''} ${l.mode || ''} ${host}`.toLowerCase();
       return !q || hay.includes(q);
@@ -283,32 +410,33 @@
     grid.innerHTML = '';
     list.forEach((l) => {
       const st = statusOf(l);
-      const host = l.players?.[0]?.name || 'Open lobby';
+      const host = l.players?.[0]?.name || (l.private ? 'Your private room' : 'Open lobby');
       const busy = isLive(l) || ((l.playerCount || 0) >= (l.maxPlayers || 0) && l.maxPlayers);
       const wep = weaponLabel(l.players?.[0]?.weapon);
       const card = document.createElement('div');
       const shot = mapThumb(l);
-      card.className = 'lobby-card';
+      const filled = Math.min(100, Math.round(((l.playerCount || 0) / Math.max(1, l.maxPlayers || 1)) * 100));
+      card.className = `lobby-row ${l.private ? 'private' : ''}`;
       card.innerHTML = `
         <div class="lobby-shot ${shot ? '' : 'empty'}" style="${shot ? `background-image:url('${shot}')` : ''}"></div>
         <div class="lobby-body">
           <div class="lobby-top">
-            <div class="lobby-host">${esc(host)}<small>Host</small></div>
+            <div class="lobby-host">${esc(host)}<small>${esc(l.mapName || 'Arena')}${l.code ? ` · CODE ${esc(l.code)}` : ''}</small></div>
             <div class="lobby-badges">
-              <span class="mode-pill">${esc(l.sizeLabel || l.mode)}</span>
+              <span class="mode-pill ${l.private ? 'lock' : ''}">${l.private ? 'PRIVATE' : esc(l.sizeLabel || l.mode)}</span>
+              ${l.private ? `<span class="mode-pill">${esc(l.sizeLabel || l.mode)}</span>` : ''}
               <span class="status ${st.cls}">${st.label}</span>
             </div>
           </div>
-          <div class="lobby-rows">
-            <div>Weapon <b>${esc(wep)}</b></div>
-            <div>Arena <b>${esc(l.mapName || '—')}</b></div>
-            <div>${l.killsToWin ? 'Kills' : 'Rounds'} <b>${l.killsToWin || l.roundsToWin || 0}</b></div>
-            <div>Players <b>${l.playerCount || 0} / ${l.maxPlayers || 0}</b></div>
+          <div class="lobby-meta">
+            <span><span class="meter"><i style="width:${filled}%"></i></span><b>${l.playerCount || 0}/${l.maxPlayers || 0}</b></span>
+            <span>${l.killsToWin ? 'First to' : 'First to'} <b>${l.killsToWin || l.roundsToWin || 0}</b></span>
+            <span>Gun <b>${esc(wep)}</b></span>
           </div>
-          <div class="lobby-actions">
-            <button class="lobby-join ${busy ? 'busy' : ''}" data-join="1">${busy ? (isLive(l) ? 'Match in progress' : 'Full') : (state.currentLobbyId === l.id ? 'Your room' : 'Join lobby')}</button>
-            <button class="btn-ghost lobby-watch" data-watch="1">Watch / Bet</button>
-          </div>
+        </div>
+        <div class="lobby-actions">
+          <button class="lobby-join ${busy ? 'busy' : ''}" data-join="1">${busy ? (isLive(l) ? 'Live' : 'Full') : (state.currentLobbyId === l.id ? 'Your room' : 'Join')}</button>
+          <button class="btn-ghost lobby-watch" data-watch="1">Watch</button>
         </div>`;
       card.addEventListener('click', (e) => {
         if (e.target.closest('[data-watch]')) {
@@ -380,7 +508,7 @@
       state.pick.loadoutId = weapons[0].loadoutId;
     }
     $('salaName').textContent = `${lobby.sizeLabel || lobby.name}`;
-    $('salaMeta').textContent = `${lobby.sizeLabel || lobby.mode} · ${lobby.mapName || ''} · ${(allWeapons().find((w) => w.id === state.pick.weaponId) || {}).label || 'Loadout'}`;
+    $('salaMeta').textContent = `${lobby.private ? 'Private · ' : ''}${lobby.sizeLabel || lobby.mode} · ${lobby.mapName || ''} · ${(allWeapons().find((w) => w.id === state.pick.weaponId) || {}).label || 'Loadout'}`;
     const salaShot = mapThumb(lobby);
     if ($('salaMap')) {
       $('salaMap').classList.toggle('empty', !salaShot);
@@ -392,7 +520,7 @@
     const solo = (lobby.sizeLabel || '') === '1v1' || lobby.maxPlayersPerTeam === 1;
     show($('btnSwapTeam'), teamMode && !solo);
     const inThis = state.currentLobbyId && state.currentLobbyId === lobby.id;
-    if ($('salaTag')) $('salaTag').textContent = inThis ? 'YOUR ROOM' : (isLive(lobby) ? 'LIVE' : 'ROOM');
+    if ($('salaTag')) $('salaTag').textContent = lobby.private ? (lobby.code ? `CODE ${lobby.code}` : 'PRIVATE') : (inThis ? 'YOUR ROOM' : (isLive(lobby) ? 'LIVE' : 'ROOM'));
     const joinBtn = $('btnConfirmJoin');
     const leaveBtn = $('btnLeaveSala');
     if (joinBtn) {
@@ -557,6 +685,10 @@
     state.stats = data.stats || {};
     state.leaderboard = Object.assign(state.leaderboard, data.leaderboard || {});
     state.history = data.history || [];
+    state.maps = data.maps || state.maps || [];
+    if (data.private && data.private.firstTo) {
+      Object.assign(FIRST_TO, data.private.firstTo);
+    }
     const maps = mapsForMode(state.mode);
     if (maps[0] && !maps.find((m) => m.mapId === state.mapId)) state.mapId = maps[0].mapId;
     fillPlayerChrome();
@@ -634,6 +766,44 @@
     }
   });
   $('btnQuickJoin').addEventListener('click', () => setTab('loadout'));
+  $('btnGoPrivate').addEventListener('click', () => setTab('private'));
+  $('privTeamWrap').addEventListener('click', (e) => {
+    const btn = e.target.closest('.vis-btn');
+    if (!btn) return;
+    state.priv.team = Number(btn.dataset.team);
+    state.pick.team = state.priv.team;
+    renderPrivate();
+  });
+  $('btnCreatePrivate').addEventListener('click', async () => {
+    const res = await nui('createPrivate', {
+      mode: state.priv.mode,
+      mapId: state.priv.mapId,
+      firstTo: state.priv.firstTo,
+      team: state.priv.team,
+      loadoutId: state.pick.loadoutId,
+      weaponId: state.pick.weaponId,
+    });
+    if (res?.ok) {
+      state.currentLobbyId = res.lobby?.id || state.currentLobbyId;
+      hideUI();
+    }
+  });
+  async function enterByCode(watch) {
+    const code = ($('lobbyCode').value || '').trim().toUpperCase();
+    if (!code) return;
+    const res = await nui(watch ? 'watchByCode' : 'joinByCode', {
+      code,
+      loadoutId: state.pick.loadoutId,
+      weaponId: state.pick.weaponId,
+      team: state.pick.team,
+    });
+    if (res?.ok) hideUI();
+  }
+  $('btnJoinCode').addEventListener('click', () => enterByCode(false));
+  $('btnWatchCode').addEventListener('click', () => enterByCode(true));
+  $('lobbyCode').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') enterByCode(false);
+  });
   $('btnLeaveSala').addEventListener('click', async () => {
     if (state.currentLobbyId && state.selected?.id === state.currentLobbyId) {
       await nui('leaveLobby');
@@ -667,12 +837,19 @@
     show($('loadoutModal'), false);
   });
 
-  function fmtTime(endsAt) {
-    if (!endsAt) return '--:--';
-    const left = Math.max(0, endsAt - Math.floor(Date.now() / 1000));
+  function fmtTime() {
+    const end = state.hudLocalEnd || (state.hudEndsAt ? state.hudEndsAt * 1000 : 0);
+    if (!end) return '--:--';
+    const left = Math.max(0, Math.ceil((end - Date.now()) / 1000));
     const m = Math.floor(left / 60);
     const s = left % 60;
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function pipRow(score, need, side) {
+    const n = Math.max(1, Number(need) || 5);
+    const on = Math.max(0, Number(score) || 0);
+    return `<div class="hud-pips">${Array.from({ length: n }, (_, i) => `<span class="hud-pip ${i < on ? `on ${side}` : ''}"></span>`).join('')}</div>`;
   }
 
   function readScores(raw) {
@@ -698,36 +875,61 @@
         $('waitingTeam').className = `waiting-team ${myTeam === 1 ? 't1' : myTeam === 2 ? 't2' : 'hidden'}`;
         show($('waitingTeam'), !!side);
       }
-      $('waitingSub').textContent = data.mode === 'ffa'
-        ? 'Need one more fighter to start'
-        : myTeam === 1 ? 'Waiting for Blue'
-          : myTeam === 2 ? 'Waiting for Orange'
-            : 'Need both Orange and Blue to start';
+      $('waitingSub').textContent = [
+        data.mode === 'ffa'
+          ? 'Need one more fighter to start'
+          : myTeam === 1 ? 'Waiting for Blue'
+            : myTeam === 2 ? 'Waiting for Orange'
+              : 'Need both Orange and Blue to start',
+        data.code ? `Code ${data.code}` : '',
+      ].filter(Boolean).join(' · ');
     }
-    const mapBit = data.mapName ? `<div class="hud-map">${(data.sizeLabel || data.mode || '').toUpperCase()} · ${(data.mapName || '').toUpperCase()}</div>` : '';
+    const codeBit = data.code ? `<span class="hud-code">${esc(data.code)}</span>` : '';
+    const mapBit = `<div class="hud-map">${esc((data.sizeLabel || data.mode || '').toUpperCase())} · ${esc((data.mapName || '').toUpperCase())}${data.private ? ' · PRIVATE' : ''}${codeBit}</div>`;
     if (data.mode === 'tdm' || data.mode === 'pvp' || data.mode === 'showdown') {
-      state.hudEndsAt = data.endsAt || state.hudEndsAt;
+      if (data.endsAt) {
+        state.hudEndsAt = data.endsAt;
+        if (!state.hudLocalEnd) state.hudLocalEnd = data.endsAt * 1000;
+      }
       const sc = readScores(data.scores);
       const firstTo = data.roundsToWin || data.killsToWin;
-      const roundLabel = firstTo ? `FIRST TO ${firstTo}` : `R${data.round || 1}`;
-      const subRound = data.roundsToWin ? `ROUND ${data.round || 1}` : '';
+      const goal = firstTo ? `FIRST TO ${firstTo}` : `ROUND ${data.round || 1}`;
+      const sub = data.roundsToWin ? `ROUND ${data.round || 1}` : 'TEAM SCORE';
       $('scorePlate').innerHTML = `
-        <div class="hud-side t1 ${myTeam === 1 ? 'mine' : ''}"><span class="hud-tag t1">${myTeam === 1 ? 'YOU · ORANGE' : 'ORANGE'}</span><span class="hud-score">${sc.orange}</span></div>
-        <div class="hud-timer">
-          <span class="hud-round">${roundLabel}</span>
-          <div class="hud-ring">${fmtTime(state.hudEndsAt)}</div>
-          ${subRound ? `<small class="hud-subround">${subRound}</small>` : ''}
+        <div class="hud-board">
+          <div class="hud-side t1 ${myTeam === 1 ? 'mine' : ''}">
+            <div class="hud-copy">
+              <span class="hud-tag t1">${myTeam === 1 ? 'YOU · ORANGE' : 'ORANGE'}</span>
+              ${data.roundsToWin ? pipRow(sc.orange, firstTo, 't1') : ''}
+            </div>
+            <span class="hud-score">${sc.orange}</span>
+          </div>
+          <div class="hud-mid">
+            <span class="hud-goal">${goal}</span>
+            <div class="hud-clock">${fmtTime()}</div>
+            <span class="hud-sub">${sub}</span>
+          </div>
+          <div class="hud-side t2 ${myTeam === 2 ? 'mine' : ''}">
+            <span class="hud-score">${sc.blue}</span>
+            <div class="hud-copy">
+              <span class="hud-tag t2">${myTeam === 2 ? 'YOU · BLUE' : 'BLUE'}</span>
+              ${data.roundsToWin ? pipRow(sc.blue, firstTo, 't2') : ''}
+            </div>
+          </div>
         </div>
-        <div class="hud-side t2 ${myTeam === 2 ? 'mine' : ''}"><span class="hud-score">${sc.blue}</span><span class="hud-tag t2">${myTeam === 2 ? 'YOU · BLUE' : 'BLUE'}</span></div>
         ${mapBit}`;
     } else {
       const sorted = [...(data.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0));
       const place = Math.max(1, sorted.findIndex((p) => p.id === me.id) + 1 || 1);
       $('scorePlate').innerHTML = `
-        <div class="hud-ffa">
-          <div class="mode">FREE FOR ALL</div>
-          <div class="hud-score">${me.kills || 0}</div>
-          <div class="mode">#${place} · ${data.killsToWin || 30} TO WIN</div>
+        <div class="hud-ffa-board">
+          <div class="hud-ffa-kills"><small>YOUR KILLS</small>${me.kills || 0}</div>
+          <div class="hud-mid">
+            <span class="hud-goal">FREE FOR ALL</span>
+            <div class="hud-clock">#${place}</div>
+            <span class="hud-sub">FIRST TO ${data.killsToWin || 30}</span>
+          </div>
+          <div class="hud-ffa-kills" style="text-align:right"><small>PLAYERS</small>${(data.players || []).length}</div>
         </div>
         ${mapBit}`;
     }
@@ -753,6 +955,7 @@
         if (!state.open) return;
         if (state.tab === 'loadout') renderLoadout();
         if (state.tab === 'lobbies') renderLobbies();
+        if (state.tab === 'private') renderPrivate();
         if (salaIsOpen() && state.selected) {
           const next = list.find((l) => l.id === state.selected.id);
           if (next) openSala(next);
@@ -776,16 +979,21 @@
       else {
         hideMatchChrome();
         state.currentLobbyId = null;
+        state.hudLocalEnd = 0;
       }
       show($('matchHud'), !!msg.visible);
       if (msg.visible && msg.data) renderHud(msg.data);
     }
-    if (msg.action === 'timer') { state.hudEndsAt = msg.endsAt; }
+    if (msg.action === 'timer') {
+      state.hudEndsAt = msg.endsAt;
+      const remain = Number(msg.remaining != null ? msg.remaining : msg.limit);
+      state.hudLocalEnd = remain ? Date.now() + (remain * 1000) : (msg.endsAt ? msg.endsAt * 1000 : 0);
+    }
     if (msg.action === 'killfeed' && msg.data) {
       const feed = $('killfeed');
       const row = document.createElement('div');
       row.className = `kill-item ${msg.data.headshot ? 'head' : ''}`;
-      row.innerHTML = `<span class="k-name">${esc(msg.data.killer || 'World')}</span><span class="k-x">×</span><span class="k-wep">${esc(msg.data.category || 'GUN')}</span><span class="k-name down">${esc(msg.data.victim)}</span>`;
+      row.innerHTML = `<span class="k-name">${esc(msg.data.killer || 'World')}</span><span class="k-x">×</span>${msg.data.headshot ? '<span class="k-hs">HS</span>' : `<span class="k-wep">${esc(msg.data.category || 'GUN')}</span>`}<span class="k-name down">${esc(msg.data.victim)}</span>`;
       feed.prepend(row);
       setTimeout(() => row.remove(), 4200);
     }
@@ -866,8 +1074,10 @@
   });
 
   setInterval(() => {
-    const ring = document.querySelector('.hud-ring');
-    if (ring && state.hudEndsAt) ring.textContent = fmtTime(state.hudEndsAt);
+    const clock = document.querySelector('.hud-clock');
+    if (clock && (state.hudLocalEnd || state.hudEndsAt) && !clock.textContent.startsWith('#')) {
+      clock.textContent = fmtTime();
+    }
   }, 1000);
 
   if (!IN_GAME) {

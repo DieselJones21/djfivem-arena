@@ -7,12 +7,32 @@ local REL_B = nil
 
 local function applySpawn(spawn)
     if not spawn then return end
+    local x, y, z = spawn.x, spawn.y, spawn.z
+    local w = spawn.w or 0.0
+    RequestCollisionAtCoord(x, y, z)
     local ped = PlayerPedId()
-    SetEntityCoordsNoOffset(ped, spawn.x, spawn.y, spawn.z, false, false, false)
-    SetEntityHeading(ped, spawn.w or 0.0)
+    if IsEntityDead(ped) or IsPedFatallyInjured(ped) then
+        NetworkResurrectLocalPlayer(x, y, z, w, true, false)
+        ped = PlayerPedId()
+    end
+    SetEntityCoordsNoOffset(ped, x, y, z, false, false, false)
+    SetEntityHeading(ped, w)
+    local deadline = GetGameTimer() + 700
+    while not HasCollisionLoadedAroundEntity(ped) and GetGameTimer() < deadline do
+        RequestCollisionAtCoord(x, y, z)
+        Wait(0)
+    end
     ClearPedTasksImmediately(ped)
+    ClearPedBloodDamage(ped)
+    ResetPedRagdollTimer(ped)
+    if Config.Combat and Config.Combat.ragdoll == false then
+        SetPedCanRagdoll(ped, false)
+    end
+    SetPedSuffersCriticalHits(ped, true)
     SetEntityHealth(ped, GetEntityMaxHealth(ped))
     SetPedArmour(ped, 0)
+    ClearEntityLastDamageEntity(ped)
+    ClearPedLastWeaponDamage(ped)
 end
 
 local function wantsTeamkill(lobby)
@@ -21,19 +41,28 @@ local function wantsTeamkill(lobby)
     return lobby.teamkill == true
 end
 
--- Players cannot damage each other unless friendly fire is ON.
--- Team protection is relationship groups + SetCanAttackFriendly, not this native.
+-- Apply once on enter / respawn / countdown end.
+-- Re-running this every tick flips invincibility and state bags and desyncs shots.
+local combatGen = 0
+
 local function applyCombatLock()
+    combatGen = combatGen + 1
     local ped = PlayerPedId()
     local teamkill = Arena.Client.teamkill == true
     NetworkSetFriendlyFireOption(true)
     SetCanAttackFriendly(ped, teamkill, false)
     SetEntityCanBeDamaged(ped, true)
+    SetPedSuffersCriticalHits(ped, true)
+    if Config.Combat and Config.Combat.ragdoll == false then
+        SetPedCanRagdoll(ped, false)
+    end
     if not Arena.Client.frozen then
         SetPlayerInvincible(PlayerId(), false)
         SetEntityInvincible(ped, false)
     end
-    LocalPlayer.state:set('invBusy', false, true)
+    if LocalPlayer.state.invBusy then
+        LocalPlayer.state:set('invBusy', false, true)
+    end
     LocalPlayer.state:set('canUseWeapons', true, true)
     DisablePlayerFiring(PlayerId(), false)
 end
@@ -117,26 +146,47 @@ local function drawBoundaries()
     end
 end
 
+local nameplateCache = {}
+
+local function refreshTeammates()
+    nameplateCache = {}
+    if not Arena.Client.inArena then return end
+    local lobby = Arena.Client.lobby
+    if not lobby or not lobby.players then return end
+    local myId = GetPlayerServerId(PlayerId())
+    for i = 1, #lobby.players do
+        local p = lobby.players[i]
+        local idx = GetPlayerFromServerId(p.id)
+        if idx and idx ~= -1 then
+            local ped = GetPlayerPed(idx)
+            if ped and ped ~= 0 and DoesEntityExist(ped) then
+                if p.team == 1 and REL_A then
+                    SetPedRelationshipGroupHash(ped, REL_A)
+                elseif p.team == 2 and REL_B then
+                    SetPedRelationshipGroupHash(ped, REL_B)
+                end
+                if p.id ~= myId and p.team == Arena.Client.team and p.alive then
+                    nameplateCache[#nameplateCache + 1] = ped
+                end
+            end
+        end
+    end
+end
+
 local function drawNameplates()
     if not Config.Nameplates.enabled then return end
     if not Arena.Utils.IsTeamMode(Arena.Client.lobby and Arena.Client.lobby.mode) then return end
-    local myPed = PlayerPedId()
-    local myCoords = GetEntityCoords(myPed)
+    local myCoords = GetEntityCoords(PlayerPedId())
     local range = Config.Nameplates.range or 120.0
-    local myId = GetPlayerServerId(PlayerId())
-    local players = Arena.Client.lobby and Arena.Client.lobby.players or {}
-    for i = 1, #players do
-        local p = players[i]
-        if p.id ~= myId and p.team == Arena.Client.team and p.alive then
-            local ped = GetPlayerPed(GetPlayerFromServerId(p.id))
-            if ped and ped ~= 0 and DoesEntityExist(ped) then
-                local coords = GetEntityCoords(ped)
-                if #(coords - myCoords) <= range then
-                    local r, g, b = 59, 158, 255
-                    if Arena.Client.team == 1 then r, g, b = 255, 138, 26 end
-                    DrawMarker(2, coords.x, coords.y, coords.z + 1.15, 0, 0, 0, 0, 180.0, 0,
-                        0.18, 0.18, 0.18, r, g, b, 180, false, true, 2, false, nil, nil, false)
-                end
+    local r, g, b = 59, 158, 255
+    if Arena.Client.team == 1 then r, g, b = 255, 138, 26 end
+    for i = 1, #nameplateCache do
+        local ped = nameplateCache[i]
+        if ped and DoesEntityExist(ped) then
+            local coords = GetEntityCoords(ped)
+            if #(coords - myCoords) <= range then
+                DrawMarker(2, coords.x, coords.y, coords.z + 1.15, 0, 0, 0, 0, 180.0, 0,
+                    0.18, 0.18, 0.18, r, g, b, 180, false, true, 2, false, nil, nil, false)
             end
         end
     end
@@ -167,6 +217,8 @@ local function hudPayload()
         sizeLabel = lobby.sizeLabel,
         teamPanel = Config.TeamPanel and Config.TeamPanel.enabled and Arena.Utils.IsTeamMode(lobby.mode),
         titles = Config.TeamPanel and Config.TeamPanel.titles,
+        private = lobby.private,
+        code = lobby.code,
     }
 end
 
@@ -303,8 +355,8 @@ RegisterNetEvent('cursor_arena:client:lobbySync', function(lobby)
     end
 end)
 
-RegisterNetEvent('cursor_arena:client:timer', function(endsAt, limit)
-    SendNUIMessage({ action = 'timer', endsAt = endsAt, limit = limit })
+RegisterNetEvent('cursor_arena:client:timer', function(endsAt, limit, remaining)
+    SendNUIMessage({ action = 'timer', endsAt = endsAt, limit = limit, remaining = remaining or limit })
 end)
 
 RegisterNetEvent('cursor_arena:client:killfeed', function(payload)
@@ -387,6 +439,7 @@ RegisterNetEvent('cursor_arena:client:leaveArena', function(data)
     freeze(false)
     deathReported = false
     SetRunSprintMultiplierForPlayer(PlayerId(), 1.0)
+    SetPedCanRagdoll(PlayerPedId(), true)
     LocalPlayer.state:set('arenaActive', false, true)
     NetworkSetFriendlyFireOption(true)
     SetCanAttackFriendly(PlayerPedId(), false, false)
@@ -447,7 +500,20 @@ local function reportArenaDeath()
             killerServerId = GetPlayerServerId(idx)
         end
     end
-    TriggerServerEvent('cursor_arena:server:playerDied', killerServerId, GetPedCauseOfDeath(ped))
+    local headshot = false
+    local ok, bone = GetPedLastDamageBone(ped)
+    if ok == true then
+        local heads = Config.Combat and Config.Combat.headBones or { 31086, 39317, 12844, 65068 }
+        for i = 1, #heads do
+            if bone == heads[i] then headshot = true break end
+        end
+    elseif type(ok) == 'number' then
+        local heads = Config.Combat and Config.Combat.headBones or { 31086, 39317, 12844, 65068 }
+        for i = 1, #heads do
+            if ok == heads[i] then headshot = true break end
+        end
+    end
+    TriggerServerEvent('cursor_arena:server:playerDied', killerServerId, GetPedCauseOfDeath(ped), headshot)
     SendNUIMessage({ action = 'deathOverlay', visible = true })
 end
 
@@ -476,27 +542,43 @@ CreateThread(function()
             elseif not down then
                 deathReported = false
             end
-            Wait(150)
+            Wait(80)
         else
             Wait(500)
         end
     end
 end)
 
--- Keep combat unlocked after countdown. Laststand / ox can flip these mid-fight.
+-- Only repair what ox / laststand actually flips. Do not reset invincibility every tick.
 CreateThread(function()
     while true do
         if Arena.Client.inArena and not Arena.Client.frozen and not Arena.Client.down and not Arena.Client.spectating then
-            applyCombatLock()
-            Wait(250)
+            if LocalPlayer.state.invBusy then
+                LocalPlayer.state:set('invBusy', false, true)
+            end
+            Wait(800)
         else
-            Wait(400)
+            Wait(1200)
         end
     end
 end)
 
--- Rules + bounds + nameplates
+-- Teammate markers + relationship groups. Not every frame.
 CreateThread(function()
+    while true do
+        if Arena.Client.inArena then
+            refreshTeammates()
+            Wait(500)
+        else
+            nameplateCache = {}
+            Wait(1500)
+        end
+    end
+end)
+
+-- Rules + bounds. Drawing stays on its own loop so this can sleep.
+CreateThread(function()
+    local lastBoundsSec = -1
     while true do
         if Arena.Client.inArena then
             local ped = PlayerPedId()
@@ -509,9 +591,6 @@ CreateThread(function()
                 TaskLeaveVehicle(ped, GetVehiclePedIsIn(ped, false), 16)
             end
 
-            drawBoundaries()
-            drawNameplates()
-
             local now = GetGameTimer()
             if now > boundsImmuneUntil and Arena.Client.map then
                 local inside = Arena.Utils.InsideMap(GetEntityCoords(ped), {
@@ -523,22 +602,46 @@ CreateThread(function()
                     if boundsUntil == 0 then
                         boundsUntil = now + ((Config.Boundaries.warningTime or 5) * 1000)
                     end
-                    local left = math.ceil((boundsUntil - now) / 1000)
-                    SendNUIMessage({ action = 'bounds', visible = true, seconds = math.max(0, left) })
+                    local left = math.max(0, math.ceil((boundsUntil - now) / 1000))
+                    if left ~= lastBoundsSec then
+                        lastBoundsSec = left
+                        SendNUIMessage({ action = 'bounds', visible = true, seconds = left })
+                    end
                     if now >= boundsUntil then
                         SetEntityHealth(ped, 0)
                         boundsUntil = 0
+                        lastBoundsSec = -1
                     end
                 else
                     if boundsUntil ~= 0 then
                         SendNUIMessage({ action = 'bounds', visible = false })
                     end
                     boundsUntil = 0
+                    lastBoundsSec = -1
                 end
             end
-            Wait(0)
+            Wait(200)
         else
-            Wait(500)
+            lastBoundsSec = -1
+            Wait(800)
+        end
+    end
+end)
+
+CreateThread(function()
+    while true do
+        if Arena.Client.inArena then
+            local showBounds = Config.Debug or (Config.Boundaries and Config.Boundaries.show)
+            local showNames = Config.Nameplates.enabled and Arena.Utils.IsTeamMode(Arena.Client.lobby and Arena.Client.lobby.mode)
+            if showBounds or showNames then
+                if showBounds then drawBoundaries() end
+                if showNames then drawNameplates() end
+                Wait(0)
+            else
+                Wait(400)
+            end
+        else
+            Wait(800)
         end
     end
 end)
@@ -547,9 +650,9 @@ CreateThread(function()
     while true do
         if Arena.Client.inArena then
             TriggerServerEvent('cursor_arena:server:activity')
-            Wait(8000)
+            Wait(12000)
         else
-            Wait(4000)
+            Wait(8000)
         end
     end
 end)
@@ -559,9 +662,9 @@ CreateThread(function()
         if Arena.Client.inArena and not Arena.Client.spectating then
             RestorePlayerStamina(PlayerId(), 1.0)
             ResetPlayerStamina(PlayerId())
-            Wait(0)
+            Wait(250)
         else
-            Wait(400)
+            Wait(800)
         end
     end
 end)
