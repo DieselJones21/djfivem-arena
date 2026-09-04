@@ -565,14 +565,14 @@ button { font-family: inherit; cursor: pointer; }
 .streak {
   position: absolute; left: 50%; top: 30%; transform: translateX(-50%);
   text-align: center; z-index: 26; pointer-events: none;
-  animation: streakBloom 720ms cubic-bezier(.2,.8,.2,1) both;
+  animation: streakBloom 480ms cubic-bezier(.2,.8,.2,1) both;
 }
 .streak::before {
   content: '';
-  position: absolute; left: 50%; top: 54%; transform: translate(-50%, -50%);
-  width: 280px; height: 90px; border-radius: 50%;
-  background: radial-gradient(circle, rgba(0,242,255,0.28), transparent 70%);
-  filter: blur(8px); z-index: -1;
+  position: absolute; left: 50%; top: 58%; transform: translate(-50%, -50%);
+  width: 340px; height: 70px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,8,12,0.55), transparent 72%);
+  z-index: -1;
 }
 .streak-icon {
   width: 34px; height: 34px; margin: 0 auto 8px;
@@ -586,13 +586,17 @@ button { font-family: inherit; cursor: pointer; }
   display: block;
   font-size: clamp(2.4rem, 6vw, 3.6rem);
   letter-spacing: 0.1em; font-weight: 900;
-  color: #f4feff;
-  text-shadow: 0 0 18px rgba(0,242,255,0.85), 0 0 42px rgba(0,242,255,0.4);
+  color: #ffffff;
+  text-shadow:
+    0 2px 0 #041014,
+    0 0 6px rgba(0,242,255,0.9),
+    0 0 18px rgba(0,242,255,0.45);
 }
 .streak em {
-  display: block; margin-top: 4px;
+  display: block; margin-top: 6px;
   font-style: normal; font-weight: 800;
-  letter-spacing: 0.32em; font-size: 0.78rem; color: var(--cyan);
+  letter-spacing: 0.32em; font-size: 0.86rem; color: #d8ffff;
+  text-shadow: 0 0 10px rgba(0,242,255,0.7);
 }
 .streak.t1 strong { text-shadow: 0 0 18px rgba(0,242,255,0.8), 0 0 28px rgba(255,138,26,0.28); }
 .streak.t1 .streak-icon, .streak.t1 em { color: var(--orange); border-color: var(--orange); }
@@ -718,8 +722,7 @@ button { font-family: inherit; cursor: pointer; }
   to { opacity: 1; transform: skewX(-12deg) translateX(0); }
 }
 @keyframes streakBloom {
-  0% { opacity: 0; transform: translateX(-50%) scale(1.45); filter: blur(10px); }
-  55% { opacity: 1; transform: translateX(-50%) scale(0.96); filter: none; }
+  0% { opacity: 0; transform: translateX(-50%) scale(1.18); }
   100% { opacity: 1; transform: translateX(-50%) scale(1); }
 }
 @media (max-width: 1100px) {
