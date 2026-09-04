@@ -710,6 +710,8 @@
     show($('deathOverlay'), false);
     show($('spectateBar'), false);
     show($('matchResult'), false);
+    show($('streak'), false);
+    if ($('streakCall')) show($('streakCall'), false);
   }
 
   function hideUI() {
@@ -852,10 +854,21 @@
     return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
 
+  const ICO = {
+    clock: '<svg class="hud-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"/><path d="M12 8v5l3 2"/></svg>',
+    trophy: '<svg class="hud-ico" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4h10v2h3a4 4 0 0 1-3.6 4A5.5 5.5 0 0 1 13 13.9V16h3v2H8v-2h3v-2.1A5.5 5.5 0 0 1 7.6 10 4 4 0 0 1 4 6h3V4zm-1 4a2 2 0 0 0 1.7 1H7.6A3.6 3.6 0 0 1 6 8zm12 0a3.6 3.6 0 0 1-1.6 1h.1A2 2 0 0 0 18 8z"/></svg>',
+    aim: '<svg class="hud-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><path d="M12 5v2M12 17v2M5 12h2M17 12h2"/></svg>',
+    skull: '<svg class="k-skull" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c4.4 0 8 3.2 8 7.2 0 2.4-1.2 4.4-3 5.6V18H7v-2.2c-1.8-1.2-3-3.2-3-5.6C4 6.2 7.6 3 12 3zm-3 8.2a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6zm6 0a1.3 1.3 0 1 0 0-2.6 1.3 1.3 0 0 0 0 2.6zM9 19h6v2H9z"/></svg>',
+  };
+
   function pipRow(score, need, side) {
-    const n = Math.max(1, Number(need) || 5);
+    const n = Math.min(7, Math.max(1, Number(need) || 5));
     const on = Math.max(0, Number(score) || 0);
     return `<div class="hud-pips">${Array.from({ length: n }, (_, i) => `<span class="hud-pip ${i < on ? `on ${side}` : ''}"></span>`).join('')}</div>`;
+  }
+
+  function teamCls(team) {
+    return Number(team) === 1 ? 't1' : Number(team) === 2 ? 't2' : '';
   }
 
   function readScores(raw) {
@@ -891,7 +904,12 @@
       ].filter(Boolean).join(' · ');
     }
     const codeBit = data.code ? `<span class="hud-code">${esc(data.code)}</span>` : '';
-    const mapBit = `<div class="hud-map">${esc((data.sizeLabel || data.mode || '').toUpperCase())} · ${esc((data.mapName || '').toUpperCase())}${data.private ? ' · PRIVATE' : ''}${codeBit}</div>`;
+    const goalBit = data.roundsToWin
+      ? ` · FIRST TO ${data.roundsToWin} · ROUND ${data.round || 1}`
+      : data.killsToWin
+        ? ` · FIRST TO ${data.killsToWin}`
+        : '';
+    const mapBit = `<div class="hud-map">${esc((data.sizeLabel || data.mode || '').toUpperCase())} · ${esc((data.mapName || '').toUpperCase())}${goalBit}${data.private ? ' · PRIVATE' : ''}${codeBit}</div>`;
     if (data.mode === 'tdm' || data.mode === 'pvp' || data.mode === 'showdown') {
       if (data.endsAt) {
         state.hudEndsAt = data.endsAt;
@@ -899,43 +917,40 @@
       }
       const sc = readScores(data.scores);
       const firstTo = data.roundsToWin || data.killsToWin;
-      const goal = firstTo ? `FIRST TO ${firstTo}` : `ROUND ${data.round || 1}`;
-      const sub = data.roundsToWin ? `ROUND ${data.round || 1}` : 'TEAM SCORE';
+      const pips = data.roundsToWin;
       $('scorePlate').innerHTML = `
-        <div class="hud-board">
-          <div class="hud-side t1 ${myTeam === 1 ? 'mine' : ''}">
-            <div class="hud-copy">
-              <span class="hud-tag t1">${myTeam === 1 ? 'YOU · ORANGE' : 'ORANGE'}</span>
-              ${data.roundsToWin ? pipRow(sc.orange, firstTo, 't1') : ''}
-            </div>
-            <span class="hud-score">${sc.orange}</span>
-          </div>
-          <div class="hud-mid">
-            <span class="hud-goal">${goal}</span>
-            <div class="hud-clock">${fmtTime()}</div>
-            <span class="hud-sub">${sub}</span>
-          </div>
-          <div class="hud-side t2 ${myTeam === 2 ? 'mine' : ''}">
-            <span class="hud-score">${sc.blue}</span>
-            <div class="hud-copy">
-              <span class="hud-tag t2">${myTeam === 2 ? 'YOU · BLUE' : 'BLUE'}</span>
-              ${data.roundsToWin ? pipRow(sc.blue, firstTo, 't2') : ''}
+        <div class="hud-geo">
+          <div class="hud-plate score t1 ${myTeam === 1 ? 'mine' : ''}"><span>${sc.orange}</span></div>
+          ${pips ? `<div class="hud-plate pips-plate t1">${pipRow(sc.orange, firstTo, 't1')}</div>` : ''}
+          <div class="hud-diamond">
+            <div class="hud-diamond-inner">
+              ${ICO.clock}
+              <div class="hud-clock">${fmtTime()}</div>
             </div>
           </div>
+          ${pips ? `<div class="hud-plate pips-plate t2">${pipRow(sc.blue, firstTo, 't2')}</div>` : ''}
+          <div class="hud-plate score t2 ${myTeam === 2 ? 'mine' : ''}"><span>${sc.blue}</span></div>
         </div>
         ${mapBit}`;
     } else {
       const sorted = [...(data.players || [])].sort((a, b) => (b.kills || 0) - (a.kills || 0));
       const place = Math.max(1, sorted.findIndex((p) => p.id === me.id) + 1 || 1);
       $('scorePlate').innerHTML = `
-        <div class="hud-ffa-board">
-          <div class="hud-ffa-kills"><small>YOUR KILLS</small>${me.kills || 0}</div>
-          <div class="hud-mid">
-            <span class="hud-goal">FREE FOR ALL</span>
-            <div class="hud-clock">#${place}</div>
-            <span class="hud-sub">FIRST TO ${data.killsToWin || 30}</span>
+        <div class="hud-geo">
+          <div class="hud-plate stat">
+            ${ICO.aim}
+            <b>${me.kills || 0}</b>
           </div>
-          <div class="hud-ffa-kills" style="text-align:right"><small>PLAYERS</small>${(data.players || []).length}</div>
+          <div class="hud-diamond">
+            <div class="hud-diamond-inner">
+              ${ICO.trophy}
+              <div class="hud-clock">#${place}</div>
+            </div>
+          </div>
+          <div class="hud-plate stat">
+            ${ICO.skull.replace('k-skull', 'hud-ico')}
+            <b>${me.deaths || 0}</b>
+          </div>
         </div>
         ${mapBit}`;
     }
@@ -997,10 +1012,20 @@
     }
     if (msg.action === 'killfeed' && msg.data) {
       const feed = $('killfeed');
+      const d = msg.data;
+      const players = d.players || [];
+      const teamOf = (id, name, fallback) => {
+        if (fallback) return Number(fallback);
+        const hit = players.find((p) => p.id === id || p.name === name);
+        return hit && hit.team;
+      };
+      const kt = teamCls(teamOf(d.killerId, d.killer, d.killerTeam));
+      const vt = teamCls(teamOf(d.victimId, d.victim, d.victimTeam));
       const row = document.createElement('div');
-      row.className = `kill-item ${msg.data.headshot ? 'head' : ''}`;
-      row.innerHTML = `<span class="k-name">${esc(msg.data.killer || 'World')}</span><span class="k-x">×</span>${msg.data.headshot ? '<span class="k-hs">HS</span>' : `<span class="k-wep">${esc(msg.data.category || 'GUN')}</span>`}<span class="k-name down">${esc(msg.data.victim)}</span>`;
+      row.className = `kill-item ${d.headshot ? 'head' : ''}`;
+      row.innerHTML = `<span class="k-name ${kt}">${esc(d.killer || 'World')}</span>${ICO.skull}<span class="k-name down ${vt}">${esc(d.victim)}</span>`;
       feed.prepend(row);
+      while (feed.children.length > 6) feed.lastElementChild.remove();
       setTimeout(() => row.remove(), 4200);
     }
     if (msg.action === 'hitmarker') {
@@ -1012,10 +1037,24 @@
       el._t = setTimeout(() => show(el, false), 280);
     }
     if (msg.action === 'killstreak') {
+      const el = $('streak');
       $('streakLabel').textContent = msg.label || '';
-      show($('streak'), true);
-      clearTimeout($('streak')._t);
-      $('streak')._t = setTimeout(() => show($('streak'), false), 1600);
+      const n = Number(msg.kills) || 0;
+      if ($('streakKills')) $('streakKills').textContent = n ? `${n} KILLS` : '';
+      el.className = `streak ${teamCls(msg.team)}`;
+      show(el, true);
+      clearTimeout(el._t);
+      el._t = setTimeout(() => show(el, false), 2200);
+    }
+    if (msg.action === 'killstreakCall' && msg.data) {
+      const call = $('streakCall');
+      if (call) {
+        $('streakCallName').textContent = msg.data.name || '';
+        $('streakCallLabel').textContent = msg.data.label || '';
+        show(call, true);
+        clearTimeout(call._t);
+        call._t = setTimeout(() => show(call, false), 1800);
+      }
     }
     if (msg.action === 'countdown') {
       if (msg.seconds) hideUI();
@@ -1137,12 +1176,27 @@
       }, '*');
       return;
     }
-    if (view === 'hud' || view === 'waiting') {
+    if (view === 'hud' || view === 'waiting' || view === 'ffa' || view === 'streak') {
       state.playerId = 1;
       const side = params.get('side') === 'blue' ? 2 : 1;
-      // Default to a FiveM-style JSON array so the score readout stays honest.
-      const scores = params.get('scores') === 'obj' ? { 1: 2, 2: 1 } : [2, 1];
-      renderHud({
+      const scores = params.get('scores') === 'obj' ? { 1: 0, 2: 1 } : [0, 1];
+      state.hudLocalEnd = Date.now() + 4 * 60 * 1000;
+      const ffa = view === 'ffa';
+      renderHud(ffa ? {
+        mode: 'ffa',
+        mapName: 'Park',
+        sizeLabel: 'FFA',
+        killsToWin: 30,
+        waiting: false,
+        state: 'active',
+        team: 0,
+        players: [
+          { id: 1, name: 'Diesel', kills: 8, deaths: 2 },
+          { id: 2, name: 'Nova', kills: 5, deaths: 3 },
+          { id: 3, name: 'Rook', kills: 4, deaths: 4 },
+        ],
+        me: { id: 1, kills: 8, deaths: 2 },
+      } : {
         mode: 'pvp',
         mapName: 'Stables',
         sizeLabel: '1v1',
@@ -1157,9 +1211,18 @@
           { id: 1, name: 'Diesel', team: 1, alive: true, title: 'Apex' },
           { id: 2, name: 'Nova', team: 2, alive: true },
         ],
-        me: { id: 1, kills: 2, team: side },
+        me: { id: 1, kills: 2, deaths: 1, team: side },
       });
       show($('matchHud'), true);
+      if (view !== 'waiting') {
+        [
+          { killer: 'Diesel', victim: 'Nova', killerTeam: 1, victimTeam: 2, headshot: true },
+          { killer: 'Rook', victim: 'Ash', killerTeam: 2, victimTeam: 1 },
+        ].forEach((d) => window.postMessage({ action: 'killfeed', data: d }, '*'));
+      }
+      if (view === 'streak' || view === 'ffa') {
+        window.postMessage({ action: 'killstreak', label: 'DOMINATING', kills: 4, team: side }, '*');
+      }
       return;
     }
     const tab = params.get('tab') || 'lobbies';

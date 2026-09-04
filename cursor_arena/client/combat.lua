@@ -110,6 +110,7 @@ RegisterNetEvent('cursor_arena:client:killstreak', function(streak)
         style = Config.KillstreakStyle,
         label = streak.label,
         kills = streak.kills,
+        team = Arena.Client.team,
         volume = Config.KillstreakVolume,
     })
     if KillstreakReward then KillstreakReward(streak) end

@@ -795,8 +795,10 @@ function Arena.OnPlayerDeath(victim, killer, weaponHash, headshot)
     broadcast(lobby, 'cursor_arena:client:killfeed', {
         victim = vp.name,
         victimId = victim,
+        victimTeam = vp.team or 0,
         killer = kp and kp.name or nil,
         killerId = killerSrc,
+        killerTeam = kp and kp.team or 0,
         weapon = weaponName,
         category = Arena.Utils.WeaponCategory(weaponName),
         headshot = headshot == true,
