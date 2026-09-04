@@ -1214,15 +1214,17 @@
         me: { id: 1, kills: 2, deaths: 1, team: side },
       });
       show($('matchHud'), true);
-      if (view !== 'waiting') {
-        [
-          { killer: 'Diesel', victim: 'Nova', killerTeam: 1, victimTeam: 2, headshot: true },
-          { killer: 'Rook', victim: 'Ash', killerTeam: 2, victimTeam: 1 },
-        ].forEach((d) => window.postMessage({ action: 'killfeed', data: d }, '*'));
-      }
-      if (view === 'streak' || view === 'ffa') {
-        window.postMessage({ action: 'killstreak', label: 'DOMINATING', kills: 4, team: side }, '*');
-      }
+      setTimeout(() => {
+        if (view !== 'waiting') {
+          [
+            { killer: 'Diesel', victim: 'Nova', killerTeam: 1, victimTeam: 2, headshot: true },
+            { killer: 'Rook', victim: 'Ash', killerTeam: 2, victimTeam: 1 },
+          ].forEach((d) => window.postMessage({ action: 'killfeed', data: d }, '*'));
+        }
+        if (view === 'streak' || view === 'ffa') {
+          window.postMessage({ action: 'killstreak', label: 'DOMINATING', kills: 4, team: side }, '*');
+        }
+      }, 0);
       return;
     }
     const tab = params.get('tab') || 'lobbies';

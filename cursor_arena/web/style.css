@@ -594,9 +594,9 @@ button { font-family: inherit; cursor: pointer; }
   font-style: normal; font-weight: 800;
   letter-spacing: 0.32em; font-size: 0.78rem; color: var(--cyan);
 }
-.streak.t1 strong { color: #ffe0b8; text-shadow: 0 0 18px rgba(255,138,26,0.7), 0 0 36px rgba(0,242,255,0.28); }
+.streak.t1 strong { text-shadow: 0 0 18px rgba(0,242,255,0.8), 0 0 28px rgba(255,138,26,0.28); }
 .streak.t1 .streak-icon, .streak.t1 em { color: var(--orange); border-color: var(--orange); }
-.streak.t2 strong { color: #d6ebff; text-shadow: 0 0 18px rgba(59,158,255,0.7), 0 0 36px rgba(0,242,255,0.28); }
+.streak.t2 strong { text-shadow: 0 0 18px rgba(0,242,255,0.8), 0 0 28px rgba(59,158,255,0.28); }
 .streak.t2 .streak-icon, .streak.t2 em { color: var(--blue); border-color: var(--blue); }
 .streak-call {
   position: absolute; left: 50%; top: 118px; transform: translateX(-50%) skewX(-12deg);
