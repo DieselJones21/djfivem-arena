@@ -808,17 +808,12 @@
     }
   });
   $('btnQuickJoin').addEventListener('click', () => {
-    const open = (state.lobbies || []).find((l) => {
-      if (l.private || isLive(l)) return false;
-      return (l.playerCount || 0) < (l.maxPlayers || 99);
-    });
-    if (open) {
-      if (isTeam(open) && open.maxPlayersPerTeam !== 1) openSala(open);
-      else joinSelected(open);
-      return;
-    }
-    setTab('loadout');
-    joinSelected(lobbyForPick());
+    const pick = lobbyForPick();
+    const open = (state.lobbies || []).find((l) => !l.private && !isLive(l) && (l.playerCount || 0) < (l.maxPlayers || 99));
+    const lobby = (pick && !pick.private && !isLive(pick) && (pick.playerCount || 0) < (pick.maxPlayers || 99))
+      ? pick
+      : (open || pick);
+    joinSelected(lobby);
   });
   $('btnGoPrivate').addEventListener('click', () => setTab('private'));
   $('privTeamWrap').addEventListener('click', (e) => {
