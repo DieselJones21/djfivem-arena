@@ -35,5 +35,16 @@ function Arena.EnsurePlayerHub(src)
         Arena.PlayerHub[src] = true
         return true
     end
+    local ply = Player(src)
+    if ply and ply.state and ply.state.arenaHub then
+        Arena.PlayerHub[src] = true
+        return true
+    end
     return false
+end
+
+-- Tablet NUI is hub-only. Mark hub so a missed setHub cannot block Join.
+function Arena.AdmitFromTablet(src)
+    Arena.PlayerHub[src] = true
+    return true
 end

@@ -142,6 +142,16 @@ button { font-family: inherit; cursor: pointer; }
 .icon-exit:hover { color: #fff; border-color: var(--cyan); }
 
 .content { overflow: auto; padding: 16px 20px 18px; min-height: 0; }
+.tablet-toast {
+  position: sticky; top: 0; z-index: 6;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 77, 90, 0.16);
+  border: 1px solid rgba(255, 77, 90, 0.45);
+  color: #ffd6da;
+  font-weight: 700;
+  font-size: 0.82rem;
+}
 .page { display: none; animation: fade 160ms ease both; }
 .page.active { display: block; }
 #page-loadout.active { display: flex; flex-direction: column; min-height: 100%; }

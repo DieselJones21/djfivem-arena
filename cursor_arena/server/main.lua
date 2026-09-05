@@ -80,6 +80,7 @@ end)
 
 lib.callback.register('cursor_arena:createPrivate', function(source, data)
     data = data or {}
+    if Arena.AdmitFromTablet then Arena.AdmitFromTablet(source) end
     local ok, result = Arena.CreatePrivate(source, data)
     if not ok then
         return { ok = false, error = result, message = L(result or 'cannot_join') }
@@ -89,6 +90,7 @@ end)
 
 lib.callback.register('cursor_arena:joinByCode', function(source, data)
     data = data or {}
+    if Arena.AdmitFromTablet then Arena.AdmitFromTablet(source) end
     local ok, result = Arena.JoinByCode(source, data.code, {
         team = data.team,
         loadoutId = data.loadoutId,
@@ -102,6 +104,7 @@ end)
 
 lib.callback.register('cursor_arena:watchByCode', function(source, data)
     data = data or {}
+    if Arena.AdmitFromTablet then Arena.AdmitFromTablet(source) end
     local ok, result = Arena.WatchByCode(source, data and data.code)
     if not ok then
         return { ok = false, message = L(result or 'bad_code') }
@@ -111,6 +114,7 @@ end)
 
 lib.callback.register('cursor_arena:joinLobby', function(source, data)
     data = data or {}
+    if Arena.AdmitFromTablet then Arena.AdmitFromTablet(source) end
     local ok, result = Arena.JoinLobby(source, data.lobbyId, {
         team = data.team,
         loadoutId = data.loadoutId,
@@ -177,6 +181,7 @@ lib.callback.register('cursor_arena:buyShop', function(source, data)
 end)
 
 lib.callback.register('cursor_arena:watchLobby', function(source, lobbyId)
+    if Arena.AdmitFromTablet then Arena.AdmitFromTablet(source) end
     local ok, result = Arena.Watch.Join(source, lobbyId)
     if not ok then
         return { ok = false, message = L(result or 'cannot_join') }
