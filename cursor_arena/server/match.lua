@@ -897,9 +897,20 @@ function Arena.JoinLobby(src, lobbyId, opts)
         if allowed[i].id == loadoutId then okLoadout = true break end
     end
     if not okLoadout then return false, 'invalid_loadout' end
-    if not weaponId then weaponId = loadout.weapons[1] and loadout.weapons[1].id end
+    if not weaponId or not Config.GetLoadoutWeapon(loadoutId, weaponId) then
+        weaponId = loadout.weapons[1] and loadout.weapons[1].id
+    end
     if not Config.GetLoadoutWeapon(loadoutId, weaponId) then return false, 'invalid_loadout' end
-    if not Arena.Shop.Owns(src, weaponId) then return false, 'shop_locked' end
+    if Arena.Shop and Arena.Shop.Owns and not Arena.Shop.Owns(src, weaponId) then
+        for i = 1, #(loadout.weapons or {}) do
+            local wid = loadout.weapons[i].id
+            if Arena.Shop.Owns(src, wid) then
+                weaponId = wid
+                break
+            end
+        end
+        if not Arena.Shop.Owns(src, weaponId) then return false, 'shop_locked' end
+    end
 
     local team = 0
     if Arena.Utils.IsTeamMode(lobby.mode) then

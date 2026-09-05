@@ -149,12 +149,30 @@
       if (event === 'myMoney') return { cash: 25000, max: 100000 };
       return { ok: true };
     }
-    const resp = await fetch(`https://${resourceName}/${event}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json; charset=UTF-8' },
-      body: JSON.stringify(data),
-    });
-    try { return await resp.json(); } catch { return null; }
+    const ctrl = typeof AbortController === 'function' ? new AbortController() : null;
+    const timer = setTimeout(() => { if (ctrl) ctrl.abort(); }, 8000);
+    try {
+      const resp = await fetch(`https://${resourceName}/${event}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json; charset=UTF-8' },
+        body: JSON.stringify(data),
+        signal: ctrl ? ctrl.signal : undefined,
+      });
+      try { return await resp.json(); } catch { return { ok: false, message: 'Arena server sent a bad reply' }; }
+    } catch (err) {
+      return { ok: false, message: 'Arena server did not answer' };
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  function toast(msg) {
+    const el = $('tabletToast');
+    if (!el || !msg) return;
+    el.textContent = String(msg);
+    show(el, true);
+    clearTimeout(el._t);
+    el._t = setTimeout(() => show(el, false), 3200);
   }
 
   const $ = (id) => document.getElementById(id);
@@ -287,7 +305,7 @@
       pick.appendChild(btn);
     });
     const joinCta = $('btnJoinArena');
-    if (joinCta) joinCta.disabled = !lobby || !state.pick.weaponId;
+    if (joinCta) joinCta.disabled = !lobby;
   }
 
   function mapsForCreate(mode) {
@@ -630,15 +648,29 @@
     });
   }
 
+  function ensurePick() {
+    const weapons = allWeapons();
+    if (!state.pick.weaponId && weapons[0]) {
+      state.pick.weaponId = weapons[0].id;
+      state.pick.loadoutId = weapons[0].loadoutId;
+    }
+    return state.pick;
+  }
+
   let joining = false;
   async function joinSelected(lobby) {
-    if (!lobby || joining) return;
+    if (joining) return;
+    if (!lobby) {
+      toast('No open lobby for that mode and map.');
+      return;
+    }
     joining = true;
     const joinBtn = $('btnConfirmJoin');
     const arenaBtn = $('btnJoinArena');
     if (joinBtn) joinBtn.disabled = true;
     if (arenaBtn) arenaBtn.disabled = true;
     try {
+      ensurePick();
       const solo = (lobby.sizeLabel || state.mode) === '1v1' || lobby.maxPlayersPerTeam === 1;
       const res = await nui('joinLobby', {
         lobbyId: lobby.id,
@@ -649,6 +681,8 @@
       if (res?.ok) {
         state.currentLobbyId = lobby.id;
         hideUI();
+      } else {
+        toast((res && res.message) || 'Could not join that lobby.');
       }
     } finally {
       joining = false;
@@ -773,7 +807,14 @@
       $('betItems').querySelectorAll('input').forEach((el) => { el.checked = false; });
     }
   });
-  $('btnQuickJoin').addEventListener('click', () => setTab('loadout'));
+  $('btnQuickJoin').addEventListener('click', () => {
+    const pick = lobbyForPick();
+    const open = (state.lobbies || []).find((l) => !l.private && !isLive(l) && (l.playerCount || 0) < (l.maxPlayers || 99));
+    const lobby = (pick && !pick.private && !isLive(pick) && (pick.playerCount || 0) < (pick.maxPlayers || 99))
+      ? pick
+      : (open || pick);
+    joinSelected(lobby);
+  });
   $('btnGoPrivate').addEventListener('click', () => setTab('private'));
   $('privTeamWrap').addEventListener('click', (e) => {
     const btn = e.target.closest('.vis-btn');
@@ -783,6 +824,7 @@
     renderPrivate();
   });
   $('btnCreatePrivate').addEventListener('click', async () => {
+    ensurePick();
     const res = await nui('createPrivate', {
       mode: state.priv.mode,
       mapId: state.priv.mapId,
@@ -794,11 +836,14 @@
     if (res?.ok) {
       state.currentLobbyId = res.lobby?.id || state.currentLobbyId;
       hideUI();
+    } else {
+      toast((res && res.message) || 'Could not create that room.');
     }
   });
   async function enterByCode(watch) {
     const code = ($('lobbyCode').value || '').trim().toUpperCase();
     if (!code) return;
+    ensurePick();
     const res = await nui(watch ? 'watchByCode' : 'joinByCode', {
       code,
       loadoutId: state.pick.loadoutId,
@@ -806,6 +851,7 @@
       team: state.pick.team,
     });
     if (res?.ok) hideUI();
+    else toast((res && res.message) || (watch ? 'Could not watch that room.' : 'Could not join that code.'));
   }
   $('btnJoinCode').addEventListener('click', () => enterByCode(false));
   $('btnWatchCode').addEventListener('click', () => enterByCode(true));

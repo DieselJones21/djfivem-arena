@@ -156,16 +156,13 @@ function Arena.Client.OpenLoadout()
     })
 end
 
-local function nuiAwait(name, payload, fallback)
-    local ok, result = pcall(function()
-        if payload == nil then
-            return lib.callback.await(name, false)
-        end
-        return lib.callback.await(name, false, payload)
-    end)
-    if ok then return result end
-    print('[cursor_arena] callback', name, result)
-    return fallback
+-- Do not pcall lib.callback.await. FiveM pcall + a yielding callback
+-- never returns, so NUI never gets cb() and every Join button dies.
+local function nuiCall(name, payload)
+    if payload == nil then
+        return lib.callback.await(name, false)
+    end
+    return lib.callback.await(name, false, payload)
 end
 
 RegisterNUICallback('close', function(_, cb)
@@ -178,27 +175,27 @@ RegisterNUICallback('close', function(_, cb)
 end)
 
 RegisterNUICallback('listLobbies', function(_, cb)
-    cb(nuiAwait('cursor_arena:listLobbies', nil, {}) or {})
+    cb(nuiCall('cursor_arena:listLobbies', nil, {}) or {})
 end)
 
 RegisterNUICallback('getLobby', function(data, cb)
-    cb(nuiAwait('cursor_arena:getLobby', data and data.lobbyId, nil))
+    cb(nuiCall('cursor_arena:getLobby', data and data.lobbyId, nil))
 end)
 
 RegisterNUICallback('joinLobby', function(data, cb)
-    local result = nuiAwait('cursor_arena:joinLobby', data, { ok = false })
+    local result = nuiCall('cursor_arena:joinLobby', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
         if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
         lib.hideTextUI()
-    elseif result and result.message then
-        lib.notify({ type = 'error', description = result.message })
+    else
+        lib.notify({ type = 'error', description = (result and result.message) or L('cannot_join') })
     end
 end)
 
 RegisterNUICallback('leaveLobby', function(_, cb)
-    local result = nuiAwait('cursor_arena:leaveLobby', nil, { ok = true }) or { ok = true }
+    local result = nuiCall('cursor_arena:leaveLobby', nil, { ok = true }) or { ok = true }
     cb(result)
     Arena.Client.CloseUI()
     if Arena.Client.inHub and not Arena.Client.inArena and Arena.Client.ShowHubHint then
@@ -207,11 +204,11 @@ RegisterNUICallback('leaveLobby', function(_, cb)
 end)
 
 RegisterNUICallback('setTeam', function(data, cb)
-    cb(nuiAwait('cursor_arena:setTeam', data and data.team, { ok = false }) or { ok = false })
+    cb(nuiCall('cursor_arena:setTeam', data and data.team, { ok = false }) or { ok = false })
 end)
 
 RegisterNUICallback('changeLoadout', function(data, cb)
-    local result = nuiAwait('cursor_arena:changeLoadout', data, { ok = false })
+    local result = nuiCall('cursor_arena:changeLoadout', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.loadoutOpen = false
@@ -223,19 +220,19 @@ RegisterNUICallback('changeLoadout', function(data, cb)
 end)
 
 RegisterNUICallback('getLeaderboard', function(data, cb)
-    cb(nuiAwait('cursor_arena:getLeaderboard', data and data.mode, {}) or {})
+    cb(nuiCall('cursor_arena:getLeaderboard', data and data.mode, {}) or {})
 end)
 
 RegisterNUICallback('getMyStats', function(_, cb)
-    cb(nuiAwait('cursor_arena:getMyStats', nil, {}) or {})
+    cb(nuiCall('cursor_arena:getMyStats', nil, {}) or {})
 end)
 
 RegisterNUICallback('getHistory', function(_, cb)
-    cb(nuiAwait('cursor_arena:getHistory', nil, {}) or {})
+    cb(nuiCall('cursor_arena:getHistory', nil, {}) or {})
 end)
 
 RegisterNUICallback('watchLobby', function(data, cb)
-    local result = nuiAwait('cursor_arena:watchLobby', data and data.lobbyId, { ok = false })
+    local result = nuiCall('cursor_arena:watchLobby', data and data.lobbyId, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -245,7 +242,7 @@ RegisterNUICallback('watchLobby', function(data, cb)
 end)
 
 RegisterNUICallback('placeBet', function(data, cb)
-    local result = nuiAwait('cursor_arena:placeBet', data, { ok = false })
+    local result = nuiCall('cursor_arena:placeBet', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         lib.notify({ type = 'success', description = L('bet_placed') })
@@ -255,39 +252,39 @@ RegisterNUICallback('placeBet', function(data, cb)
 end)
 
 RegisterNUICallback('betItems', function(_, cb)
-    cb(nuiAwait('cursor_arena:betItems', nil, {}) or {})
+    cb(nuiCall('cursor_arena:betItems', nil, {}) or {})
 end)
 
 RegisterNUICallback('myMoney', function(_, cb)
-    cb(nuiAwait('cursor_arena:myMoney', nil, { cash = 0, max = 100000 }) or { cash = 0, max = 100000 })
+    cb(nuiCall('cursor_arena:myMoney', nil, { cash = 0, max = 100000 }) or { cash = 0, max = 100000 })
 end)
 
 RegisterNUICallback('createPrivate', function(data, cb)
-    local result = nuiAwait('cursor_arena:createPrivate', data, { ok = false })
+    local result = nuiCall('cursor_arena:createPrivate', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
         if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
         lib.hideTextUI()
-    elseif result and result.message then
-        lib.notify({ type = 'error', description = result.message })
+    else
+        lib.notify({ type = 'error', description = (result and result.message) or L('cannot_join') })
     end
 end)
 
 RegisterNUICallback('joinByCode', function(data, cb)
-    local result = nuiAwait('cursor_arena:joinByCode', data, { ok = false })
+    local result = nuiCall('cursor_arena:joinByCode', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
         if Arena.Client.HideHubHint then Arena.Client.HideHubHint() end
         lib.hideTextUI()
-    elseif result and result.message then
-        lib.notify({ type = 'error', description = result.message })
+    else
+        lib.notify({ type = 'error', description = (result and result.message) or L('bad_code') })
     end
 end)
 
 RegisterNUICallback('watchByCode', function(data, cb)
-    local result = nuiAwait('cursor_arena:watchByCode', data, { ok = false })
+    local result = nuiCall('cursor_arena:watchByCode', data, { ok = false })
     cb(result or { ok = false })
     if result and result.ok then
         Arena.Client.CloseUI()
@@ -297,7 +294,7 @@ RegisterNUICallback('watchByCode', function(data, cb)
 end)
 
 RegisterNUICallback('buyShop', function(data, cb)
-    local result = nuiAwait('cursor_arena:buyShop', data, { ok = false })
+    local result = nuiCall('cursor_arena:buyShop', data, { ok = false })
     cb(result or { ok = false })
     if result and result.message and not result.ok then
         lib.notify({ type = 'error', description = result.message })
